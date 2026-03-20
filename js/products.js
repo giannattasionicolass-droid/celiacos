@@ -3,7 +3,7 @@ const PRODUCTS = [
     id: 1,
     name: "Pan de molde sin gluten",
     price: 1850,
-    category: "Almacén",
+    category: "panaderia",
     description: "Pan de molde esponjoso, ideal para sándwiches. Sin TACC.",
     emoji: "🍞",
     unit: "por unidad (400g)"
@@ -12,7 +12,7 @@ const PRODUCTS = [
     id: 2,
     name: "Pan de hamburguesa sin gluten",
     price: 950,
-    category: "Almacén",
+    category: "panaderia",
     description: "Paquete de 4 panes de hamburguesa esponjosos y sin gluten.",
     emoji: "🍔",
     unit: "pack x4"
@@ -21,7 +21,7 @@ const PRODUCTS = [
     id: 3,
     name: "Facturas sin gluten",
     price: 2200,
-    category: "Jugos",
+    category: "panaderia",
     description: "Surtido de medialunas y vigilantes. Recién horneadas.",
     emoji: "🥐",
     unit: "pack x6"
@@ -142,14 +142,5 @@ const PRODUCTS = [
     description: "Tostadas crocantes de maíz, sin gluten. Ideales para el desayuno.",
     emoji: "🌽",
     unit: "paquete 150g"
-  }
-    {
-    id: 17,
-    name: "Caca",
-    price: 8800,
-    category: "Almacén",
-    description: "Tostadas.",
-    emoji: "🌽",
-    unit: "paquete 1500g"
   }
 ];
