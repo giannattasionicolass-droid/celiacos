@@ -143,4 +143,13 @@ const PRODUCTS = [
     emoji: "🌽",
     unit: "paquete 150g"
   }
+    {
+    id: 17,
+    name: "Caca",
+    price: 8800,
+    category: "Almacén",
+    description: "Tostadas.",
+    emoji: "🌽",
+    unit: "paquete 1500g"
+  }
 ];
