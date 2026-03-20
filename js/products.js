@@ -12,7 +12,7 @@ const PRODUCTS = [
     id: 2,
     name: "Pan de hamburguesa sin gluten",
     price: 950,
-    category: "panaderia",
+    category: "Almacén",
     description: "Paquete de 4 panes de hamburguesa esponjosos y sin gluten.",
     emoji: "🍔",
     unit: "pack x4"
