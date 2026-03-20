@@ -1,3 +1,14 @@
+
+// ============================================================
+// DATOS BANCARIOS
+// ============================================================
+const BANK_DATA = {
+  owner: "APELLIDO NOMBRE AQUI",      // ← nombre del titular
+  cbu:   "0000000000000000000000",    // ← CBU de 22 dígitos
+  alias: "ALIAS.AQUI",                // ← alias de la cuenta
+  bank:  "NOMBRE DEL BANCO",          // ← ej: Banco Galicia
+  cuit:  "00-00000000-0",             // ← CUIT del titular
+};
 // ============================================================
 // CONFIGURACION EMAILJS
 // ============================================================
