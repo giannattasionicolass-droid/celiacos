@@ -21,7 +21,7 @@ const PRODUCTS = [
     id: 3,
     name: "Facturas sin gluten",
     price: 2200,
-    category: "panaderia",
+    category: "Jugos",
     description: "Surtido de medialunas y vigilantes. Recién horneadas.",
     emoji: "🥐",
     unit: "pack x6"
