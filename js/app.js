@@ -409,6 +409,7 @@ function categoryLabel(cat) {
     galletitas: "Galletitas y Snacks",
     reposteria: "Repostería",
     harinas: "Harinas y Premezclas",
+    Almacen: "Almacén",
 
     // Nuevas categorías
     "Aceites Acetos": "Aceites y Acetos",
