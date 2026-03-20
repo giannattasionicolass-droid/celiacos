@@ -24,8 +24,6 @@ const BANK_DATA = {
 let currentUser = JSON.parse(localStorage.getItem("celiac_user") || "null");
 let cart        = JSON.parse(localStorage.getItem("celiac_cart") || "[]");
 
-emailjs.init(EMAILJS_PUBLIC_KEY);
-
 // ============================================================
 // NAVEGACION
 // ============================================================
@@ -675,7 +673,22 @@ function checkout() {
       : "No se adjunto comprobante.",
   };
 
-  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
+  const payload = {
+    service_id:      EMAILJS_SERVICE_ID,
+    template_id:     EMAILJS_TEMPLATE_ID,
+    user_id:         EMAILJS_PUBLIC_KEY,
+    template_params: templateParams,
+  };
+
+  fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(payload),
+  })
+    .then(res => {
+      if (!res.ok) return res.text().then(t => { throw new Error("Status " + res.status + ": " + t); });
+      return res.text();
+    })
     .then(() => {
       saveOrder(order);
       cart = [];
@@ -685,9 +698,8 @@ function checkout() {
       showPage("success");
     })
     .catch(err => {
-      console.error("EmailJS error:", JSON.stringify(err));
-      const msg = err && err.text ? err.text : (err && err.status ? "Error " + err.status : JSON.stringify(err));
-      alert("Error al enviar el pedido:\n" + msg + "\n\nEl pedido fue guardado localmente. Contactanos para confirmarlo.");
+      console.error("Email error:", err.message);
+      alert("Error al enviar: " + err.message);
       saveOrder(order);
       cart = [];
       saveCart();
