@@ -2,9 +2,9 @@
 // CONFIGURACION EMAILJS
 // Reemplaza estos valores con los tuyos de emailjs.com
 // ============================================================
-const EMAILJS_PUBLIC_KEY  = "TU_PUBLIC_KEY_AQUI";
-const EMAILJS_SERVICE_ID  = "TU_SERVICE_ID_AQUI";
-const EMAILJS_TEMPLATE_ID = "TU_TEMPLATE_ID_AQUI";
+const EMAILJS_PUBLIC_KEY  = "KNclEhX7V3w253uog";
+const EMAILJS_SERVICE_ID  = "service_byq6h0h";
+const EMAILJS_TEMPLATE_ID = "template_czkhg08";
 const OWNER_EMAIL         = "giannattasio.nicolass@gmail.com";
 
 // ============================================================
