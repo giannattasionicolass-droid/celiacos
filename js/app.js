@@ -12,8 +12,8 @@ const BANK_DATA = {
 // ============================================================
 // CONFIGURACION EMAILJS
 // ============================================================
-const EMAILJS_PUBLIC_KEY  = "TU_PUBLIC_KEY_AQUI";
-const EMAILJS_SERVICE_ID  = "TU_SERVICE_ID_AQUI";
+const EMAILJS_PUBLIC_KEY  = "KNclEhX7V3w253uog";
+const EMAILJS_SERVICE_ID  = "template_czkhg08";
 const EMAILJS_TEMPLATE_ID = "TU_TEMPLATE_ID_AQUI";
 const OWNER_EMAIL         = "giannattasio.nicolass@gmail.com";
 
