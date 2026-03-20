@@ -41,3 +41,15 @@ input:focus {
   font-size: 10px;
   line-height: 1;
 }
+
+/* Tabs de perfil */
+.tab-btn {
+  color: #6b7280;
+}
+.tab-btn:hover {
+  background-color: #fdf6ee;
+}
+.active-tab {
+  background-color: #b86a14 !important;
+  color: #ffffff !important;
+}

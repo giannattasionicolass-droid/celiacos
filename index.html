@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mayorista NJ - Productos Mayoristas para Celiacos &amp; Mas</title>
+  <title>Sin Gluten &amp; Feliz - Productos Celiacos</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <link rel="stylesheet" href="css/style.css" />
@@ -37,19 +37,26 @@
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <button onclick="showPage('home')" class="flex items-center gap-2 text-white hover:text-amber-200 transition">
         <span class="text-2xl">🌾</span>
-        <span class="text-xl font-bold tracking-wide">Mayorista NJ-Todo para tu negocio</span>
+        <span class="text-xl font-bold tracking-wide">Sin Gluten &amp; Feliz</span>
       </button>
       <div class="flex items-center gap-4">
         <button onclick="showPage('home')" class="text-amber-100 hover:text-white font-medium transition hidden sm:block">Inicio</button>
         <button onclick="showPage('products')" class="text-amber-100 hover:text-white font-medium transition hidden sm:block">Productos</button>
+        <!-- sin sesion -->
         <div id="nav-auth" class="flex items-center gap-3">
-          <button onclick="showPage('login')" id="btn-login" class="text-amber-100 hover:text-white font-medium transition">Ingresar</button>
-          <button onclick="showPage('register')" id="btn-register" class="bg-amber-400 hover:bg-amber-300 text-brand-900 font-semibold px-4 py-1.5 rounded-full transition text-sm">Registrarse</button>
+          <button onclick="showPage('login')" class="text-amber-100 hover:text-white font-medium transition">Ingresar</button>
+          <button onclick="showPage('register')" class="bg-amber-400 hover:bg-amber-300 text-brand-900 font-semibold px-4 py-1.5 rounded-full transition text-sm">Registrarse</button>
         </div>
+        <!-- con sesion -->
         <div id="nav-user" class="hidden items-center gap-3">
-          <span id="nav-username" class="text-amber-100 text-sm font-medium"></span>
+          <button onclick="showPage('profile')" id="nav-username" class="text-amber-100 hover:text-white text-sm font-medium transition flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span id="nav-username-text"></span>
+          </button>
+          <button onclick="showPage('profile')" class="text-amber-200 hover:text-white text-sm transition hidden sm:block">Mi Cuenta</button>
           <button onclick="logout()" class="text-amber-300 hover:text-white text-sm transition">Salir</button>
         </div>
+        <!-- carrito -->
         <button onclick="showPage('cart')" class="relative text-white hover:text-amber-200 transition ml-1">
           <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -67,15 +74,14 @@
     <div id="page-home">
       <div class="text-center py-12">
         <div class="text-6xl mb-4">🌾</div>
-        <h1 class="text-4xl md:text-5xl font-bold text-brand-800 mb-4">Contamos con amplio stock de productos</h1>
-        <p class="text-xl text-brand-600 mb-2">Tu mayorista Sin Tacc de confianza</p>
+        <h1 class="text-4xl md:text-5xl font-bold text-brand-800 mb-4">Sin Gluten &amp; Feliz</h1>
+        <p class="text-xl text-brand-600 mb-2">Tu tienda de confianza para productos 100% sin gluten</p>
         <p class="text-gray-500 mb-8">Todos nuestros productos son aptos para celiacos y están certificados sin TACC</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <button onclick="showPage('products')" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-8 py-3 rounded-full text-lg transition shadow-md">Ver Productos</button>
-          <button onclick="showPage('register')" id="home-register-btn" class="border-2 border-brand-600 text-brand-700 hover:bg-brand-50 font-semibold px-8 py-3 rounded-full text-lg transition">Crear cuenta</button>
+          <button id="home-register-btn" onclick="showPage('register')" class="border-2 border-brand-600 text-brand-700 hover:bg-brand-50 font-semibold px-8 py-3 rounded-full text-lg transition">Crear cuenta</button>
         </div>
       </div>
-
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
           <div class="text-4xl mb-3">✅</div>
@@ -84,8 +90,8 @@
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
           <div class="text-4xl mb-3">🚚</div>
-          <h3 class="text-lg font-bold text-brand-800 mb-2">Entregas en 96hs</h3>
-          <p class="text-gray-500 text-sm">Despachamos a todo el territorio de Azul.</p>
+          <h3 class="text-lg font-bold text-brand-800 mb-2">Envío a todo el país</h3>
+          <p class="text-gray-500 text-sm">Despachamos a todo el territorio argentino con seguimiento.</p>
         </div>
         <div class="bg-white rounded-2xl p-6 shadow-sm text-center">
           <div class="text-4xl mb-3">💚</div>
@@ -97,18 +103,24 @@
 
     <!-- REGISTER PAGE -->
     <div id="page-register" class="hidden">
-      <div class="max-w-md mx-auto">
+      <div class="max-w-lg mx-auto">
         <h2 class="text-3xl font-bold text-brand-800 mb-2 text-center">Crear cuenta</h2>
         <p class="text-center text-gray-500 mb-8">Registrate para comprar en nuestra tienda</p>
         <div class="bg-white rounded-2xl shadow-md p-8">
           <div id="register-error" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm"></div>
           <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre completo</label>
-              <input id="reg-name" type="text" placeholder="Juan Perez" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input id="reg-firstname" type="text" placeholder="Juan" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Apellido <span class="text-red-500">*</span></label>
+                <input id="reg-lastname" type="text" placeholder="Perez" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
               <input id="reg-email" type="email" placeholder="juan@ejemplo.com" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
             </div>
             <div>
@@ -116,11 +128,11 @@
               <input id="reg-phone" type="tel" placeholder="11-1234-5678" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Contraseña <span class="text-red-500">*</span></label>
               <input id="reg-password" type="password" placeholder="Mínimo 6 caracteres" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
             </div>
             <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Confirmar contraseña</label>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Confirmar contraseña <span class="text-red-500">*</span></label>
               <input id="reg-password2" type="password" placeholder="Repetir contraseña" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
             </div>
             <button onclick="register()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-lg transition mt-2">Crear cuenta</button>
@@ -214,6 +226,269 @@
       </div>
     </div>
 
+    <!-- PROFILE PAGE -->
+    <div id="page-profile" class="hidden">
+      <div class="max-w-3xl mx-auto">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="bg-brand-600 text-white rounded-full w-14 h-14 flex items-center justify-center text-2xl font-bold" id="profile-avatar">?</div>
+          <div>
+            <h2 class="text-2xl font-bold text-brand-800" id="profile-title">Mi Cuenta</h2>
+            <p class="text-gray-500 text-sm" id="profile-subtitle"></p>
+          </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="flex gap-1 bg-white rounded-xl shadow-sm p-1 mb-6 overflow-x-auto">
+          <button onclick="switchTab('personal')" id="tab-personal" class="tab-btn active-tab flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition whitespace-nowrap">Datos personales</button>
+          <button onclick="switchTab('fiscal')" id="tab-fiscal" class="tab-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition whitespace-nowrap">Datos fiscales</button>
+          <button onclick="switchTab('delivery')" id="tab-delivery" class="tab-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition whitespace-nowrap">Dir. de entrega</button>
+          <button onclick="switchTab('billing')" id="tab-billing" class="tab-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition whitespace-nowrap">Dir. de facturación</button>
+          <button onclick="switchTab('password')" id="tab-password" class="tab-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition whitespace-nowrap">Contraseña</button>
+        </div>
+
+        <!-- TAB: DATOS PERSONALES -->
+        <div id="tab-content-personal" class="tab-content bg-white rounded-2xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-brand-800 mb-5">Datos personales</h3>
+          <div id="profile-personal-msg" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre</label>
+                <input id="pf-firstname" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Apellido</label>
+                <input id="pf-lastname" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre del local / empresa</label>
+              <input id="pf-business" type="text" placeholder="Opcional" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+              <input id="pf-email" type="email" disabled class="w-full border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
+              <p class="text-xs text-gray-400 mt-1">El email no se puede modificar.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Teléfono</label>
+              <input id="pf-phone" type="tel" placeholder="11-1234-5678" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div class="pt-2">
+              <button onclick="savePersonal()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition">Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: DATOS FISCALES -->
+        <div id="tab-content-fiscal" class="tab-content hidden bg-white rounded-2xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-brand-800 mb-5">Datos fiscales (AFIP)</h3>
+          <div id="profile-fiscal-msg" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">CUIL / CUIT</label>
+                <input id="pf-cuit" type="text" placeholder="20-12345678-9" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Condición IVA</label>
+                <select id="pf-iva" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition">
+                  <option value="">Seleccionar...</option>
+                  <option value="consumidor_final">Consumidor Final</option>
+                  <option value="responsable_inscripto">Responsable Inscripto</option>
+                  <option value="monotributista">Monotributista</option>
+                  <option value="exento">Exento</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Razón social</label>
+              <input id="pf-razon" type="text" placeholder="Nombre o razón social para facturas" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div class="pt-2">
+              <button onclick="saveFiscal()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition">Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: DIRECCION DE ENTREGA -->
+        <div id="tab-content-delivery" class="tab-content hidden bg-white rounded-2xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-brand-800 mb-5">Dirección de entrega</h3>
+          <div id="profile-delivery-msg" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+          <div class="space-y-4">
+            <div class="grid grid-cols-3 gap-4">
+              <div class="col-span-2">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Calle</label>
+                <input id="pf-del-street" type="text" placeholder="Av. Corrientes" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Número</label>
+                <input id="pf-del-number" type="text" placeholder="1234" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Piso</label>
+                <input id="pf-del-floor" type="text" placeholder="2" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Depto</label>
+                <input id="pf-del-apt" type="text" placeholder="B" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad</label>
+                <input id="pf-del-city" type="text" placeholder="Buenos Aires" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal</label>
+                <input id="pf-del-zip" type="text" placeholder="1414" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Provincia</label>
+              <select id="pf-del-province" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition">
+                <option value="">Seleccionar...</option>
+                <option>Buenos Aires</option>
+                <option>CABA</option>
+                <option>Catamarca</option>
+                <option>Chaco</option>
+                <option>Chubut</option>
+                <option>Córdoba</option>
+                <option>Corrientes</option>
+                <option>Entre Ríos</option>
+                <option>Formosa</option>
+                <option>Jujuy</option>
+                <option>La Pampa</option>
+                <option>La Rioja</option>
+                <option>Mendoza</option>
+                <option>Misiones</option>
+                <option>Neuquén</option>
+                <option>Río Negro</option>
+                <option>Salta</option>
+                <option>San Juan</option>
+                <option>San Luis</option>
+                <option>Santa Cruz</option>
+                <option>Santa Fe</option>
+                <option>Santiago del Estero</option>
+                <option>Tierra del Fuego</option>
+                <option>Tucumán</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Indicaciones adicionales</label>
+              <input id="pf-del-notes" type="text" placeholder="Entre calles, referencias, etc." class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div class="pt-2">
+              <button onclick="saveDelivery()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition">Guardar dirección</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: DIRECCION DE FACTURACION -->
+        <div id="tab-content-billing" class="tab-content hidden bg-white rounded-2xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-brand-800 mb-5">Dirección de facturación</h3>
+          <div id="profile-billing-msg" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+          <div class="mb-5">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="pf-same-as-delivery" type="checkbox" onchange="toggleBillingForm()" class="w-4 h-4 accent-brand-600" />
+              <span class="text-sm font-medium text-gray-700">Usar la misma dirección que la de entrega</span>
+            </label>
+          </div>
+          <div id="billing-form" class="space-y-4">
+            <div class="grid grid-cols-3 gap-4">
+              <div class="col-span-2">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Calle</label>
+                <input id="pf-bil-street" type="text" placeholder="Av. Corrientes" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Número</label>
+                <input id="pf-bil-number" type="text" placeholder="1234" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Piso</label>
+                <input id="pf-bil-floor" type="text" placeholder="2" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Depto</label>
+                <input id="pf-bil-apt" type="text" placeholder="B" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad</label>
+                <input id="pf-bil-city" type="text" placeholder="Buenos Aires" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal</label>
+                <input id="pf-bil-zip" type="text" placeholder="1414" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Provincia</label>
+              <select id="pf-bil-province" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition">
+                <option value="">Seleccionar...</option>
+                <option>Buenos Aires</option>
+                <option>CABA</option>
+                <option>Catamarca</option>
+                <option>Chaco</option>
+                <option>Chubut</option>
+                <option>Córdoba</option>
+                <option>Corrientes</option>
+                <option>Entre Ríos</option>
+                <option>Formosa</option>
+                <option>Jujuy</option>
+                <option>La Pampa</option>
+                <option>La Rioja</option>
+                <option>Mendoza</option>
+                <option>Misiones</option>
+                <option>Neuquén</option>
+                <option>Río Negro</option>
+                <option>Salta</option>
+                <option>San Juan</option>
+                <option>San Luis</option>
+                <option>Santa Cruz</option>
+                <option>Santa Fe</option>
+                <option>Santiago del Estero</option>
+                <option>Tierra del Fuego</option>
+                <option>Tucumán</option>
+              </select>
+            </div>
+            <div class="pt-2">
+              <button onclick="saveBilling()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition">Guardar dirección</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: CAMBIAR CONTRASEÑA -->
+        <div id="tab-content-password" class="tab-content hidden bg-white rounded-2xl shadow-md p-6">
+          <h3 class="text-lg font-bold text-brand-800 mb-5">Cambiar contraseña</h3>
+          <div id="profile-password-msg" class="hidden rounded-lg p-3 mb-4 text-sm"></div>
+          <div class="space-y-4 max-w-sm">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Contraseña actual</label>
+              <input id="pf-pass-current" type="password" placeholder="Tu contraseña actual" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Nueva contraseña</label>
+              <input id="pf-pass-new" type="password" placeholder="Mínimo 6 caracteres" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Confirmar nueva contraseña</label>
+              <input id="pf-pass-new2" type="password" placeholder="Repetir nueva contraseña" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-400 transition" />
+            </div>
+            <div class="pt-2">
+              <button onclick="savePassword()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition">Cambiar contraseña</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- SUCCESS PAGE -->
     <div id="page-success" class="hidden">
       <div class="text-center py-16 max-w-lg mx-auto">
@@ -232,7 +507,7 @@
     <div class="max-w-6xl mx-auto px-4 text-center">
       <div class="text-2xl mb-2">🌾 Sin Gluten &amp; Feliz</div>
       <p class="text-sm text-amber-300">Productos 100% aptos para celiacos &bull; Sin TACC</p>
-      <p class="text-xs text-amber-400 mt-3">© 2026 Todos los derechos reservados.by Nicolas.</p>
+      <p class="text-xs text-amber-400 mt-3">© 2026 Sin Gluten &amp; Feliz. Todos los derechos reservados.</p>
     </div>
   </footer>
 
@@ -240,4 +515,3 @@
   <script src="js/app.js"></script>
 </body>
 </html>
-
