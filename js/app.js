@@ -1,10 +1,7 @@
 // ============================================================
-// CONFIGURACION EMAILJS
+// CONFIGURACION EMAIL
 // ============================================================
-const EMAILJS_PUBLIC_KEY  = "KNclEhX7V3w253uog";
-const EMAILJS_SERVICE_ID  = "service_byq6h0h";
-const EMAILJS_TEMPLATE_ID = "template_czkhg08";
-const OWNER_EMAIL         = "giannattasio.nicolass@gmail.com";
+const OWNER_EMAIL = "giannattasio.nicolass@gmail.com";
 
 // ============================================================
 // DATOS BANCARIOS DE LA EMPRESA
@@ -615,6 +612,16 @@ function onPaymentChange() {
   }
 }
 
+function dataURLtoBlob(dataUrl) {
+  const arr  = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new Blob([u8arr], { type: mime });
+}
+
 // ============================================================
 // CHECKOUT
 // ============================================================
@@ -651,55 +658,55 @@ function checkout() {
     deliveryAddress: deliveryStr,
   };
 
-  const templateParams = {
-    to_email:          "giannattasio.nicolass@gmail.com",
-    name:              "Sin Gluten & Feliz",
-    email:             u.email,
-    order_id:          orderId,
-    customer_name:     u.name,
-    customer_email:    u.email,
-    customer_phone:    u.phone    || "No indicado",
-    customer_cuit:     u.cuit     || "No indicado",
-    customer_iva:      u.iva      || "No indicado",
-    customer_razon:    u.razon    || "No indicada",
-    customer_business: u.business || "No indicado",
-    delivery_address:  deliveryStr,
-    payment_method:    paymentMethod === "transfer" ? "Transferencia bancaria" : "Efectivo",
-    order_items:       itemsList,
-    order_total:       formatPrice(total),
-    order_date:        new Date(orderDate).toLocaleString("es-AR"),
-    receipt_image:     receiptBase64
-      ? `<img src="${receiptBase64}" style="max-width:580px;width:100%;" alt="Comprobante"/>`
-      : "No se adjunto comprobante.",
-  };
+  const mensaje =
+    `PEDIDO N°: ${orderId}\n` +
+    `Fecha: ${new Date(orderDate).toLocaleString("es-AR")}\n\n` +
+    `── CLIENTE ──\n` +
+    `Nombre: ${u.name}\n` +
+    `Email: ${u.email}\n` +
+    `Teléfono: ${u.phone || "No indicado"}\n` +
+    `Local/Empresa: ${u.business || "No indicado"}\n` +
+    `CUIL/CUIT: ${u.cuit || "No indicado"}\n` +
+    `Condición IVA: ${u.iva || "No indicado"}\n\n` +
+    `── PRODUCTOS ──\n` +
+    `${itemsList}\n\n` +
+    `TOTAL: ${formatPrice(total)}\n` +
+    `Método de pago: ${paymentMethod === "transfer" ? "Transferencia bancaria" : "Efectivo"}\n\n` +
+    `── ENTREGA ──\n` +
+    `${deliveryStr}`;
 
-  const payload = {
-    service_id:      EMAILJS_SERVICE_ID,
-    template_id:     EMAILJS_TEMPLATE_ID,
-    user_id:         EMAILJS_PUBLIC_KEY,
-    template_params: templateParams,
-  };
+  const formData = new FormData();
+  formData.append("_subject", `Nuevo pedido ${orderId} - ${u.name}`);
+  formData.append("name",    u.name);
+  formData.append("email",   u.email);
+  formData.append("message", mensaje);
+  formData.append("_template", "table");
+  formData.append("_captcha", "false");
+  if (receiptBase64) {
+    const blob = dataURLtoBlob(receiptBase64);
+    formData.append("attachment", blob, "comprobante.jpg");
+  }
 
-  fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(payload),
+  fetch(`https://formsubmit.co/ajax/${OWNER_EMAIL}`, {
+    method: "POST",
+    headers: { "Accept": "application/json" },
+    body: formData,
   })
-    .then(res => {
-      if (!res.ok) return res.text().then(t => { throw new Error("Status " + res.status + ": " + t); });
-      return res.text();
-    })
-    .then(() => {
-      saveOrder(order);
-      cart = [];
-      saveCart();
-      clearReceipt();
-      renderSuccessPage(order);
-      showPage("success");
+    .then(res => res.json())
+    .then(data => {
+      if (data.success === "true" || data.success === true) {
+        saveOrder(order);
+        cart = [];
+        saveCart();
+        clearReceipt();
+        renderSuccessPage(order);
+        showPage("success");
+      } else {
+        throw new Error(JSON.stringify(data));
+      }
     })
     .catch(err => {
       console.error("Email error:", err.message);
-      alert("Error al enviar: " + err.message);
       saveOrder(order);
       cart = [];
       saveCart();
