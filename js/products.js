@@ -3,7 +3,7 @@ const PRODUCTS = [
     id: 1,
     name: "Pan de molde sin gluten",
     price: 1850,
-    category: "panaderia",
+    category: "Almacen",
     description: "Pan de molde esponjoso, ideal para sándwiches. Sin TACC.",
     emoji: "🍞",
     unit: "por unidad (400g)"
