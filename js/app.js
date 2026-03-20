@@ -402,7 +402,76 @@ function renderProducts() {
 }
 
 function categoryLabel(cat) {
-  const labels = { panaderia: "Panadería", pastas: "Pastas", galletitas: "Galletitas y Snacks", reposteria: "Repostería", harinas: "Harinas y Premezclas" };
+  const labels = {
+    // Categorías originales
+    panaderia: "Panadería",
+    pastas: "Pastas",
+    galletitas: "Galletitas y Snacks",
+    reposteria: "Repostería",
+    harinas: "Harinas y Premezclas",
+
+    // Nuevas categorías
+    "Aceites Acetos": "Aceites y Acetos",
+    Almacen: "Almacén",
+    Arrocitas: "Arrocitas",
+    Banados: "Bañados",
+    Barras: "Barras",
+    "Barras Proteicas": "Barras Proteicas",
+    Café: "Café",
+    Celiacos: "Celiacos",
+    "Celiacos Galletitas": "Celiacos - Galletitas",
+    "Celiacos Golosinas": "Celiacos - Golosinas",
+    "Celiacos Panificados": "Celiacos - Panificados",
+    "Celiacos Pasta Seca": "Celiacos - Pastas Secas",
+    "Celiacos Premezclas": "Celiacos - Premezclas",
+    Cereales: "Cereales",
+    "Cereales Desayuno": "Cereales para Desayuno",
+    "Cereales Granel": "Cereales a Granel",
+    Chocolate: "Chocolate",
+    Cosmetica: "Cosmética",
+    Apiter: "Apiter",
+    "BEL LAB": "BEL LAB",
+    Biofit: "Biofit",
+    "Deco y Bazar": "Deco y Bazar",
+    Dulces: "Dulces",
+    "Edulcorantes Azucar": "Edulcorantes y Azúcar",
+    "El Banquito": "El Banquito",
+    Especias: "Especias",
+    "Especias Granel": "Especias a Granel",
+    Fiestas: "Fiestas",
+    Frutas: "Frutas",
+    Mixes: "Mixes",
+    Galletitas: "Galletitas",
+    Golosinas: "Golosinas",
+    Gourmet: "Gourmet",
+    Granolas: "Granolas",
+    Harinas: "Harinas",
+    "Harinas Granel": "Harinas a Granel",
+    Hierbas: "Hierbas",
+    Jugos: "Jugos",
+    "Leches Vegetales": "Leches Vegetales",
+    Legumbres: "Legumbres",
+    "Legumbres Granel": "Legumbres a Granel",
+    Mermelada: "Mermelada",
+    Miel: "Miel",
+    Panificados: "Panificados",
+    "Pastas Secas": "Pastas Secas",
+    "Pastas Untables": "Pastas Untables",
+    Reposteria: "Repostería",
+    Salsas: "Salsas",
+    Semillas: "Semillas",
+    "Semillas Granel": "Semillas a Granel",
+    Snacks: "Snacks",
+    "Sup. Deportivo": "Suplementos Deportivos",
+    Suplementos: "Suplementos",
+    Sushi: "Sushi",
+    Tes: "Tés",
+    Tintura: "Tintura",
+    Varios: "Varios",
+    Vinos: "Vinos",
+    Yerbas: "Yerbas"
+  };
+
   return labels[cat] || cat;
 }
 
