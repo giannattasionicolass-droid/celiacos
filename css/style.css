@@ -1,0 +1,43 @@
+/* Animaciones y estilos complementarios a Tailwind */
+
+* {
+  box-sizing: border-box;
+}
+
+/* Transicion suave entre paginas */
+[id^="page-"] {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #fdf6ee;
+}
+::-webkit-scrollbar-thumb {
+  background: #b86a14;
+  border-radius: 10px;
+}
+
+/* Hover en tarjetas de producto */
+.bg-white:hover .product-btn {
+  transform: translateY(-1px);
+}
+
+/* Inputs focus mejorado */
+input:focus {
+  box-shadow: 0 0 0 3px rgba(212, 134, 28, 0.15);
+}
+
+/* Badge del carrito */
+#cart-badge {
+  font-size: 10px;
+  line-height: 1;
+}
