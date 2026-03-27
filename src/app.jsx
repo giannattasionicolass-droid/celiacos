@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import { enviarEmailPedido } from './orderNotifications';
-import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
+import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
 const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado', 'Cancelado'];
@@ -920,29 +920,35 @@ function Carrusel({ productos, agregarAlCarrito }) {
 
   return (
     <div
-      className="relative w-full rounded-[30px] overflow-hidden shadow-2xl border border-white/80 bg-gradient-to-br from-white via-zinc-50 to-emerald-50/40 p-4 md:p-6"
+      className="premium-carousel-shell relative w-full rounded-[30px] overflow-hidden shadow-2xl border border-white/80 p-4 md:p-6"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      <div className="pointer-events-none absolute -top-16 -left-12 h-44 w-44 rounded-full bg-emerald-200/50 blur-3xl"></div>
+      <div className="pointer-events-none absolute -bottom-20 -right-14 h-52 w-52 rounded-full bg-amber-200/45 blur-3xl"></div>
+
       <div className="mb-4 md:mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] md:text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Destacados de la semana</p>
-          <h2 className="text-xl md:text-3xl text-gray-900 uppercase tracking-tight leading-tight">Carrusel premium</h2>
-          <p className="text-sm md:text-base text-gray-600 font-semibold mt-1">
-            {hayNuevos ? 'Los productos nuevos aparecen primero y estan marcados en cada tarjeta.' : 'Seleccion de productos disponible para sumar al carrito.'}
+          <p className="inline-flex items-center gap-2 text-[11px] md:text-xs font-black uppercase tracking-[0.22em] text-emerald-700">
+            <Sparkles size={14} className="text-emerald-600" />
+            Seleccion Curada
+          </p>
+          <h2 className="text-2xl md:text-4xl text-gray-900 uppercase tracking-tight leading-tight mt-1">Novedades Premium</h2>
+          <p className="text-sm md:text-base text-gray-700 font-semibold mt-1.5 max-w-2xl leading-relaxed">
+            {hayNuevos ? 'Los productos nuevos aparecen primero y estan marcados en cada tarjeta para encontrarlos rapido.' : 'Seleccion premium lista para sumar al carrito con mejor lectura y navegacion.'}
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <button
             onClick={() => mover('ant')}
-            className="bg-white hover:bg-zinc-100 p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200"
+            className="bg-white/95 hover:bg-white p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200/90"
             aria-label="Producto anterior"
           >
             <ChevronLeft size={20} className="text-zinc-700" />
           </button>
           <button
             onClick={() => mover('sig')}
-            className="bg-white hover:bg-zinc-100 p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200"
+            className="bg-white/95 hover:bg-white p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200/90"
             aria-label="Producto siguiente"
           >
             <ChevronRight size={20} className="text-zinc-700" />
@@ -955,9 +961,9 @@ function Carrusel({ productos, agregarAlCarrito }) {
           className="flex transition-transform duration-700 ease-out"
           style={{ transform: `translateX(-${actual * (100 / slidesPorVista)}%)` }}
         >
-          {productosOrdenados.map((p) => (
+          {productosOrdenados.map((p, i) => (
             <div key={p.id} className="px-2" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="h-full rounded-[22px] border border-zinc-200/70 bg-white shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group">
+              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md overflow-hidden group" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
                 <div className="relative h-36 md:h-40">
                   <img
                     src={p.imagen_url}
@@ -965,16 +971,20 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-zinc-900/10 to-transparent opacity-70"></div>
+                  <div className="premium-shimmer absolute inset-0"></div>
                   {p.esNuevo && (
-                    <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.14em] shadow-md">
+                    <span className="premium-badge-new absolute top-3 left-3 px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.14em] shadow-md">
                       Nuevo
                     </span>
                   )}
                 </div>
                 <div className="p-4">
-                  <h3 className="text-sm md:text-base font-black uppercase tracking-[0.05em] text-zinc-900 mb-2 line-clamp-2 min-h-[2.6rem]">{p.nombre}</h3>
-                  <p className="text-lg md:text-xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
-                  <p className="text-xs md:text-sm uppercase text-zinc-500 font-bold mb-2 tracking-[0.08em]">{p.categoria || 'Sin categoria'}</p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
+                    {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
+                  </div>
+                  <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 line-clamp-2 min-h-[2.8rem] leading-snug">{p.nombre}</h3>
+                  <p className="text-xl md:text-2xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
                   <p className={`text-xs md:text-sm font-black mb-3 ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                   </p>
@@ -987,7 +997,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                         : 'bg-gradient-to-r from-zinc-900 to-zinc-800 text-white hover:from-zinc-800 hover:to-zinc-700 shadow-md hover:shadow-lg'
                     }`}
                   >
-                    {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
+                    {p.activo && p.stock > 0 ? 'Agregar al carrito' : 'No disponible'}
                   </button>
                 </div>
               </div>
