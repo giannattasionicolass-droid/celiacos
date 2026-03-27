@@ -922,16 +922,26 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         p_perfil_id: perfilId,
         p_productos: productosPedido,
         p_total: total,
-        p_direccion: direccion.trim()
+        p_direccion: direccion.trim(),
+        p_email: emailCliente || null,
+        p_telefono: telefonoCliente || null,
       });
+      if (rpcErr) lastError = rpcErr;
       if (!rpcErr) pedidoId = rpcId;
 
       // Intentos 2-11: variantes de payload directo cubriendo distintos esquemas
       if (!pedidoId) {
         const variantes = [
+          // Esquema moderno sin email/telefono
+          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
+          // Esquema moderno con email/telefono
           { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          // Esquema heredado con user_id y direccion
+          { user_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
           { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
+          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente' },
