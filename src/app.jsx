@@ -129,6 +129,111 @@ const formatearFechaPedido = (pedido) => {
   });
 };
 
+const escaparHtml = (valor) => String(valor ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const imprimirFacturaPedido = (pedido, cliente = {}) => {
+  const productos = obtenerProductosPedido(pedido);
+  const clienteId = String(cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id');
+  const nombreCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim() || 'Cliente CeliaShop';
+  const emailCliente = pedido?.email || cliente?.email || 'No informado';
+  const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
+  const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
+  const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+
+  const filas = productos.length === 0
+    ? '<tr><td colspan="4" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
+    : productos.map((item) => {
+        const cantidad = Number(item?.cantidad) || 1;
+        const precio = Number(item?.precio) || 0;
+        const subtotal = cantidad * precio;
+        return `<tr>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;">${escaparHtml(item?.nombre || 'Producto sin nombre')}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;">${cantidad}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;">${escaparHtml(formatearMoneda(precio))}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;">${escaparHtml(formatearMoneda(subtotal))}</td>
+        </tr>`;
+      }).join('');
+
+  const total = obtenerTotalPedido(pedido);
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Factura ${escaparHtml(obtenerNumeroPedido(pedido))}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color:#111827; margin:28px; }
+    .top { display:flex; justify-content:space-between; gap:20px; }
+    .brand { background:#0f172a; color:white; padding:16px; border-radius:12px; }
+    .box { border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin-top:12px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th { background:#f9fafb; font-size:11px; text-transform:uppercase; letter-spacing:.08em; padding:10px; border:1px solid #e5e7eb; text-align:left; }
+    .right { text-align:right; }
+    .center { text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">
+      <h2 style="margin:0 0 8px 0;">${escaparHtml(DATOS_CELIASHOP.razonSocial)}</h2>
+      <div style="font-size:12px;line-height:1.5;">CUIT: ${escaparHtml(DATOS_CELIASHOP.cuit)}<br/>IVA: ${escaparHtml(DATOS_CELIASHOP.condicionIva)}<br/>${escaparHtml(DATOS_CELIASHOP.direccion)}<br/>${escaparHtml(DATOS_CELIASHOP.telefono)} - ${escaparHtml(DATOS_CELIASHOP.email)}</div>
+    </div>
+    <div class="box" style="min-width:230px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;">Comprobante</div>
+      <div style="font-size:16px;font-weight:900;margin-top:6px;">FAC-${escaparHtml(obtenerNumeroPedido(pedido))}</div>
+      <div style="font-size:12px;margin-top:8px;">Fecha: ${escaparHtml(formatearFechaPedido(pedido))}</div>
+      <div style="font-size:12px;">Estado: ${escaparHtml(obtenerEstadoPedido(pedido))}</div>
+    </div>
+  </div>
+
+  <div class="box">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Datos del cliente</div>
+    <div style="font-size:12px;line-height:1.55;">
+      <strong>${escaparHtml(nombreCliente)}</strong><br/>
+      ID cliente: ${escaparHtml(clienteId)}<br/>
+      Email: ${escaparHtml(emailCliente)}<br/>
+      Teléfono: ${escaparHtml(telefonoCliente)}<br/>
+      CUIT: ${escaparHtml(cuitCliente)}<br/>
+      Dirección: ${escaparHtml(direccionCliente)}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th class="center">Cantidad</th>
+        <th class="right">Unitario</th>
+        <th class="right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filas}
+    </tbody>
+  </table>
+
+  <div class="box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:12px;font-weight:800;text-transform:uppercase;">Total factura</span>
+    <span style="font-size:22px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(total))}</span>
+  </div>
+</body>
+</html>`;
+
+  const ventana = window.open('', '_blank', 'width=960,height=760');
+  if (!ventana) {
+    alert('No se pudo abrir la ventana de impresión. Verificá el bloqueador de popups.');
+    return;
+  }
+  ventana.document.write(html);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+};
+
 const leerSnapshotsPedidos = () => {
   if (typeof window === 'undefined') return {};
   try {
@@ -265,6 +370,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             ) : (
               <p className="text-xs font-semibold text-gray-200">Estado: {estadoActual}</p>
             )}
+            <button
+              onClick={() => imprimirFacturaPedido(pedido, cliente)}
+              className="mt-3 w-full rounded-xl bg-white text-gray-900 px-3 py-2 text-[11px] font-black uppercase tracking-widest hover:bg-gray-100"
+            >
+              Imprimir factura
+            </button>
           </div>
         </div>
       </div>
