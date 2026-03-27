@@ -2028,14 +2028,15 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       if (index !== indice) return producto;
       if (campo === 'cantidad') {
         const nuevaCantidad = Math.max(1, Number(valor) || 1);
-        const cantidadOriginalActual = Math.max(nuevaCantidad, Number(producto?.cantidad_original) || nuevaCantidad);
-        const faltanteCantidad = Math.max(0, cantidadOriginalActual - nuevaCantidad);
-        const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${nuevaCantidad} de ${cantidadOriginalActual}` : '';
+        // Preserva cantidad_original si ya existe; si no, usala cantidad actual como original
+        const cantidadOriginal = Number(producto?.cantidad_original) || Number(producto?.cantidad) || nuevaCantidad;
+        const faltanteCantidad = Math.max(0, cantidadOriginal - nuevaCantidad);
+        const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${nuevaCantidad} de ${cantidadOriginal}` : '';
         const estaMarcadoFaltanteTotal = Boolean(producto?.faltante || producto?.anulado);
         return {
           ...producto,
           cantidad: nuevaCantidad,
-          cantidad_original: cantidadOriginalActual,
+          cantidad_original: cantidadOriginal,
           faltante_cantidad: faltanteCantidad,
           ajustado_por_admin: estaMarcadoFaltanteTotal || faltanteCantidad > 0,
           motivo_ajuste: estaMarcadoFaltanteTotal
