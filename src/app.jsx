@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
-import { enviarEmailPedido } from './orderNotifications';
-import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles } from 'lucide-react';
+import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
+import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles, Mail, Phone, Globe, Share2 } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
 const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado', 'Cancelado'];
@@ -3104,6 +3104,7 @@ export default function App() {
           <div className="w-full flex flex-wrap justify-center items-center gap-3 text-sm md:text-base font-black uppercase tracking-wide text-gray-700">
             <button onClick={() => setPagina('inicio')} className={`px-7 py-3 rounded-full transition-colors ${pagina === 'inicio' ? 'bg-green-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}>Inicio</button>
             <button onClick={() => setPagina('productos')} className={`px-7 py-3 rounded-full transition-colors ${pagina === 'productos' ? 'bg-green-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}>Tienda</button>
+            <button onClick={() => setPagina('contacto')} className={`px-7 py-3 rounded-full transition-colors ${pagina === 'contacto' ? 'bg-green-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}>Contactanos</button>
             <button onClick={() => setPagina('carrito')} className={`px-7 py-3 rounded-full transition-colors ${pagina === 'carrito' ? 'bg-green-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}>Carrito ({totalItemsCarrito})</button>
 
             {session ? (
@@ -3245,6 +3246,14 @@ export default function App() {
             setMostrarToast={setMostrarToast}
           />
         )}
+        {pagina === 'contacto' && (
+          <SeccionContacto
+            usuarioLogueado={usuarioLogueado}
+            session={session}
+            setMensajeToast={setMensajeToast}
+            setMostrarToast={setMostrarToast}
+          />
+        )}
         {pagina === 'perfil' && (
           <SeccionPerfil usuarioLogueado={usuarioLogueado} user={session?.user} onRefrescar={refrescarPerfil} />
         )}
@@ -3287,6 +3296,159 @@ export default function App() {
           {mensajeToast}
         </div>
       )}
+    </div>
+  );
+}
+
+function SeccionContacto({ usuarioLogueado, session, setMensajeToast, setMostrarToast }) {
+  const [enviando, setEnviando] = useState(false);
+  const [contacto, setContacto] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    mensaje: '',
+  });
+
+  useEffect(() => {
+    setContacto((prev) => ({
+      ...prev,
+      nombre: `${usuarioLogueado?.nombre || ''} ${usuarioLogueado?.apellido || ''}`.trim() || prev.nombre,
+      email: usuarioLogueado?.email || session?.user?.email || prev.email,
+      telefono: usuarioLogueado?.telefono || prev.telefono,
+    }));
+  }, [usuarioLogueado, session?.user?.email]);
+
+  const enviar = async (e) => {
+    e.preventDefault();
+    if (!contacto.nombre.trim() || !contacto.email.trim() || !contacto.mensaje.trim()) {
+      setMensajeToast('Completá nombre, email y mensaje.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 2600);
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const resultado = await enviarMensajeContacto({
+        nombre: contacto.nombre,
+        email: contacto.email,
+        telefono: contacto.telefono,
+        mensaje: contacto.mensaje,
+        userId: session?.user?.id || usuarioLogueado?.id || null,
+      });
+
+      if (!resultado?.ok) {
+        setMensajeToast(resultado?.mensaje || 'No pudimos enviar tu mensaje ahora.');
+        setMostrarToast(true);
+        setTimeout(() => setMostrarToast(false), 3200);
+        return;
+      }
+
+      setMensajeToast('Mensaje enviado. Te responderemos pronto.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 2800);
+      setContacto((prev) => ({ ...prev, mensaje: '' }));
+    } catch {
+      setMensajeToast('No pudimos enviar tu mensaje ahora.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 3200);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-7 md:space-y-8 animate-fadeIn pb-14">
+      <div className="premium-hero rounded-[36px] p-8 md:p-12 text-white">
+        <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300 mb-3">Contactanos</p>
+        <h2 className="text-4xl md:text-6xl uppercase tracking-tight leading-none">Estamos para ayudarte</h2>
+        <p className="mt-4 text-sm md:text-lg text-white/80 max-w-3xl font-semibold leading-relaxed">
+          Escribinos por cualquier consulta de productos, pedidos o envios. Nuestro equipo te responde desde celiashopazul@gmail.com.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div className="xl:col-span-2 premium-panel rounded-[32px] p-6 md:p-8 space-y-5">
+          <h3 className="text-2xl uppercase tracking-tight text-gray-900">Datos de contacto</h3>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-white/85 border border-gray-200 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500 mb-2">Email</p>
+              <a href="mailto:celiashopazul@gmail.com" className="inline-flex items-center gap-2 text-base md:text-lg font-black text-emerald-700 hover:text-emerald-800">
+                <Mail size={18} />
+                celiashopazul@gmail.com
+              </a>
+            </div>
+            <div className="rounded-2xl bg-white/85 border border-gray-200 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500 mb-2">Telefono</p>
+              <a href="tel:+541140000000" className="inline-flex items-center gap-2 text-base md:text-lg font-black text-gray-800 hover:text-gray-900">
+                <Phone size={18} />
+                +54 11 4000-0000
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/85 border border-gray-200 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500 mb-3">Redes sociales</p>
+            <div className="flex flex-col gap-2">
+              <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className="inline-flex items-center gap-2 text-sm font-black text-gray-800"><Globe size={16} /> Instagram</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Proximamente</span>
+              </div>
+              <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className="inline-flex items-center gap-2 text-sm font-black text-gray-800"><Share2 size={16} /> Facebook</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Proximamente</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="xl:col-span-3 premium-panel rounded-[32px] p-6 md:p-8">
+          <h3 className="text-2xl md:text-3xl uppercase tracking-tight text-gray-900">Envianos un mensaje</h3>
+          <p className="text-sm text-gray-600 font-semibold mt-2 mb-6">Completá el formulario y te llega respuesta por email.</p>
+          <form onSubmit={enviar} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Nombre y apellido"
+                className="premium-input w-full p-4 rounded-2xl text-sm font-semibold"
+                value={contacto.nombre}
+                onChange={(e) => setContacto((prev) => ({ ...prev, nombre: e.target.value }))}
+                required
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                className="premium-input w-full p-4 rounded-2xl text-sm font-semibold"
+                value={contacto.email}
+                onChange={(e) => setContacto((prev) => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Telefono (opcional)"
+              className="premium-input w-full p-4 rounded-2xl text-sm font-semibold"
+              value={contacto.telefono}
+              onChange={(e) => setContacto((prev) => ({ ...prev, telefono: e.target.value }))}
+            />
+            <textarea
+              placeholder="Escribi tu consulta"
+              className="premium-input w-full p-4 rounded-2xl text-sm font-semibold min-h-[160px] resize-y"
+              value={contacto.mensaje}
+              onChange={(e) => setContacto((prev) => ({ ...prev, mensaje: e.target.value }))}
+              required
+            />
+            <button
+              type="submit"
+              disabled={enviando}
+              className="w-full md:w-auto px-8 py-4 rounded-2xl bg-gray-900 text-white font-black uppercase tracking-[0.14em] hover:bg-green-600 transition-colors disabled:opacity-60"
+            >
+              {enviando ? 'Enviando...' : 'Enviar mensaje'}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

@@ -145,3 +145,46 @@ export const enviarEmailPedido = async ({ tipo, pedido, cliente = {}, estadoAnte
     return { ok: false, error, mensaje, detalle };
   }
 };
+
+export const enviarMensajeContacto = async ({ nombre, email, telefono = '', mensaje, userId = null }) => {
+  try {
+    const payload = {
+      eventType: 'contacto_mensaje',
+      shop: {
+        email: EMAIL_CELIASHOP,
+      },
+      customer: {
+        id: userId,
+        nombre: String(nombre || '').trim(),
+        email: String(email || '').trim(),
+        telefono: String(telefono || '').trim(),
+      },
+      contact: {
+        nombre: String(nombre || '').trim(),
+        email: String(email || '').trim(),
+        telefono: String(telefono || '').trim(),
+        mensaje: String(mensaje || '').trim(),
+        origen: 'contacto_web',
+      },
+    };
+
+    const { data, error } = await supabase.functions.invoke('order-email', {
+      body: payload,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return { ok: true, data };
+  } catch (error) {
+    const detalle = await extraerMensajeErrorInvoke(error);
+    console.error('No se pudo enviar el mensaje de contacto:', detalle, error);
+    return {
+      ok: false,
+      error,
+      detalle,
+      mensaje: 'No pudimos enviar tu mensaje por ahora. Intenta nuevamente en unos minutos.',
+    };
+  }
+};

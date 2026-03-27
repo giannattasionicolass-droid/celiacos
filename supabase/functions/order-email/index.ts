@@ -38,10 +38,17 @@ type Order = {
 };
 
 type Payload = {
-  eventType?: 'pedido_creado' | 'estado_actualizado';
+  eventType?: 'pedido_creado' | 'estado_actualizado' | 'contacto_mensaje';
   shop?: { email?: string };
   customer?: Customer;
   order?: Order;
+  contact?: {
+    nombre?: string;
+    email?: string;
+    telefono?: string;
+    mensaje?: string;
+    origen?: string;
+  };
 };
 
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -193,20 +200,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authorization = req.headers.get('Authorization') || '';
-    if (!authorization.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Debes estar autenticado para enviar emails.' }, 401);
-    }
-
     const payload = await req.json() as Payload;
     const eventType = payload?.eventType;
     const customer = payload?.customer || {};
     const order = payload?.order || {};
+    const contact = payload?.contact || {};
     const shopEmail = String(Deno.env.get('ORDER_NOTIFICATION_EMAIL') || DEFAULT_SHOP_EMAIL).trim();
-
-    if (!eventType || !order?.numero) {
-      return jsonResponse({ error: 'Payload incompleto para enviar email.' }, 400);
-    }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
@@ -218,6 +217,51 @@ Deno.serve(async (req) => {
       .split(',')
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean);
+    const sent: Array<{ to: string; subject: string }> = [];
+
+    if (!eventType) {
+      return jsonResponse({ error: 'Falta eventType en el payload.' }, 400);
+    }
+
+    if (eventType === 'contacto_mensaje') {
+      const nombre = String(contact?.nombre || customer?.nombre || '').trim();
+      const email = String(contact?.email || customer?.email || '').trim();
+      const telefono = String(contact?.telefono || customer?.telefono || '').trim();
+      const mensaje = String(contact?.mensaje || '').trim();
+      const origen = String(contact?.origen || 'contacto_web').trim();
+
+      if (!nombre || !email || !mensaje) {
+        return jsonResponse({ error: 'Nombre, email y mensaje son obligatorios.' }, 400);
+      }
+
+      const subject = `Nuevo mensaje de contacto - ${nombre}`;
+      const html = renderEmailLayout({
+        title: 'Nuevo mensaje desde Contactanos',
+        intro: 'Se recibio una nueva consulta desde el formulario de contacto del sitio.',
+        extraBlock: `<div style="margin-bottom:20px;padding:16px;border-radius:16px;background:#ecfdf5;color:#065f46;font-size:14px;line-height:1.7;"><strong>Nombre:</strong> ${escapeHtml(nombre)}<br/><strong>Email:</strong> ${escapeHtml(email)}<br/><strong>Telefono:</strong> ${escapeHtml(telefono || 'No informado')}<br/><strong>Origen:</strong> ${escapeHtml(origen)}<br/><strong>Usuario:</strong> ${escapeHtml(String(customer?.id || 'anonimo'))}</div><div style="border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;padding:16px;font-size:14px;line-height:1.7;color:#111827;white-space:pre-wrap;">${escapeHtml(mensaje)}</div>`,
+        invoiceHtml: '',
+      });
+
+      await sendEmail({
+        apiKey: resendApiKey,
+        from,
+        to: shopEmail,
+        subject,
+        html,
+      });
+      sent.push({ to: shopEmail, subject });
+
+      return jsonResponse({ ok: true, sent });
+    }
+
+    if (!order?.numero) {
+      return jsonResponse({ error: 'Payload incompleto para enviar email de pedido.' }, 400);
+    }
+
+    const authorization = req.headers.get('Authorization') || '';
+    if (!authorization.startsWith('Bearer ')) {
+      return jsonResponse({ error: 'Debes estar autenticado para enviar emails.' }, 401);
+    }
 
     const user = await getAuthenticatedUser(authorization);
     const userEmail = String(user?.email || '').toLowerCase();
@@ -233,7 +277,6 @@ Deno.serve(async (req) => {
     }
 
     const invoiceHtml = renderInvoice(order, customer, shopEmail);
-    const sent: Array<{ to: string; subject: string }> = [];
 
     if (eventType === 'pedido_creado') {
       const introTienda = `Se registró un nuevo pedido en CeliaShop y esta copia incluye el detalle completo de la factura para seguimiento interno.`;
