@@ -4,17 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CeliaShop</title>
-  </head>
-  <body>
-    <div id="root"></div>
     <script>
-      const isGithubPages = window.location.hostname.endsWith('github.io');
-      if (isGithubPages) {
+      if (window.location.hostname.endsWith('github.io')) {
         const css = document.createElement('link');
         css.rel = 'stylesheet';
         css.href = '/celiacos/assets/main.css';
         document.head.appendChild(css);
-
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if (window.location.hostname.endsWith('github.io')) {
         const script = document.createElement('script');
         script.type = 'module';
         script.src = '/celiacos/assets/index.js';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { enviarEmailPedido } from './orderNotifications';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
@@ -24,7 +25,7 @@ const DATOS_CELIASHOP = {
   cuit: '30-71234567-8',
   direccion: 'Buenos Aires, Argentina',
   telefono: '+54 11 4000-0000',
-  email: 'ventas@celiashop.com',
+  email: 'celiashopazul@gmail.com',
   condicionIva: 'Responsable Inscripto'
 };
 
@@ -304,6 +305,16 @@ const traerPedidosPorUsuario = async (usuarioId) => {
   }
 
   return [];
+};
+
+const obtenerIdClientePedido = (pedido) => String(
+  pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || ''
+);
+
+const obtenerClienteDePedido = (pedido, clientes = []) => {
+  const clienteId = obtenerIdClientePedido(pedido);
+  if (!clienteId) return null;
+  return clientes.find((cliente) => String(cliente?.id || '') === clienteId) || null;
 };
 
 function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
@@ -622,6 +633,8 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 
     setCargando(true);
     try {
+      const telefonoCliente = telefono.trim() || usuarioLogueado?.telefono || '';
+      const emailCliente = usuarioLogueado?.email || session?.user?.email || '';
       const productosPedido = carrito.map(item => ({
         id: item.id,
         nombre: item.nombre,
@@ -645,8 +658,11 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       // Intentos 2-11: variantes de payload directo cubriendo distintos esquemas
       if (!pedidoId) {
         const variantes = [
-          { user_id: perfilId, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
-          { user_id: perfilId, total, estado: 'Pendiente', fecha: new Date().toISOString() },
+          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          { user_id: perfilId, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
+          { user_id: perfilId, total, estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
           { user_id: perfilId, total },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
@@ -689,7 +705,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 
       const numPedido = (pedidoId || '').toString().replace(/-/g, '').slice(0, 8).toUpperCase()
                       || Math.random().toString(36).slice(2, 10).toUpperCase();
-      guardarSnapshotPedido({
+      const pedidoGenerado = {
         id: pedidoId,
         user_id: perfilId,
         productos: productosPedido,
@@ -697,13 +713,32 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         direccion_envio: direccion.trim(),
         estado: 'Pendiente',
         fecha: new Date().toISOString(),
-        telefono: telefono.trim() || usuarioLogueado?.telefono || '',
-        email: usuarioLogueado?.email || session?.user?.email || ''
-      });
+        telefono: telefonoCliente,
+        email: emailCliente
+      };
+      guardarSnapshotPedido(pedidoGenerado);
       setPedidoConfirmado({ numero: numPedido, total, productos: [...carrito], direccion: direccion.trim() });
       setCarrito([]);
       setConfirmandoCarrito(false);
       setPaso(3);
+
+      void enviarEmailPedido({
+        tipo: 'pedido_creado',
+        pedido: pedidoGenerado,
+        cliente: {
+          ...(usuarioLogueado || {}),
+          id: perfilId,
+          email: emailCliente,
+          telefono: telefonoCliente,
+          direccion_envio: direccion.trim()
+        }
+      }).then((resultado) => {
+        if (!resultado.ok) {
+          setMensajeToast('Pedido guardado, pero no se pudo enviar el email automático.');
+          setMostrarToast(true);
+          setTimeout(() => setMostrarToast(false), 5000);
+        }
+      });
     } catch (err) {
       console.error('Error inesperado checkout:', err);
       setMensajeToast('Error inesperado. Intentá de nuevo.');
@@ -1383,6 +1418,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const actualizarEstadoPedido = async (pedido, nuevoEstado) => {
     setActualizandoPedidoId(pedido.id);
     let errorFinal = null;
+    const estadoAnterior = obtenerEstadoPedido(pedido);
 
     const variantes = [
       { estado: nuevoEstado },
@@ -1410,10 +1446,21 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         }
 
         const pedidoActualizado = { ...pedido, ...data, estado: estadoPersistido };
+        const clientePedido = obtenerClienteDePedido(pedidoActualizado, clientes);
         guardarSnapshotPedido(pedidoActualizado);
         setPedidos((prev) => prev.map((item) => item.id === pedido.id ? enriquecerPedidoConSnapshot(pedidoActualizado) : item));
         onPedidosSync?.();
+        const resultadoEmail = await enviarEmailPedido({
+          tipo: 'estado_actualizado',
+          pedido: pedidoActualizado,
+          cliente: clientePedido || {},
+          estadoAnterior,
+        });
         setActualizandoPedidoId(null);
+        if (!resultadoEmail.ok) {
+          alert(`Estado actualizado a ${nuevoEstado}, pero el email al cliente no pudo enviarse.`);
+          return;
+        }
         alert(`Estado actualizado a ${nuevoEstado}.`);
         return;
       }

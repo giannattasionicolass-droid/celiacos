@@ -11,6 +11,8 @@ create table if not exists public.pedidos (
   user_id         uuid,
   total           numeric(12,2) not null default 0,
   direccion_envio text not null default '',
+  email           text,
+  telefono        text,
   estado          text not null default 'Pendiente',
   fecha           timestamptz not null default now(),
   productos       jsonb not null default '[]'::jsonb
@@ -21,6 +23,8 @@ alter table public.pedidos add column if not exists id uuid default gen_random_u
 alter table public.pedidos add column if not exists user_id uuid;
 alter table public.pedidos add column if not exists total numeric(12,2) not null default 0;
 alter table public.pedidos add column if not exists direccion_envio text not null default '';
+alter table public.pedidos add column if not exists email text;
+alter table public.pedidos add column if not exists telefono text;
 alter table public.pedidos add column if not exists estado text not null default 'Pendiente';
 alter table public.pedidos add column if not exists fecha timestamptz not null default now();
 alter table public.pedidos add column if not exists productos jsonb not null default '[]'::jsonb;
@@ -75,6 +79,25 @@ begin
     where table_schema = 'public' and table_name = 'pedidos' and column_name = 'carrito'
   ) then
     execute 'update public.pedidos set productos = coalesce(productos, carrito, ''[]''::jsonb)';
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'perfiles'
+  ) then
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'perfiles' and column_name = 'email'
+    ) then
+      execute 'update public.pedidos p set email = coalesce(p.email, pf.email) from public.perfiles pf where pf.id = p.user_id';
+    end if;
+
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'perfiles' and column_name = 'telefono'
+    ) then
+      execute 'update public.pedidos p set telefono = coalesce(p.telefono, pf.telefono) from public.perfiles pf where pf.id = p.user_id';
+    end if;
   end if;
 end $$;
 
@@ -139,12 +162,15 @@ grant insert, update on table public.pedidos to authenticated;
 
 -- 7. Función RPC opcional para el frontend
 drop function if exists public.crear_pedido(uuid, jsonb, numeric, text);
+drop function if exists public.crear_pedido(uuid, jsonb, numeric, text, text, text);
 
 create or replace function public.crear_pedido(
   p_perfil_id uuid,
   p_productos jsonb,
   p_total numeric,
-  p_direccion text
+  p_direccion text,
+  p_email text default null,
+  p_telefono text default null
 )
 returns uuid
 language plpgsql
@@ -154,13 +180,13 @@ as $$
 declare
   v_id uuid;
 begin
-  insert into public.pedidos (user_id, productos, total, direccion_envio, estado, fecha)
-  values (p_perfil_id, coalesce(p_productos, '[]'::jsonb), coalesce(p_total, 0), coalesce(p_direccion, ''), 'Pendiente', now())
+  insert into public.pedidos (user_id, productos, total, direccion_envio, email, telefono, estado, fecha)
+  values (p_perfil_id, coalesce(p_productos, '[]'::jsonb), coalesce(p_total, 0), coalesce(p_direccion, ''), p_email, p_telefono, 'Pendiente', now())
   returning id into v_id;
   return v_id;
 end;
 $$;
 
-grant execute on function public.crear_pedido(uuid, jsonb, numeric, text) to authenticated;
+grant execute on function public.crear_pedido(uuid, jsonb, numeric, text, text, text) to authenticated;
 
 notify pgrst, 'reload schema';
