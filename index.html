@@ -10,10 +10,7 @@
     <script>
       const isGithubPages = window.location.hostname.endsWith('github.io');
       if (isGithubPages) {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = '/celiacos/dist/assets/index-CZ6aLpE2.js';
-        document.body.appendChild(script);
+        window.location.replace('/celiacos/dist/');
       }
     </script>
     <script type="module">
