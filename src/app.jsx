@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import { enviarEmailPedido } from './orderNotifications';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
@@ -27,6 +27,18 @@ const DATOS_CELIASHOP = {
   telefono: '+54 11 4000-0000',
   email: 'celiashopazul@gmail.com',
   condicionIva: 'Responsable Inscripto'
+};
+
+const DIAS_PRODUCTO_NUEVO = 30;
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+const esProductoNuevo = (producto = {}) => {
+  const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
+  if (!fechaRaw) return false;
+  const fecha = new Date(fechaRaw).getTime();
+  if (Number.isNaN(fecha)) return false;
+  const edadMs = Date.now() - fecha;
+  return edadMs >= 0 && edadMs <= (DIAS_PRODUCTO_NUEVO * MS_DIA);
 };
 
 const normalizarProductoPedido = (item = {}) => {
@@ -834,20 +846,60 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
 function Carrusel({ productos, agregarAlCarrito }) {
   const [actual, setActual] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [slidesPorVista, setSlidesPorVista] = useState(5);
+
+  const productosOrdenados = useMemo(() => {
+    if (!Array.isArray(productos)) return [];
+    const lista = productos.map((producto) => ({
+      ...producto,
+      esNuevo: esProductoNuevo(producto),
+    }));
+
+    return lista.sort((a, b) => {
+      const nuevoA = a.esNuevo ? 1 : 0;
+      const nuevoB = b.esNuevo ? 1 : 0;
+      if (nuevoA !== nuevoB) return nuevoB - nuevoA;
+
+      const fechaA = new Date(a?.created_at || a?.fecha_alta || 0).getTime();
+      const fechaB = new Date(b?.created_at || b?.fecha_alta || 0).getTime();
+      if (!Number.isNaN(fechaA) && !Number.isNaN(fechaB) && fechaA !== fechaB) {
+        return fechaB - fechaA;
+      }
+      return String(a?.nombre || '').localeCompare(String(b?.nombre || ''), 'es');
+    });
+  }, [productos]);
 
   useEffect(() => {
-    if (!productos?.length || isHovered) return;
-    const maxIndex = Math.max(productos.length - 5, 0);
+    const recalcularSlides = () => {
+      const width = window.innerWidth;
+      if (width < 640) setSlidesPorVista(1);
+      else if (width < 1024) setSlidesPorVista(2);
+      else if (width < 1280) setSlidesPorVista(3);
+      else if (width < 1536) setSlidesPorVista(4);
+      else setSlidesPorVista(5);
+    };
+
+    recalcularSlides();
+    window.addEventListener('resize', recalcularSlides);
+    return () => window.removeEventListener('resize', recalcularSlides);
+  }, []);
+
+  const maxIndex = Math.max((productosOrdenados?.length || 0) - slidesPorVista, 0);
+
+  useEffect(() => {
+    setActual((prev) => Math.min(prev, maxIndex));
+  }, [maxIndex]);
+
+  useEffect(() => {
+    if (!productosOrdenados?.length || isHovered || maxIndex <= 0) return;
     const intervalo = setInterval(() => {
       setActual((prev) => (prev >= maxIndex ? 0 : prev + 1));
-    }, 3000);
+    }, 3600);
     return () => clearInterval(intervalo);
-  }, [productos, isHovered]);
-
-  const maxIndex = Math.max((productos?.length || 0) - 5, 0);
+  }, [productosOrdenados, isHovered, maxIndex]);
 
   const mover = (dir) => {
-    if (!productos || productos.length <= 5) return;
+    if (!productosOrdenados || productosOrdenados.length <= slidesPorVista) return;
     if (dir === 'sig') setActual((prev) => (prev >= maxIndex ? 0 : prev + 1));
     else setActual((prev) => (prev <= 0 ? maxIndex : prev - 1));
   };
@@ -856,65 +908,83 @@ function Carrusel({ productos, agregarAlCarrito }) {
     setActual(index);
   };
 
-  if (!productos || productos.length === 0) {
+  if (!productosOrdenados || productosOrdenados.length === 0) {
     return (
-      <div className="h-[300px] md:h-[350px] rounded-[20px] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-lg">
-        <p className="text-gray-500 uppercase tracking-widest font-bold">No hay productos para mostrar</p>
+      <div className="h-[300px] md:h-[350px] rounded-[28px] bg-gradient-to-br from-zinc-100 to-white flex items-center justify-center shadow-lg border border-white">
+        <p className="text-gray-600 uppercase tracking-[0.2em] font-black">No hay productos para mostrar</p>
       </div>
     );
   }
 
+  const hayNuevos = productosOrdenados.some((p) => p.esNuevo);
+
   return (
     <div
-      className="relative h-[300px] md:h-[340px] w-full rounded-[20px] overflow-hidden shadow-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50"
+      className="relative w-full rounded-[30px] overflow-hidden shadow-2xl border border-white/80 bg-gradient-to-br from-white via-zinc-50 to-emerald-50/40 p-4 md:p-6"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-between z-10 px-3">
-        <button
-          onClick={() => mover('ant')}
-          className="pointer-events-auto bg-white/90 hover:bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-200"
-        >
-          <ChevronLeft size={20} className="text-gray-700" />
-        </button>
-        <button
-          onClick={() => mover('sig')}
-          className="pointer-events-auto bg-white/90 hover:bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-200"
-        >
-          <ChevronRight size={20} className="text-gray-700" />
-        </button>
+      <div className="mb-4 md:mb-5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] md:text-xs font-black uppercase tracking-[0.22em] text-emerald-700">Destacados de la semana</p>
+          <h2 className="text-xl md:text-3xl text-gray-900 uppercase tracking-tight leading-tight">Carrusel premium</h2>
+          <p className="text-sm md:text-base text-gray-600 font-semibold mt-1">
+            {hayNuevos ? 'Los productos nuevos aparecen primero y estan marcados en cada tarjeta.' : 'Seleccion de productos disponible para sumar al carrito.'}
+          </p>
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          <button
+            onClick={() => mover('ant')}
+            className="bg-white hover:bg-zinc-100 p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200"
+            aria-label="Producto anterior"
+          >
+            <ChevronLeft size={20} className="text-zinc-700" />
+          </button>
+          <button
+            onClick={() => mover('sig')}
+            className="bg-white hover:bg-zinc-100 p-2.5 md:p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-300 border border-zinc-200"
+            aria-label="Producto siguiente"
+          >
+            <ChevronRight size={20} className="text-zinc-700" />
+          </button>
+        </div>
       </div>
 
-      <div className="h-full overflow-hidden">
+      <div className="overflow-hidden">
         <div
-          className="h-full flex transition-transform duration-700 ease-out"
-          style={{ transform: `translateX(-${actual * 20}%)` }}
+          className="flex transition-transform duration-700 ease-out"
+          style={{ transform: `translateX(-${actual * (100 / slidesPorVista)}%)` }}
         >
-          {productos.map((p) => (
-            <div key={p.id} className="flex-none w-1/5 p-2">
-              <div className="h-full rounded-2xl border border-gray-200 bg-white shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group">
-                <div className="relative">
+          {productosOrdenados.map((p) => (
+            <div key={p.id} className="px-2" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
+              <div className="h-full rounded-[22px] border border-zinc-200/70 bg-white shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                <div className="relative h-36 md:h-40">
                   <img
                     src={p.imagen_url}
                     alt={p.nombre}
-                    className="w-full h-28 object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-zinc-900/10 to-transparent opacity-70"></div>
+                  {p.esNuevo && (
+                    <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.14em] shadow-md">
+                      Nuevo
+                    </span>
+                  )}
                 </div>
-                <div className="p-3">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-gray-800 mb-1 line-clamp-2">{p.nombre}</h3>
-                  <p className="text-xs text-green-600 font-black mb-1">${p.precio}</p>
-                  <p className="text-[10px] uppercase text-gray-500 mb-2">{p.categoria || 'Sin categoría'}</p>
-                  <p className={`text-[10px] font-bold mb-2 ${p.stock > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <div className="p-4">
+                  <h3 className="text-sm md:text-base font-black uppercase tracking-[0.05em] text-zinc-900 mb-2 line-clamp-2 min-h-[2.6rem]">{p.nombre}</h3>
+                  <p className="text-lg md:text-xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
+                  <p className="text-xs md:text-sm uppercase text-zinc-500 font-bold mb-2 tracking-[0.08em]">{p.categoria || 'Sin categoria'}</p>
+                  <p className={`text-xs md:text-sm font-black mb-3 ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                   </p>
                   <button
                     onClick={() => agregarAlCarrito(p)}
                     disabled={!p.activo || p.stock <= 0}
-                    className={`w-full py-3 rounded-lg text-[9px] font-black uppercase transition-all duration-300 ${
+                    className={`w-full py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 ${
                       !p.activo || p.stock <= 0
-                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-gray-800 hover:to-gray-700 shadow-md hover:shadow-lg'
+                        ? 'bg-zinc-300 text-zinc-600 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-zinc-900 to-zinc-800 text-white hover:from-zinc-800 hover:to-zinc-700 shadow-md hover:shadow-lg'
                     }`}
                   >
                     {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
@@ -926,14 +996,15 @@ function Carrusel({ productos, agregarAlCarrito }) {
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+      <div className="pt-4 md:pt-5 flex justify-center gap-2">
         {Array.from({ length: maxIndex + 1 }, (_, i) => (
           <button
             key={i}
             onClick={() => irAIndice(i)}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-              i === actual ? 'bg-white shadow-lg scale-125' : 'bg-white/50 hover:bg-white/70'
+            className={`h-2.5 rounded-full transition-all duration-300 ${
+              i === actual ? 'w-8 bg-emerald-600 shadow-md' : 'w-2.5 bg-zinc-300 hover:bg-zinc-400'
             }`}
+            aria-label={`Ir al bloque ${i + 1}`}
           />
         ))}
       </div>
