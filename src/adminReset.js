@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient';
 
+const ADMIN_EMAIL_RESET = 'giannattasio.nicolas@hotmail.com';
+
 const extraerMensajeErrorInvoke = async (error) => {
   if (!error) return 'Error desconocido al resetear datos.';
   if (typeof error === 'string') return error;
@@ -57,18 +59,47 @@ const normalizarMensajeReset = (detalle) => {
 export const resetearDatosPrueba = async () => {
   try {
     const { data, error } = await supabase.functions.invoke('reset-test-data', {
-      body: { preserveAdminEmail: 'giannattasio.nicolas@hotmail.com' },
+      body: { preserveAdminEmail: ADMIN_EMAIL_RESET },
     });
 
     if (error) throw error;
     return { ok: true, data };
   } catch (error) {
-    const detalle = await extraerMensajeErrorInvoke(error);
+    const detalleEdge = await extraerMensajeErrorInvoke(error);
+    const lowerEdge = String(detalleEdge || '').toLowerCase();
+
+    const deberiaIntentarRpc =
+      lowerEdge.includes('failed to send a request to the edge function')
+      || lowerEdge.includes('no route matched')
+      || lowerEdge.includes('function not found')
+      || lowerEdge.includes('network')
+      || lowerEdge.includes('fetch');
+
+    if (deberiaIntentarRpc) {
+      try {
+        const { data: dataRpc, error: errorRpc } = await supabase.rpc('reset_test_data', {
+          preserve_admin_email: ADMIN_EMAIL_RESET,
+        });
+
+        if (errorRpc) throw errorRpc;
+        return { ok: true, data: dataRpc };
+      } catch (rpcError) {
+        const detalleRpc = await extraerMensajeErrorInvoke(rpcError);
+        const detalle = `${detalleEdge} | RPC: ${detalleRpc}`;
+        return {
+          ok: false,
+          error: rpcError,
+          detalle,
+          mensaje: normalizarMensajeReset(detalle),
+        };
+      }
+    }
+
     return {
       ok: false,
       error,
-      detalle,
-      mensaje: normalizarMensajeReset(detalle),
+      detalle: detalleEdge,
+      mensaje: normalizarMensajeReset(detalleEdge),
     };
   }
 };
