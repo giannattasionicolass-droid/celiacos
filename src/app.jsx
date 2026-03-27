@@ -944,22 +944,16 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       // Intentos 2-11: variantes de payload directo cubriendo distintos esquemas
       if (!pedidoId) {
         const variantes = [
-          // Esquema moderno sin email/telefono
-          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
-          // Esquema moderno con email/telefono
-          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          // Esquema heredado con user_id y direccion
-          { user_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString() },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente' },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { user_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
+          // Variantes mínimas para evitar errores por columnas faltantes en esquemas legacy.
+          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
+          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
+          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
+          { user_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
+          { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
+          { usuario_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
+          { user_id: perfilId, productos: productosPedido, total },
+          { perfil_id: perfilId, productos: productosPedido, total },
+          { usuario_id: perfilId, productos: productosPedido, total },
         ];
         for (const payload of variantes) {
           const { data: ins, error: insErr } = await supabase
