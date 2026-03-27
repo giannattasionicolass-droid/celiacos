@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { enviarEmailPedido } from './orderNotifications';
-import { resetearDatosPrueba } from './adminReset';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
@@ -1703,7 +1702,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [pedidoEditandoId, setPedidoEditandoId] = useState(null);
   const [productosFacturaEditados, setProductosFacturaEditados] = useState([]);
   const [guardandoFacturaId, setGuardandoFacturaId] = useState(null);
-  const [reseteandoDatos, setReseteandoDatos] = useState(false);
 
   const traerPedidos = async () => {
     const limite = 500;
@@ -2217,27 +2215,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     }
   };
 
-  const ejecutarResetPrueba = async () => {
-    const confirmado = window.confirm('Esto va a borrar todos los clientes y pedidos de prueba, conservando solo el admin. Queres continuar?');
-    if (!confirmado) return;
-
-    setReseteandoDatos(true);
-    try {
-      const resultado = await resetearDatosPrueba();
-      if (!resultado.ok) {
-        throw new Error(resultado?.mensaje || resultado?.detalle || 'No se pudo resetear la base de prueba.');
-      }
-
-      await Promise.all([traerPedidos(), traerClientes()]);
-      onPedidosSync?.();
-      alert(`Reset completado. Usuarios eliminados: ${resultado.data?.usuariosEliminados || 0}. Pedidos eliminados: ${resultado.data?.pedidosEliminados || 0}.`);
-    } catch (error) {
-      alert('No se pudo ejecutar el reset de prueba: ' + (error?.message || 'Error desconocido'));
-    } finally {
-      setReseteandoDatos(false);
-    }
-  };
-
   return (
     <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
       <div className="flex justify-between items-center mb-10">
@@ -2245,19 +2222,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
           <div className="bg-red-600 p-4 rounded-3xl shadow-lg text-white"><ShieldCheck size={30}/></div>
           <h2 className="text-2xl md:text-4xl font-black italic uppercase text-gray-800 tracking-tighter">CeliaAdmin</h2>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 items-center">
-          <button
-            onClick={ejecutarResetPrueba}
-            disabled={reseteandoDatos}
-            className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest shadow-sm disabled:opacity-60"
-          >
-            {reseteandoDatos ? 'Reseteando prueba...' : 'Reset clientes prueba'}
-          </button>
-          <div className="flex gap-2 bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex gap-2 bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
           <button onClick={() => setTab('stock')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'stock' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Stock</button>
           <button onClick={() => setTab('ventas')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'ventas' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Ventas</button>
           <button onClick={() => setTab('clientes')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'clientes' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Clientes</button>
-          </div>
         </div>
       </div>
 
