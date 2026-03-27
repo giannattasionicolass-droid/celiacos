@@ -222,13 +222,15 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
   const cantidad = Math.max(1, Number(prod?.cantidad) || 1);
   const cantidadOriginal = Math.max(cantidad, Number(prod?.cantidad_original) || cantidad);
   const precioUnitario = Math.max(0, Number(prod?.precio) || 0);
-  const subtotalOriginal = cantidadOriginal * precioUnitario;
+  // subtotalOriginal siempre muestra lo que se pidió (para referencia)
+  const subtotalPedido = cantidadOriginal * precioUnitario;
+  // subtotalFacturable es lo que REALMENTE se cobra (cantidad entregada)
+  const subtotalFacturable = cantidad * precioUnitario;
   const ajustado = productoFueAjustado(prod);
   const faltanteTotal = Boolean(prod?.faltante || prod?.anulado || prod?.descontado || prod?.omitido);
   const ajusteParcial = !faltanteTotal && cantidadOriginal > cantidad;
   const faltanteCantidad = faltanteTotal ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
   const descuentoFaltante = faltanteCantidad * precioUnitario;
-  const subtotalFacturable = faltanteTotal ? 0 : (cantidad * precioUnitario);
   const motivoAjuste = String(
     prod?.motivo_ajuste ||
     (faltanteTotal ? 'Producto faltante' : (ajusteParcial ? `Se entregan ${cantidad} de ${cantidadOriginal}` : ''))
@@ -241,7 +243,7 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
     cantidad,
     cantidadOriginal,
     precioUnitario,
-    subtotalOriginal,
+    subtotalPedido,
     subtotalFacturable,
     descuentoFaltante,
     faltanteCantidad,
@@ -254,7 +256,7 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
 });
 
 const obtenerTotalFacturaDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalFacturable) || 0), 0);
-const obtenerSubtotalOriginalDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalOriginal) || 0), 0);
+const obtenerSubtotalOriginalDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalPedido) || 0), 0);
 const obtenerItemsFacturablesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.facturableCantidad) || 0), 0);
 const obtenerDescuentosFaltantesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.descuentoFaltante) || 0), 0);
 
@@ -301,9 +303,9 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
         return `<tr>
           <td style="padding:10px;border:1px solid #e5e7eb;text-align:center;vertical-align:middle;">${imagenHtml}</td>
           <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;vertical-align:middle;color:#111827;">${escaparHtml(item.descripcion)}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;color:#111827;">${item.cantidadOriginal}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;color:#111827;">${item.cantidad}</td>
           <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;vertical-align:middle;color:#111827;">${escaparHtml(formatearMoneda(item.precioUnitario))}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;color:#111827;">${escaparHtml(formatearMoneda(item.subtotalOriginal))}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;color:#111827;">${escaparHtml(formatearMoneda(item.subtotalFacturable))}</td>
         </tr>`;
       }).join('');
 
@@ -321,9 +323,9 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     })
     .join('');
 
-  const subtotalOriginal = lineas.length > 0 ? obtenerSubtotalOriginalDesdeLineas(lineas) : obtenerTotalPedido(pedido);
+  const subtotalFactura = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuento = obtenerDescuentosFaltantesDesdeLineas(lineas);
-  const total = Math.max(0, subtotalOriginal - descuento);
+  const total = Math.max(0, subtotalFactura);
   const html = `<!doctype html>
 <html lang="es">
 <head>
@@ -397,9 +399,19 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     </table>
   </div>` : ''}
 
-  <div class="box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
-    <span style="font-size:12px;font-weight:800;text-transform:uppercase;">Total a abonar</span>
-    <span style="font-size:22px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(total))}</span>
+  <div class="box" style="margin-top:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span style="font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;">Subtotal facturado</span>
+      <span style="font-size:16px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(subtotalFactura))}</span>
+    </div>
+    ${descuento > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #e5e7eb;">
+      <span style="font-size:12px;font-weight:800;text-transform:uppercase;color:#991b1b;">Descuento (faltantes)</span>
+      <span style="font-size:16px;font-weight:900;color:#991b1b;">-${escaparHtml(formatearMoneda(descuento))}</span>
+    </div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid #e5e7eb;">
+      <span style="font-size:14px;font-weight:900;text-transform:uppercase;">Total a abonar</span>
+      <span style="font-size:22px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(total))}</span>
+    </div>
   </div>
 </body>
 </html>`;
@@ -551,7 +563,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
     : obtenerProductosPedido(pedido);
   const lineas = construirLineasFactura(productos);
 
-  const subtotalFactura = lineas.length > 0 ? obtenerSubtotalOriginalDesdeLineas(lineas) : obtenerTotalPedido(pedido);
+  const subtotalFactura = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuentoAplicado = obtenerDescuentosFaltantesDesdeLineas(lineas);
   const totalPedido = Math.max(0, subtotalFactura - descuentoAplicado);
   const lineasFaltantes = lineas.filter((item) => Number(item?.faltanteCantidad) > 0);
@@ -632,12 +644,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 <span className="font-black text-gray-900">{itemsFacturables}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Subtotal factura</span>
+                <span>Subtotal a cobrar</span>
                 <span className="font-black text-gray-900">{formatearMoneda(subtotalFactura)}</span>
               </div>
               {descuentoAplicado > 0 && (
-                <div className="flex items-center justify-between text-red-600">
-                  <span>Descuento por faltantes</span>
+                <div className="flex items-center justify-between text-rose-600 py-1">
+                  <span>Descuento (faltantes)</span>
                   <span className="font-black">-{formatearMoneda(descuentoAplicado)}</span>
                 </div>
               )}
@@ -734,7 +746,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-right text-sm font-black">
-                      <p className="text-emerald-600">{formatearMoneda(item.subtotalOriginal)}</p>
+                      <p className="text-emerald-600">{formatearMoneda(item.subtotalFacturable)}</p>
                     </div>
                     {editable ? (
                       <div className="md:col-span-3 flex flex-col items-stretch md:items-center justify-center gap-2">
