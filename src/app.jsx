@@ -1470,6 +1470,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
   const [misPedidos, setMisPedidos] = useState([]);
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
@@ -1487,33 +1488,50 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
 
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroBusqueda]);
+  }, [filtroEstado, filtroPeriodo, filtroFechaDesde, filtroFechaHasta, filtroBusqueda]);
 
   const pedidosFiltrados = misPedidos.filter((pedido) => {
     const estado = obtenerEstadoPedido(pedido);
     const fechaPedido = obtenerFechaPedido(pedido);
     const numero = obtenerNumeroPedido(pedido);
+    const fecha = new Date(fechaPedido || 0);
+    const total = formatearMoneda(obtenerTotalPedido(pedido));
+    const productosTexto = obtenerProductosPedido(pedido)
+      .map((item) => String(item?.nombre || '').toLowerCase())
+      .join(' ');
 
     if (filtroEstado && String(estado).toLowerCase() !== String(filtroEstado).toLowerCase()) {
       return false;
     }
 
+    if (filtroPeriodo !== 'todos') {
+      const hoy = new Date();
+      let dias = 0;
+      if (filtroPeriodo === '7') dias = 7;
+      if (filtroPeriodo === '30') dias = 30;
+      if (filtroPeriodo === '90') dias = 90;
+      if (dias > 0) {
+        const desde = new Date(hoy);
+        desde.setHours(0, 0, 0, 0);
+        desde.setDate(hoy.getDate() - dias);
+        if (fecha < desde) return false;
+      }
+    }
+
     if (filtroFechaDesde) {
       const desde = new Date(`${filtroFechaDesde}T00:00:00`);
-      const fecha = new Date(fechaPedido || 0);
       if (fecha < desde) return false;
     }
 
     if (filtroFechaHasta) {
       const hasta = new Date(`${filtroFechaHasta}T23:59:59`);
-      const fecha = new Date(fechaPedido || 0);
       if (fecha > hasta) return false;
     }
 
     if (filtroBusqueda.trim()) {
       const q = filtroBusqueda.trim().toLowerCase();
-      const total = formatearMoneda(obtenerTotalPedido(pedido));
-      const texto = [numero, estado, total]
+      const fechaTexto = Number.isNaN(fecha.getTime()) ? '' : fecha.toLocaleDateString('es-AR');
+      const texto = [numero, estado, total, fechaTexto, productosTexto]
         .map((v) => String(v || '').toLowerCase())
         .join(' ');
       if (!texto.includes(q)) return false;
@@ -1544,46 +1562,64 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 px-4 flex flex-col items-center">
-      <h2 className="text-2xl md:text-3xl font-black italic uppercase mb-6 text-center">Mis Pedidos</h2>
+    <div className="max-w-5xl mx-auto pb-20 px-4 flex flex-col items-center">
+      <div className="premium-panel rounded-[34px] p-6 md:p-8 mb-6 w-full">
+        <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-center text-gray-900">Mis Pedidos</h2>
+        <p className="text-center text-sm md:text-base font-semibold text-gray-600 mt-2">Buscador avanzado por numero, estado, fecha, total y nombres de productos.</p>
+      </div>
 
-      <div className="w-full max-w-3xl mx-auto bg-white border border-gray-200 rounded-2xl p-4 md:p-5 mb-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="Buscar por pedido, estado o total..."
-            value={filtroBusqueda}
-            onChange={(e) => setFiltroBusqueda(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
-          />
+      <div className="w-full max-w-4xl mx-auto premium-panel rounded-[30px] p-4 md:p-5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          <div className="relative xl:col-span-2">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar pedido, total, estado o producto..."
+              value={filtroBusqueda}
+              onChange={(e) => setFiltroBusqueda(e.target.value)}
+              className="premium-input w-full rounded-xl pl-10 pr-4 py-3 font-semibold text-sm"
+            />
+          </div>
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+            className="premium-input w-full rounded-xl px-4 py-3 font-semibold text-sm"
           >
-            <option value="">Todos los estados</option>
+            <option value="">Estado: todos</option>
             {ESTADOS_PEDIDO.map((estado) => (
               <option key={estado} value={estado}>{estado}</option>
             ))}
+          </select>
+          <select
+            value={filtroPeriodo}
+            onChange={(e) => setFiltroPeriodo(e.target.value)}
+            className="premium-input w-full rounded-xl px-4 py-3 font-semibold text-sm"
+          >
+            <option value="todos">Periodo: todo</option>
+            <option value="7">Ultimos 7 dias</option>
+            <option value="30">Ultimos 30 dias</option>
+            <option value="90">Ultimos 90 dias</option>
           </select>
           <input
             type="date"
             value={filtroFechaDesde}
             onChange={(e) => setFiltroFechaDesde(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+            className="premium-input w-full rounded-xl px-4 py-3 font-semibold text-sm"
           />
           <input
             type="date"
             value={filtroFechaHasta}
             onChange={(e) => setFiltroFechaHasta(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+            className="premium-input w-full rounded-xl px-4 py-3 font-semibold text-sm"
           />
         </div>
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-black uppercase tracking-[0.11em] text-gray-500">{pedidosFiltrados.length} pedidos encontrados</p>
           <button
             onClick={() => {
               setFiltroBusqueda('');
               setFiltroEstado('');
+              setFiltroPeriodo('todos');
               setFiltroFechaDesde('');
               setFiltroFechaHasta('');
             }}
@@ -1594,9 +1630,11 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
         </div>
       </div>
 
-      <div className="space-y-4 w-full max-w-3xl mx-auto">
+      <div className="space-y-4 w-full max-w-4xl mx-auto">
         {pedidosFiltrados.length === 0 ? (
-          <p className="text-center text-gray-500">No hay pedidos para esos filtros.</p>
+          <div className="premium-panel rounded-[24px] p-8 text-center">
+            <p className="text-center text-gray-600 font-black uppercase">No hay pedidos para esos filtros.</p>
+          </div>
         ) : (
           pedidosPaginados.map((p) => (
             <TarjetaPedidoDetalle key={p.id} pedido={p} usuarioLogueado={usuarioLogueado} />
@@ -1605,7 +1643,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
       </div>
 
       {pedidosFiltrados.length > 0 && (
-        <div className="mt-6 w-full max-w-3xl mx-auto flex flex-col items-center gap-3">
+        <div className="mt-6 w-full max-w-4xl mx-auto flex flex-col items-center gap-3">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
             Página {paginaSegura} de {totalPaginas} · {pedidosFiltrados.length} pedidos
           </p>
@@ -2932,12 +2970,83 @@ export default function App() {
   const [mensajeToast, setMensajeToast] = useState('');
   const [queryBusqueda, setQueryBusqueda] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [filtroDisponibilidad, setFiltroDisponibilidad] = useState('todos');
+  const [filtroPrecio, setFiltroPrecio] = useState('todos');
+  const [filtroSoloNuevos, setFiltroSoloNuevos] = useState(false);
+  const [ordenProductos, setOrdenProductos] = useState('nuevos');
   const [pedidosVersion, setPedidosVersion] = useState(0);
   const [perfilVersion, setPerfilVersion] = useState(0);
   const [datos, setDatos] = useState({ 
     email: '', password: '', nombre: '', apellido: '', cuit: '', telefono: '', direccion: '' 
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
+
+  const categoriasProductos = useMemo(() => (
+    [...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map((p) => p.categoria).filter(Boolean)])].sort()
+  ), [productosBD]);
+
+  const productosFiltrados = useMemo(() => {
+    const q = queryBusqueda.trim().toLowerCase();
+    const lista = productosBD.filter((p) => {
+      if (q) {
+        const texto = [p?.nombre, p?.categoria, p?.descripcion]
+          .map((v) => String(v || '').toLowerCase())
+          .join(' ');
+        if (!texto.includes(q)) return false;
+      }
+
+      if (categoriaFiltro && p?.categoria !== categoriaFiltro) return false;
+
+      if (filtroDisponibilidad === 'disponibles' && (!p?.activo || Number(p?.stock || 0) <= 0)) return false;
+      if (filtroDisponibilidad === 'sin_stock' && Number(p?.stock || 0) > 0) return false;
+
+      const precio = Number(p?.precio || 0);
+      if (filtroPrecio === 'hasta_5000' && precio > 5000) return false;
+      if (filtroPrecio === '5000_15000' && (precio < 5000 || precio > 15000)) return false;
+      if (filtroPrecio === 'mas_15000' && precio < 15000) return false;
+
+      if (filtroSoloNuevos && !esProductoNuevo(p)) return false;
+
+      return true;
+    });
+
+    const ordenada = [...lista].sort((a, b) => {
+      const precioA = Number(a?.precio || 0);
+      const precioB = Number(b?.precio || 0);
+      if (ordenProductos === 'precio_asc') return precioA - precioB;
+      if (ordenProductos === 'precio_desc') return precioB - precioA;
+      if (ordenProductos === 'nombre_asc') return String(a?.nombre || '').localeCompare(String(b?.nombre || ''), 'es');
+
+      const nuevoA = esProductoNuevo(a) ? 1 : 0;
+      const nuevoB = esProductoNuevo(b) ? 1 : 0;
+      if (nuevoA !== nuevoB) return nuevoB - nuevoA;
+      const fechaA = new Date(a?.created_at || a?.fecha_alta || 0).getTime();
+      const fechaB = new Date(b?.created_at || b?.fecha_alta || 0).getTime();
+      if (!Number.isNaN(fechaA) && !Number.isNaN(fechaB) && fechaA !== fechaB) return fechaB - fechaA;
+      return String(a?.nombre || '').localeCompare(String(b?.nombre || ''), 'es');
+    });
+
+    return ordenada;
+  }, [productosBD, queryBusqueda, categoriaFiltro, filtroDisponibilidad, filtroPrecio, filtroSoloNuevos, ordenProductos]);
+
+  const metricasTienda = useMemo(() => {
+    const activos = productosBD.filter((p) => p?.activo && Number(p?.stock || 0) > 0).length;
+    const nuevos = productosBD.filter((p) => esProductoNuevo(p)).length;
+    return {
+      total: productosBD.length,
+      activos,
+      nuevos,
+    };
+  }, [productosBD]);
+
+  const limpiarFiltrosTienda = () => {
+    setQueryBusqueda('');
+    setCategoriaFiltro('');
+    setFiltroDisponibilidad('todos');
+    setFiltroPrecio('todos');
+    setFiltroSoloNuevos(false);
+    setOrdenProductos('nuevos');
+  };
 
   const notificarSincronizacionPedidos = () => setPedidosVersion((prev) => prev + 1);
   const notificarSincronizacionPerfil = () => setPerfilVersion((prev) => prev + 1);
@@ -3179,56 +3288,151 @@ export default function App() {
         )}
         
         {pagina === 'productos' && (
-          <div className="space-y-6">
-            <div className="premium-panel rounded-[32px] p-5 md:p-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full sm:w-80">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar productos..."
-                  value={queryBusqueda}
-                  onChange={(e) => setQueryBusqueda(e.target.value)}
-                  className="premium-input w-full pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
-                />
+          <div className="space-y-7">
+            <div className="premium-panel rounded-[34px] p-6 md:p-8">
+              <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
+                <div className="space-y-2">
+                  <p className="text-[11px] md:text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Tienda premium</p>
+                  <h2 className="text-3xl md:text-5xl uppercase tracking-tight leading-none text-gray-900">Catalogo Curado</h2>
+                  <p className="text-sm md:text-base text-gray-600 font-semibold max-w-3xl">Filtros inteligentes, busqueda rapida y cards mejoradas para encontrar productos en segundos.</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 md:gap-3 w-full xl:w-auto">
+                  <div className="rounded-2xl bg-white border border-gray-200 px-3 py-3 text-center min-w-[100px]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-500">Total</p>
+                    <p className="text-xl font-black text-gray-900">{metricasTienda.total}</p>
+                  </div>
+                  <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-3 text-center min-w-[100px]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">Disponibles</p>
+                    <p className="text-xl font-black text-emerald-700">{metricasTienda.activos}</p>
+                  </div>
+                  <div className="rounded-2xl bg-amber-50 border border-amber-200 px-3 py-3 text-center min-w-[100px]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">Nuevos</p>
+                    <p className="text-xl font-black text-amber-700">{metricasTienda.nuevos}</p>
+                  </div>
+                </div>
               </div>
-              <select
-                value={categoriaFiltro}
-                onChange={(e) => setCategoriaFiltro(e.target.value)}
-                className="premium-input px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-medium w-full sm:w-auto"
-              >
-                <option value="">Todas las categorías</option>
-                {[...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map(p => p.categoria).filter(Boolean)])].sort().map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {productosBD.filter(p => 
-                p.nombre.toLowerCase().includes(queryBusqueda.toLowerCase()) && 
-                (categoriaFiltro === '' || p.categoria === categoriaFiltro)
-              ).map(p => (
-              <div key={p.id} className="premium-product-card p-4 rounded-[28px] relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
-                <img src={p.imagen_url} className="h-32 w-full object-cover rounded-xl mb-3" alt={p.nombre} />
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">{p.categoria || 'Sin categoría'}</p>
-                <h3 className="font-bold uppercase text-xs text-gray-800">{p.nombre}</h3>
-                <p className="text-green-600 font-black text-lg mb-2">${p.precio}</p>
-                {!p.activo ? (
-                  <p className="text-red-500 font-black text-xs uppercase mb-2">Deshabilitado - sin stock</p>
-                ) : p.stock <= 0 ? (
-                  <p className="text-red-500 font-black text-xs uppercase mb-2">Sin stock</p>
-                ) : (
-                  <p className="text-gray-400 font-black text-xs uppercase mb-2">Stock: {p.stock}</p>
-                )}
-                <button
-                  onClick={() => agregarAlCarrito(p)}
-                  disabled={!p.activo || p.stock <= 0}
-                  className={`w-full py-3 rounded-2xl text-[10px] font-black uppercase transition-colors ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600'}`}>
-                  {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
-                </button>
+
+            <div className="premium-panel rounded-[30px] p-5 md:p-6 space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-6 gap-3">
+                <div className="relative lg:col-span-2">
+                  <Search size={19} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, categoría..."
+                    value={queryBusqueda}
+                    onChange={(e) => setQueryBusqueda(e.target.value)}
+                    className="premium-input w-full pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold"
+                  />
+                </div>
+
+                <select
+                  value={categoriaFiltro}
+                  onChange={(e) => setCategoriaFiltro(e.target.value)}
+                  className="premium-input px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categoriasProductos.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={filtroDisponibilidad}
+                  onChange={(e) => setFiltroDisponibilidad(e.target.value)}
+                  className="premium-input px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold"
+                >
+                  <option value="todos">Disponibilidad: todos</option>
+                  <option value="disponibles">Solo disponibles</option>
+                  <option value="sin_stock">Solo sin stock</option>
+                </select>
+
+                <select
+                  value={filtroPrecio}
+                  onChange={(e) => setFiltroPrecio(e.target.value)}
+                  className="premium-input px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold"
+                >
+                  <option value="todos">Precio: todos</option>
+                  <option value="hasta_5000">Hasta $5000</option>
+                  <option value="5000_15000">$5000 - $15000</option>
+                  <option value="mas_15000">Mas de $15000</option>
+                </select>
+
+                <select
+                  value={ordenProductos}
+                  onChange={(e) => setOrdenProductos(e.target.value)}
+                  className="premium-input px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold"
+                >
+                  <option value="nuevos">Orden: nuevos primero</option>
+                  <option value="precio_asc">Precio menor a mayor</option>
+                  <option value="precio_desc">Precio mayor a menor</option>
+                  <option value="nombre_asc">Nombre A-Z</option>
+                </select>
               </div>
-            ))}
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setFiltroSoloNuevos((prev) => !prev)}
+                  className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.12em] transition-colors ${filtroSoloNuevos ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {filtroSoloNuevos ? 'Mostrando nuevos' : 'Solo nuevos'}
+                </button>
+                <button
+                  type="button"
+                  onClick={limpiarFiltrosTienda}
+                  className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.12em] bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                >
+                  Limpiar filtros
+                </button>
+                <p className="ml-auto text-xs md:text-sm font-black uppercase tracking-[0.12em] text-gray-500">
+                  {productosFiltrados.length} resultados
+                </p>
+              </div>
+            </div>
+
+            {productosFiltrados.length === 0 ? (
+              <div className="premium-panel rounded-[30px] p-12 text-center">
+                <p className="text-lg font-black uppercase text-gray-700">No encontramos productos con esos filtros.</p>
+                <p className="text-sm text-gray-500 font-semibold mt-2">Probá limpiando filtros o cambiando el texto de búsqueda.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                {productosFiltrados.map((p) => {
+                  const esNuevo = esProductoNuevo(p);
+                  return (
+                    <div key={p.id} className="premium-product-card premium-store-card p-4 rounded-[30px] relative overflow-hidden group">
+                      <div className="relative">
+                        <img src={p.imagen_url} className="h-44 w-full object-cover rounded-2xl mb-3" alt={p.nombre} />
+                        {esNuevo && (
+                          <span className="absolute top-2 left-2 px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.12em]">Nuevo</span>
+                        )}
+                      </div>
+
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{p.categoria || 'Sin categoría'}</p>
+                        {!p.activo || Number(p.stock || 0) <= 0 ? (
+                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-rose-500">Sin stock</p>
+                        ) : (
+                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">Stock {p.stock}</p>
+                        )}
+                      </div>
+
+                      <h3 className="font-black text-base text-gray-900 leading-tight min-h-[2.7rem]">{p.nombre}</h3>
+                      <p className="text-2xl text-emerald-600 font-black mt-1 mb-3">{formatearMoneda(p.precio)}</p>
+
+                      <button
+                        onClick={() => agregarAlCarrito(p)}
+                        disabled={!p.activo || p.stock <= 0}
+                        className={`w-full py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
+                        {p.activo && p.stock > 0 ? 'Agregar al carrito' : 'No disponible'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
         )}
 
         {pagina === 'carrito' && (

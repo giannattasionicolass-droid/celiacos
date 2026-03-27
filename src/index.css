@@ -137,6 +137,30 @@ button, input, select, textarea {
   backdrop-filter: blur(10px);
 }
 
+.premium-store-card {
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.premium-store-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(251, 146, 60, 0.06));
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+.premium-store-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 26px 56px rgba(15, 23, 42, 0.14);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.premium-store-card:hover::before {
+  opacity: 1;
+}
+
 .premium-toast {
   background: linear-gradient(135deg, #16a34a, #15803d);
   box-shadow: 0 20px 60px rgba(22, 163, 74, 0.35);
