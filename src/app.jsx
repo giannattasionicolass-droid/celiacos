@@ -120,14 +120,15 @@ const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).re
 ), 0);
 const formatearMoneda = (valor) => `$${Number(valor || 0).toFixed(2)}`;
 const PEDIDOS_SNAPSHOT_KEY = 'celiashop_pedidos_snapshot';
+const CLASE_BASE_ESTADO = 'inline-flex items-center justify-center text-center align-middle leading-none whitespace-nowrap';
 const obtenerClaseEstadoPedido = (estado) => {
   const valor = String(estado || '').toLowerCase();
-  if (valor === 'pendiente') return 'bg-red-100 text-red-700 ring-1 ring-red-200';
-  if (valor === 'confirmado') return 'bg-blue-100 text-blue-700 ring-1 ring-blue-200';
-  if (valor === 'enviado') return 'bg-amber-100 text-amber-700 ring-1 ring-amber-200';
-  if (valor === 'entregado') return 'bg-green-100 text-green-700 ring-1 ring-green-200';
-  if (valor === 'cancelado') return 'bg-gray-300 text-gray-700 ring-1 ring-gray-400';
-  return 'bg-gray-100 text-gray-700 ring-1 ring-gray-200';
+  if (valor === 'pendiente') return `${CLASE_BASE_ESTADO} bg-red-100 text-red-700 ring-1 ring-red-200`;
+  if (valor === 'confirmado') return `${CLASE_BASE_ESTADO} bg-blue-100 text-blue-700 ring-1 ring-blue-200`;
+  if (valor === 'enviado') return `${CLASE_BASE_ESTADO} bg-amber-100 text-amber-700 ring-1 ring-amber-200`;
+  if (valor === 'entregado') return `${CLASE_BASE_ESTADO} bg-green-100 text-green-700 ring-1 ring-green-200`;
+  if (valor === 'cancelado') return `${CLASE_BASE_ESTADO} bg-gray-300 text-gray-700 ring-1 ring-gray-400`;
+  return `${CLASE_BASE_ESTADO} bg-gray-100 text-gray-700 ring-1 ring-gray-200`;
 };
 
 const obtenerVisualEstadoPedido = (estado) => {
@@ -1136,6 +1137,12 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 
 function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
   const [misPedidos, setMisPedidos] = useState([]);
+  const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+  const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [paginaActual, setPaginaActual] = useState(1);
+  const pedidosPorPagina = 10;
 
   useEffect(() => {
     const traerMisPedidos = async () => {
@@ -1146,27 +1153,159 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
     traerMisPedidos();
   }, [usuarioLogueado, pedidosVersion]);
 
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroBusqueda]);
+
+  const pedidosFiltrados = misPedidos.filter((pedido) => {
+    const estado = obtenerEstadoPedido(pedido);
+    const fechaPedido = obtenerFechaPedido(pedido);
+    const numero = obtenerNumeroPedido(pedido);
+
+    if (filtroEstado && String(estado).toLowerCase() !== String(filtroEstado).toLowerCase()) {
+      return false;
+    }
+
+    if (filtroFechaDesde) {
+      const desde = new Date(`${filtroFechaDesde}T00:00:00`);
+      const fecha = new Date(fechaPedido || 0);
+      if (fecha < desde) return false;
+    }
+
+    if (filtroFechaHasta) {
+      const hasta = new Date(`${filtroFechaHasta}T23:59:59`);
+      const fecha = new Date(fechaPedido || 0);
+      if (fecha > hasta) return false;
+    }
+
+    if (filtroBusqueda.trim()) {
+      const q = filtroBusqueda.trim().toLowerCase();
+      const total = formatearMoneda(obtenerTotalPedido(pedido));
+      const texto = [numero, estado, total]
+        .map((v) => String(v || '').toLowerCase())
+        .join(' ');
+      if (!texto.includes(q)) return false;
+    }
+
+    return true;
+  });
+
+  const totalPaginas = Math.max(1, Math.ceil(pedidosFiltrados.length / pedidosPorPagina));
+  const paginaSegura = Math.min(paginaActual, totalPaginas);
+  const inicio = (paginaSegura - 1) * pedidosPorPagina;
+  const pedidosPaginados = pedidosFiltrados.slice(inicio, inicio + pedidosPorPagina);
+
+  const paginaInicio = Math.max(1, paginaSegura - 2);
+  const paginaFin = Math.min(totalPaginas, paginaInicio + 4);
+  const paginasVisibles = [];
+  for (let p = paginaInicio; p <= paginaFin; p += 1) {
+    paginasVisibles.push(p);
+  }
+
   if (!usuarioLogueado) {
     return (
-      <div className="max-w-2xl mx-auto pb-20">
-        <h2 className="text-3xl font-black italic uppercase mb-8">Mis Pedidos</h2>
-        <p className="text-sm text-gray-500">Inicia sesión para ver tus pedidos.</p>
+      <div className="max-w-4xl mx-auto pb-20 px-4">
+        <h2 className="text-3xl font-black italic uppercase mb-8 text-center">Mis Pedidos</h2>
+        <p className="text-sm text-gray-500 text-center">Inicia sesión para ver tus pedidos.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
-      <h2 className="text-2xl md:text-3xl font-black italic uppercase mb-8">Mis Pedidos</h2>
-      <div className="space-y-4">
-        {misPedidos.length === 0 ? (
-          <p className="text-center text-gray-500">No tienes pedidos aún.</p>
+    <div className="max-w-4xl mx-auto pb-20 px-4 flex flex-col items-center">
+      <h2 className="text-2xl md:text-3xl font-black italic uppercase mb-6 text-center">Mis Pedidos</h2>
+
+      <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 md:p-5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input
+            type="text"
+            placeholder="Buscar por pedido, estado o total..."
+            value={filtroBusqueda}
+            onChange={(e) => setFiltroBusqueda(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+          />
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS_PEDIDO.map((estado) => (
+              <option key={estado} value={estado}>{estado}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={filtroFechaDesde}
+            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+          />
+          <input
+            type="date"
+            value={filtroFechaHasta}
+            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
+          />
+        </div>
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={() => {
+              setFiltroBusqueda('');
+              setFiltroEstado('');
+              setFiltroFechaDesde('');
+              setFiltroFechaHasta('');
+            }}
+            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-4 w-full">
+        {pedidosFiltrados.length === 0 ? (
+          <p className="text-center text-gray-500">No hay pedidos para esos filtros.</p>
         ) : (
-          misPedidos.map((p) => (
+          pedidosPaginados.map((p) => (
             <TarjetaPedidoDetalle key={p.id} pedido={p} usuarioLogueado={usuarioLogueado} />
           ))
         )}
       </div>
+
+      {pedidosFiltrados.length > 0 && (
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+            Página {paginaSegura} de {totalPaginas} · {pedidosFiltrados.length} pedidos
+          </p>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <button
+              onClick={() => setPaginaActual((prev) => Math.max(1, prev - 1))}
+              disabled={paginaSegura <= 1}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+            >
+              Anterior
+            </button>
+
+            {paginasVisibles.map((pagina) => (
+              <button
+                key={pagina}
+                onClick={() => setPaginaActual(pagina)}
+                className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                {pagina}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setPaginaActual((prev) => Math.min(totalPaginas, prev + 1))}
+              disabled={paginaSegura >= totalPaginas}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
