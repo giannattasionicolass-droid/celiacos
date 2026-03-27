@@ -917,8 +917,8 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       let pedidoId = null;
       let lastError = null;
 
-      // Intento 1: RPC crear_pedido (bypassa schema cache de PostgREST)
-      const { data: rpcId, error: rpcErr } = await supabase.rpc('crear_pedido', {
+      // Intento 1: RPC crear_pedido (firma nueva con email/telefono)
+      const { data: rpcIdV2, error: rpcErrV2 } = await supabase.rpc('crear_pedido', {
         p_perfil_id: perfilId,
         p_productos: productosPedido,
         p_total: total,
@@ -926,8 +926,20 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         p_email: emailCliente || null,
         p_telefono: telefonoCliente || null,
       });
-      if (rpcErr) lastError = rpcErr;
-      if (!rpcErr) pedidoId = rpcId;
+      if (!rpcErrV2) pedidoId = rpcIdV2;
+      if (rpcErrV2) lastError = rpcErrV2;
+
+      // Intento 1b: compatibilidad con firma vieja (sin email/telefono)
+      if (!pedidoId) {
+        const { data: rpcIdV1, error: rpcErrV1 } = await supabase.rpc('crear_pedido', {
+          p_perfil_id: perfilId,
+          p_productos: productosPedido,
+          p_total: total,
+          p_direccion: direccion.trim(),
+        });
+        if (!rpcErrV1) pedidoId = rpcIdV1;
+        if (rpcErrV1) lastError = rpcErrV1;
+      }
 
       // Intentos 2-11: variantes de payload directo cubriendo distintos esquemas
       if (!pedidoId) {
@@ -948,8 +960,6 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           { usuario_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
           { usuario_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { user_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { perfil_id: perfilId, items: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { usuario_id: perfilId, carrito: productosPedido, total, estado: 'Pendiente' },
         ];
         for (const payload of variantes) {
           const { data: ins, error: insErr } = await supabase
