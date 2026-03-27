@@ -226,6 +226,8 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
   const ajustado = productoFueAjustado(prod);
   const faltanteTotal = Boolean(prod?.faltante || prod?.anulado || prod?.descontado || prod?.omitido);
   const ajusteParcial = !faltanteTotal && cantidadOriginal > cantidad;
+  const faltanteCantidad = faltanteTotal ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
+  const descuentoFaltante = faltanteCantidad * precioUnitario;
   const subtotalFacturable = faltanteTotal ? 0 : (cantidad * precioUnitario);
   const motivoAjuste = String(
     prod?.motivo_ajuste ||
@@ -241,6 +243,8 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
     precioUnitario,
     subtotalOriginal,
     subtotalFacturable,
+    descuentoFaltante,
+    faltanteCantidad,
     facturableCantidad: faltanteTotal ? 0 : cantidad,
     ajustado,
     faltanteTotal,
@@ -252,6 +256,7 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
 const obtenerTotalFacturaDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalFacturable) || 0), 0);
 const obtenerSubtotalOriginalDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalOriginal) || 0), 0);
 const obtenerItemsFacturablesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.facturableCantidad) || 0), 0);
+const obtenerDescuentosFaltantesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.descuentoFaltante) || 0), 0);
 
 const serializarProductosFactura = (productos = []) => productos.map((producto) => {
   const cantidad = Math.max(1, Number(producto?.cantidad) || 1);
@@ -290,29 +295,35 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
   const filas = lineas.length === 0
     ? '<tr><td colspan="5" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
     : lineas.map((item) => {
-        const estiloTexto = item.faltanteTotal ? 'color:#9ca3af;text-decoration:line-through;' : 'color:#111827;';
-        const estado = item.faltanteTotal
-          ? '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:800;text-transform:uppercase;">Faltante</span>'
-          : item.ajusteParcial
-            ? '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:800;text-transform:uppercase;">Entrega parcial</span>'
-            : '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;text-transform:uppercase;">Facturado</span>';
-        const cantidadVisual = item.ajusteParcial ? `${item.cantidad} de ${item.cantidadOriginal}` : `${item.cantidad}`;
         const imagenHtml = item.imagen
           ? `<img src="${escaparHtml(item.imagen)}" alt="${escaparHtml(item.descripcion)}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;display:block;margin:0 auto;" />`
           : '<div style="width:56px;height:56px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto;">&#128230;</div>';
         return `<tr>
           <td style="padding:10px;border:1px solid #e5e7eb;text-align:center;vertical-align:middle;">${imagenHtml}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;vertical-align:middle;${estiloTexto}">${escaparHtml(item.descripcion)}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;${estiloTexto}">${cantidadVisual}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;vertical-align:middle;${estiloTexto}">${escaparHtml(formatearMoneda(item.precioUnitario))}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;${estiloTexto}">${escaparHtml(formatearMoneda(item.faltanteTotal ? item.subtotalOriginal : item.subtotalFacturable))}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;">${estado}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;vertical-align:middle;color:#111827;">${escaparHtml(item.descripcion)}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;color:#111827;">${item.cantidadOriginal}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;vertical-align:middle;color:#111827;">${escaparHtml(formatearMoneda(item.precioUnitario))}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;color:#111827;">${escaparHtml(formatearMoneda(item.subtotalOriginal))}</td>
         </tr>`;
       }).join('');
 
-  const subtotalOriginal = obtenerSubtotalOriginalDesdeLineas(lineas);
-  const total = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
-  const descuento = Math.max(0, subtotalOriginal - total);
+  const filasFaltantes = lineas
+    .filter((item) => Number(item?.faltanteCantidad) > 0)
+    .map((item) => {
+      const etiquetaCantidad = item.faltanteTotal
+        ? `${item.cantidadOriginal} de ${item.cantidadOriginal}`
+        : `${item.faltanteCantidad} de ${item.cantidadOriginal}`;
+      return `<tr>
+        <td style="padding:10px;border:1px solid #fecaca;font-size:12px;font-weight:700;vertical-align:middle;color:#991b1b;">${escaparHtml(item.descripcion)}</td>
+        <td style="padding:10px;border:1px solid #fecaca;font-size:12px;text-align:center;vertical-align:middle;color:#991b1b;">${etiquetaCantidad}</td>
+        <td style="padding:10px;border:1px solid #fecaca;font-size:12px;text-align:right;vertical-align:middle;color:#991b1b;">-${escaparHtml(formatearMoneda(item.descuentoFaltante))}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const subtotalOriginal = lineas.length > 0 ? obtenerSubtotalOriginalDesdeLineas(lineas) : obtenerTotalPedido(pedido);
+  const descuento = obtenerDescuentosFaltantesDesdeLineas(lineas);
+  const total = Math.max(0, subtotalOriginal - descuento);
   const html = `<!doctype html>
 <html lang="es">
 <head>
@@ -363,7 +374,6 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
         <th class="center">Cantidad</th>
         <th class="right">Unitario</th>
         <th class="right">Subtotal</th>
-        <th class="center">Estado</th>
       </tr>
     </thead>
     <tbody>
@@ -371,13 +381,24 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     </tbody>
   </table>
 
-  ${descuento > 0 ? `<div class="box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; background:#fef2f2; border-color:#fecaca;">
-    <span style="font-size:12px;font-weight:800;text-transform:uppercase;color:#b91c1c;">Descuento por faltantes</span>
-    <span style="font-size:18px;font-weight:900;color:#b91c1c;">-${escaparHtml(formatearMoneda(descuento))}</span>
+  ${descuento > 0 ? `<div class="box" style="margin-top:14px;background:#fff1f2;border-color:#fecdd3;">
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:#b91c1c;margin-bottom:10px;">Faltantes y descuentos</div>
+    <table style="margin-top:0;">
+      <thead>
+        <tr>
+          <th style="background:#ffe4e6;border:1px solid #fecaca;color:#9f1239;">Producto faltante</th>
+          <th class="center" style="background:#ffe4e6;border:1px solid #fecaca;color:#9f1239;">Cantidad faltante</th>
+          <th class="right" style="background:#ffe4e6;border:1px solid #fecaca;color:#9f1239;">Descuento</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filasFaltantes}
+      </tbody>
+    </table>
   </div>` : ''}
 
   <div class="box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
-    <span style="font-size:12px;font-weight:800;text-transform:uppercase;">Total factura</span>
+    <span style="font-size:12px;font-weight:800;text-transform:uppercase;">Total a abonar</span>
     <span style="font-size:22px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(total))}</span>
   </div>
 </body>
@@ -530,9 +551,10 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
     : obtenerProductosPedido(pedido);
   const lineas = construirLineasFactura(productos);
 
-  const subtotalCalculado = obtenerSubtotalOriginalDesdeLineas(lineas);
-  const totalPedido = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
-  const descuentoAplicado = Math.max(0, subtotalCalculado - totalPedido);
+  const subtotalFactura = lineas.length > 0 ? obtenerSubtotalOriginalDesdeLineas(lineas) : obtenerTotalPedido(pedido);
+  const descuentoAplicado = obtenerDescuentosFaltantesDesdeLineas(lineas);
+  const totalPedido = Math.max(0, subtotalFactura - descuentoAplicado);
+  const lineasFaltantes = lineas.filter((item) => Number(item?.faltanteCantidad) > 0);
   const itemsTotales = lineas.reduce((acc, item) => acc + (Number(item?.cantidadOriginal) || Number(item?.cantidad) || 0), 0);
   const itemsFacturables = obtenerItemsFacturablesDesdeLineas(lineas);
 
@@ -610,8 +632,8 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 <span className="font-black text-gray-900">{itemsFacturables}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Subtotal original</span>
-                <span className="font-black text-gray-900">{formatearMoneda(subtotalCalculado)}</span>
+                <span>Subtotal factura</span>
+                <span className="font-black text-gray-900">{formatearMoneda(subtotalFactura)}</span>
               </div>
               {descuentoAplicado > 0 && (
                 <div className="flex items-center justify-between text-red-600">
@@ -620,7 +642,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-gray-200 pt-2">
-                <span className="font-black uppercase">Total final</span>
+                <span className="font-black uppercase">Total a abonar</span>
                 <span className="text-xl font-black text-emerald-600">{formatearMoneda(totalPedido)}</span>
               </div>
             </div>
@@ -643,16 +665,16 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
               <div className={`hidden md:grid bg-gray-50 border-b border-gray-200 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-gray-500 ${editable ? 'grid-cols-14' : 'grid-cols-12'}`}>
                 <p className={editable ? 'col-span-5' : 'col-span-6'}>Producto</p>
-                <p className="col-span-2 text-center">Cantidad</p>
+                <p className="col-span-2 text-center">Cantidad pedida</p>
                 <p className="col-span-2 text-right">Unitario</p>
                 <p className="col-span-2 text-right">Subtotal</p>
                 {editable ? (
-                  <p className="col-span-3 text-center">Ajuste</p>
+                  <p className="col-span-3 text-center">Faltantes</p>
                 ) : null}
               </div>
               <div className="divide-y divide-gray-100">
                 {lineas.map((item, i) => (
-                  <div key={`${pedido.id}-${i}`} className={`grid grid-cols-1 gap-2 px-4 py-3 ${editable ? 'md:grid-cols-14' : 'md:grid-cols-12'} ${item.faltanteTotal ? 'bg-red-50/60' : item.ajusteParcial ? 'bg-amber-50/60' : ''}`}>
+                  <div key={`${pedido.id}-${i}`} className={`grid grid-cols-1 gap-2 px-4 py-3 ${editable ? 'md:grid-cols-14' : 'md:grid-cols-12'}`}>
                     <div className={`${editable ? 'md:col-span-5' : 'md:col-span-6'} flex items-center gap-3 min-w-0`}>
                       {mostrarImagenesEnLineas && (
                         <img src={item.imagen} alt={item.descripcion} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
@@ -663,7 +685,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                             type="text"
                             value={productos[i]?.nombre || ''}
                             onChange={(e) => onCambiarLinea?.(i, 'nombre', e.target.value)}
-                            className={`w-full rounded-xl border px-3 py-2 text-sm font-black uppercase ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-black uppercase text-gray-900"
                           />
                           <input
                             type="text"
@@ -675,28 +697,26 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                         </div>
                       ) : (
                         <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase break-words ${item.faltanteTotal ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{item.descripcion}</p>
-                          {item.ajustado && (
-                            <p className={`text-[11px] font-bold uppercase tracking-wide mt-1 ${item.faltanteTotal ? 'text-red-600' : 'text-amber-700'}`}>
-                              {item.motivoAjuste || (item.faltanteTotal ? 'Producto faltante' : `Se entregan ${item.cantidad} de ${item.cantidadOriginal}`)}
-                            </p>
-                          )}
+                          <p className="text-sm font-black uppercase break-words text-gray-900">{item.descripcion}</p>
                         </div>
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-center text-sm font-semibold text-gray-700">
                       {editable ? (
-                        <input
-                          type="number"
-                          min="1"
-                          value={productos[i]?.cantidad ?? item.cantidad}
-                          onChange={(e) => onCambiarLinea?.(i, 'cantidad', e.target.value)}
-                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-center ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
-                        />
+                        <div className="space-y-2">
+                          <p className="text-sm font-black text-gray-900">{item.cantidadOriginal}</p>
+                          <input
+                            type="number"
+                            min="1"
+                            value={productos[i]?.cantidad ?? item.cantidad}
+                            onChange={(e) => onCambiarLinea?.(i, 'cantidad', e.target.value)}
+                            className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-black text-center text-gray-900"
+                            title="Cantidad entregada"
+                          />
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Entregada</p>
+                        </div>
                       ) : (
-                        <p className={item.faltanteTotal ? 'text-gray-400 line-through' : ''}>
-                          Cantidad: {item.ajusteParcial ? `${item.cantidad} de ${item.cantidadOriginal}` : item.cantidad}
-                        </p>
+                        <p>Cantidad: {item.cantidadOriginal}</p>
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-right text-sm font-semibold text-gray-700">
@@ -707,26 +727,14 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                           step="0.01"
                           value={productos[i]?.precio ?? item.precioUnitario}
                           onChange={(e) => onCambiarLinea?.(i, 'precio', e.target.value)}
-                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-right ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-black text-right text-gray-900"
                         />
                       ) : (
-                        <p className={item.faltanteTotal ? 'text-gray-400 line-through' : ''}>{formatearMoneda(item.precioUnitario)}</p>
+                        <p>{formatearMoneda(item.precioUnitario)}</p>
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-right text-sm font-black">
-                      {item.faltanteTotal ? (
-                        <div className="space-y-1 md:text-right">
-                          <p className="text-gray-400 line-through">{formatearMoneda(item.subtotalOriginal)}</p>
-                          <p className="text-red-600 uppercase text-[11px]">No se cobra</p>
-                        </div>
-                      ) : item.ajusteParcial ? (
-                        <div className="space-y-1 md:text-right">
-                          <p className="text-gray-400 line-through">{formatearMoneda(item.subtotalOriginal)}</p>
-                          <p className="text-amber-700">{formatearMoneda(item.subtotalFacturable)}</p>
-                        </div>
-                      ) : (
-                        <p className="text-emerald-600">{formatearMoneda(item.subtotalFacturable)}</p>
-                      )}
+                      <p className="text-emerald-600">{formatearMoneda(item.subtotalOriginal)}</p>
                     </div>
                     {editable ? (
                       <div className="md:col-span-3 flex flex-col items-stretch md:items-center justify-center gap-2">
@@ -749,9 +757,33 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                   </div>
                 ))}
               </div>
+              <div className="px-4 py-4 bg-rose-50/70 border-t border-rose-200">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-black uppercase tracking-widest text-rose-700">Faltantes y descuentos</p>
+                  <p className="text-sm font-black text-rose-700">-{formatearMoneda(descuentoAplicado)}</p>
+                </div>
+                {lineasFaltantes.length === 0 ? (
+                  <p className="text-sm font-semibold text-rose-700">Sin faltantes registrados.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {lineasFaltantes.map((item) => (
+                      <div key={`${pedido.id}-faltante-${item.key}`} className="rounded-xl border border-rose-200 bg-white px-3 py-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black uppercase text-rose-900 break-words">{item.descripcion}</p>
+                          <p className="text-xs font-semibold text-rose-700">
+                            Faltan {item.faltanteCantidad} de {item.cantidadOriginal}
+                            {item.motivoAjuste ? ` · ${item.motivoAjuste}` : ''}
+                          </p>
+                        </div>
+                        <p className="text-sm font-black text-rose-700">-{formatearMoneda(item.descuentoFaltante)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {editable && (
                 <div className="px-4 py-4 bg-white border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <p className="text-xs font-black uppercase tracking-widest text-gray-500">Guardá la factura para persistir productos tachados y nuevo total.</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-500">Guardá para persistir faltantes y descuento final sin alterar la factura original.</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -772,7 +804,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 </div>
               )}
               <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                <p className="text-xs font-black uppercase tracking-widest text-gray-500">Total de la factura</p>
+                <p className="text-xs font-black uppercase tracking-widest text-gray-500">Total a abonar</p>
                 <p className="text-lg font-black text-emerald-600">{formatearMoneda(totalPedido)}</p>
               </div>
             </div>
