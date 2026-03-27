@@ -219,7 +219,7 @@ const productoFueAjustado = (producto = {}) => Boolean(
 );
 
 const construirLineasFactura = (productos = []) => productos.map((prod, index) => {
-  const cantidad = Math.max(1, Number(prod?.cantidad) || 1);
+  const cantidad = Math.max(0, Number(prod?.cantidad) || 0);
   const cantidadOriginal = Math.max(cantidad, Number(prod?.cantidad_original) || cantidad);
   const precioUnitario = Math.max(0, Number(prod?.precio) || 0);
   // subtotalOriginal siempre muestra lo que se pidió (para referencia)
@@ -227,8 +227,10 @@ const construirLineasFactura = (productos = []) => productos.map((prod, index) =
   // subtotalFacturable es lo que REALMENTE se cobra (cantidad entregada)
   const subtotalFacturable = cantidad * precioUnitario;
   const ajustado = productoFueAjustado(prod);
-  const faltanteTotal = Boolean(prod?.faltante || prod?.anulado || prod?.descontado || prod?.omitido);
+  // faltante total SOLO si es 0 la cantidad entregada Y está marcado como faltante/anulado
+  const faltanteTotal = Boolean(prod?.faltante || prod?.anulado || prod?.descontado || prod?.omitido) && cantidad === 0;
   const ajusteParcial = !faltanteTotal && cantidadOriginal > cantidad;
+  // Si es faltante total (cantidad=0), faltan todas las originales. Si es parcial, faltan las restantes
   const faltanteCantidad = faltanteTotal ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
   const descuentoFaltante = faltanteCantidad * precioUnitario;
   const motivoAjuste = String(
@@ -261,12 +263,14 @@ const obtenerItemsFacturablesDesdeLineas = (lineas = []) => lineas.reduce((acc, 
 const obtenerDescuentosFaltantesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.descuentoFaltante) || 0), 0);
 
 const serializarProductosFactura = (productos = []) => productos.map((producto) => {
-  const cantidad = Math.max(1, Number(producto?.cantidad) || 1);
+  const cantidad = Math.max(0, Number(producto?.cantidad) || 0);
   const cantidadOriginal = Math.max(cantidad, Number(producto?.cantidad_original) || cantidad);
   const precio = Math.max(0, Number(producto?.precio) || 0);
+  // faltante total SOLO si está marcado como faltante Y la cantidad es 0
+  const esRealmenteFaltanteTotal = Boolean(producto?.faltante || producto?.anulado) && cantidad === 0;
   const faltante = Boolean(producto?.faltante || producto?.anulado || producto?.ajustado_por_admin);
-  const faltanteCantidad = Math.max(0, cantidadOriginal - cantidad);
-  const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${cantidad} de ${cantidadOriginal}` : '';
+  const faltanteCantidad = esRealmenteFaltanteTotal ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
+  const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${Math.max(0, cantidad)} de ${cantidadOriginal}` : '';
   return {
     id: producto?.id || null,
     nombre: String(producto?.nombre || 'Producto sin nombre').trim() || 'Producto sin nombre',
@@ -2039,19 +2043,21 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setProductosFacturaEditados((prev) => prev.map((producto, index) => {
       if (index !== indice) return producto;
       if (campo === 'cantidad') {
-        const nuevaCantidad = Math.max(1, Number(valor) || 1);
+        const nuevaCantidad = Math.max(0, Number(valor) || 0);
         // Preserva cantidad_original si ya existe; si no, usala cantidad actual como original
         const cantidadOriginal = Number(producto?.cantidad_original) || Number(producto?.cantidad) || nuevaCantidad;
-        const faltanteCantidad = Math.max(0, cantidadOriginal - nuevaCantidad);
-        const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${nuevaCantidad} de ${cantidadOriginal}` : '';
         const estaMarcadoFaltanteTotal = Boolean(producto?.faltante || producto?.anulado);
+        // Solo es faltante total si está marcado Y se entregan 0
+        const esRealmenteFaltanteTotal = estaMarcadoFaltanteTotal && nuevaCantidad === 0;
+        const faltanteCantidad = esRealmenteFaltanteTotal ? cantidadOriginal : Math.max(0, cantidadOriginal - nuevaCantidad);
+        const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${nuevaCantidad} de ${cantidadOriginal}` : '';
         return {
           ...producto,
           cantidad: nuevaCantidad,
           cantidad_original: cantidadOriginal,
           faltante_cantidad: faltanteCantidad,
           ajustado_por_admin: estaMarcadoFaltanteTotal || faltanteCantidad > 0,
-          motivo_ajuste: estaMarcadoFaltanteTotal
+          motivo_ajuste: esRealmenteFaltanteTotal
             ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante')
             : motivoPorCantidad,
         };
@@ -2064,20 +2070,24 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const toggleLineaFacturaFaltante = (indice) => {
     setProductosFacturaEditados((prev) => prev.map((producto, index) => {
       if (index !== indice) return producto;
-      const cantidad = Math.max(1, Number(producto?.cantidad) || 1);
-      const cantidadOriginal = Math.max(cantidad, Number(producto?.cantidad_original) || cantidad);
-      const faltante = !Boolean(producto?.faltante || producto?.anulado);
-      const faltanteCantidad = faltante ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
-      const motivoPorCantidad = cantidadOriginal > cantidad ? `Se entregan ${cantidad} de ${cantidadOriginal}` : '';
+      const estaMarcadoActualmente = Boolean(producto?.faltante || producto?.anulado);
+      // Toggle: si está marcado, desmarcar (si no, marcar con cantidad=0)
+      const nuevoEstadoFaltante = !estaMarcadoActualmente;
+      const cantidadActual = Math.max(0, Number(producto?.cantidad) || 0);
+      const cantidadOriginal = Number(producto?.cantidad_original) || cantidadActual;
+      // Si se marca como faltante total: cantidad = 0. Si se desmarca: vuelve a la cantidad original
+      const nuevaCantidad = nuevoEstadoFaltante ? 0 : cantidadOriginal;
+      const faltanteCantidad = nuevoEstadoFaltante ? cantidadOriginal : Math.max(0, cantidadOriginal - nuevaCantidad);
+      const motivoPorCantidad = cantidadOriginal > nuevaCantidad ? `Se entregan ${nuevaCantidad} de ${cantidadOriginal}` : '';
       return {
         ...producto,
-        cantidad,
+        cantidad: nuevaCantidad,
         cantidad_original: cantidadOriginal,
-        faltante,
-        anulado: faltante,
+        faltante: nuevoEstadoFaltante,
+        anulado: nuevoEstadoFaltante,
         faltante_cantidad: faltanteCantidad,
-        ajustado_por_admin: faltante || faltanteCantidad > 0,
-        motivo_ajuste: faltante
+        ajustado_por_admin: nuevoEstadoFaltante || faltanteCantidad > 0,
+        motivo_ajuste: nuevoEstadoFaltante
           ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante')
           : motivoPorCantidad,
       };
