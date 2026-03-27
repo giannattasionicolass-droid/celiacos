@@ -74,6 +74,58 @@ const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, t
   },
 });
 
+const extraerMensajeErrorInvoke = async (error) => {
+  if (!error) return 'Error desconocido al enviar email.';
+
+  if (typeof error === 'string') return error;
+
+  const baseMessage = String(error?.message || '').trim();
+  const context = error?.context;
+
+  if (context) {
+    try {
+      const response = typeof context.clone === 'function' ? context.clone() : context;
+      if (typeof response?.json === 'function') {
+        const body = await response.json();
+        if (body?.error) return String(body.error);
+        if (body?.message) return String(body.message);
+      }
+    } catch {
+      // Intentamos extraer texto plano si json falla.
+      try {
+        const response = typeof context.clone === 'function' ? context.clone() : context;
+        if (typeof response?.text === 'function') {
+          const text = await response.text();
+          if (text) return String(text);
+        }
+      } catch {
+        // Sin más detalle disponible.
+      }
+    }
+  }
+
+  return baseMessage || 'Error desconocido al enviar email.';
+};
+
+const normalizarMensajeEmailUsuario = (mensajeTecnico) => {
+  const mensaje = String(mensajeTecnico || '').trim();
+  const lower = mensaje.toLowerCase();
+
+  if (lower.includes('you can only send testing emails')) {
+    return 'Resend esta en modo prueba: solo puede enviar a celiashopazul@gmail.com. Verifica un dominio en Resend y actualiza ORDER_EMAIL_FROM.';
+  }
+
+  if (lower.includes('solo un administrador puede notificar')) {
+    return 'Solo un usuario administrador puede enviar esta notificacion.';
+  }
+
+  if (lower.includes('el pedido no tiene email del cliente')) {
+    return 'El pedido no tiene email del cliente cargado.';
+  }
+
+  return 'No pudimos confirmar el envio del email. Revisa la configuracion de Resend.';
+};
+
 export const enviarEmailPedido = async ({ tipo, pedido, cliente = {}, estadoAnterior = null }) => {
   try {
     const payload = construirPayloadPedido({ tipo, pedido, cliente, estadoAnterior });
@@ -87,7 +139,9 @@ export const enviarEmailPedido = async ({ tipo, pedido, cliente = {}, estadoAnte
 
     return { ok: true, data };
   } catch (error) {
-    console.error('No se pudo enviar el email del pedido:', error);
-    return { ok: false, error };
+    const detalle = await extraerMensajeErrorInvoke(error);
+    const mensaje = normalizarMensajeEmailUsuario(detalle);
+    console.error('No se pudo enviar el email del pedido:', detalle, error);
+    return { ok: false, error, mensaje, detalle };
   }
 };

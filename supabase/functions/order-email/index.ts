@@ -81,16 +81,20 @@ const getProducts = (order: Order = {}) => Array.isArray(order.productos) ? orde
 
 const renderInvoice = (order: Order = {}, customer: Customer = {}, shopEmail = DEFAULT_SHOP_EMAIL) => {
   const rows = getProducts(order).length === 0
-    ? '<tr><td colspan="4" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
+    ? '<tr><td colspan="5" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
     : getProducts(order).map((item) => {
         const quantity = Number(item?.cantidad) || 1;
         const price = Number(item?.precio) || 0;
         const subtotal = quantity * price;
+        const imageHtml = item?.imagen_url
+          ? `<img src="${escapeHtml(item.imagen_url)}" alt="${escapeHtml(item?.nombre || '')}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto;" />`
+          : `<div style="width:60px;height:60px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto;">&#128230;</div>`;
         return `<tr>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;">${escapeHtml(item?.nombre || 'Producto sin nombre')}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;">${quantity}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;">${escapeHtml(formatCurrency(price))}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;">${escapeHtml(formatCurrency(subtotal))}</td>
+          <td style="padding:10px;border:1px solid #e5e7eb;text-align:center;vertical-align:middle;">${imageHtml}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;vertical-align:middle;">${escapeHtml(item?.nombre || 'Producto sin nombre')}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;">${quantity}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;vertical-align:middle;">${escapeHtml(formatCurrency(price))}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;">${escapeHtml(formatCurrency(subtotal))}</td>
         </tr>`;
       }).join('');
 
@@ -112,6 +116,7 @@ const renderInvoice = (order: Order = {}, customer: Customer = {}, shopEmail = D
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr>
+            <th style="background:#f9fafb;padding:10px;border:1px solid #e5e7eb;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Imagen</th>
             <th style="background:#f9fafb;padding:10px;border:1px solid #e5e7eb;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Producto</th>
             <th style="background:#f9fafb;padding:10px;border:1px solid #e5e7eb;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Cantidad</th>
             <th style="background:#f9fafb;padding:10px;border:1px solid #e5e7eb;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.08em;">Unitario</th>
@@ -165,7 +170,7 @@ const getAuthenticatedUser = async (authorization: string) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Faltan variables SUPABASE_URL o SUPABASE_ANON_KEY en la función.');
+    throw new Error('Faltan variables SUPABASE_URL o NON_KEY en la función.');
   }
 
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
@@ -197,7 +202,7 @@ Deno.serve(async (req) => {
     const eventType = payload?.eventType;
     const customer = payload?.customer || {};
     const order = payload?.order || {};
-    const shopEmail = String(payload?.shop?.email || Deno.env.get('ORDER_NOTIFICATION_EMAIL') || DEFAULT_SHOP_EMAIL).trim();
+    const shopEmail = String(Deno.env.get('ORDER_NOTIFICATION_EMAIL') || DEFAULT_SHOP_EMAIL).trim();
 
     if (!eventType || !order?.numero) {
       return jsonResponse({ error: 'Payload incompleto para enviar email.' }, 400);
@@ -231,23 +236,7 @@ Deno.serve(async (req) => {
     const sent: Array<{ to: string; subject: string }> = [];
 
     if (eventType === 'pedido_creado') {
-      const introCliente = `Tu pedido fue registrado correctamente. Te enviamos el detalle completo y la factura para confirmar que la compra ingresó con éxito.`;
       const introTienda = `Se registró un nuevo pedido en CeliaShop y esta copia incluye el detalle completo de la factura para seguimiento interno.`;
-
-      if (customer?.email) {
-        await sendEmail({
-          apiKey: resendApiKey,
-          from,
-          to: customer.email,
-          subject: `CeliaShop: pedido #${order.numero} confirmado`,
-          html: renderEmailLayout({
-            title: `Pedido #${order.numero} confirmado`,
-            intro: introCliente,
-            invoiceHtml,
-          }),
-        });
-        sent.push({ to: customer.email, subject: `CeliaShop: pedido #${order.numero} confirmado` });
-      }
 
       await sendEmail({
         apiKey: resendApiKey,
@@ -265,24 +254,20 @@ Deno.serve(async (req) => {
     }
 
     if (eventType === 'estado_actualizado') {
-      if (!customer?.email) {
-        return jsonResponse({ error: 'El pedido no tiene email del cliente para notificar el cambio de estado.' }, 400);
-      }
-
       const previous = order.estadoAnterior ? ` antes estaba en ${order.estadoAnterior}` : '';
       await sendEmail({
         apiKey: resendApiKey,
         from,
-        to: customer.email,
-        subject: `CeliaShop: tu pedido #${order.numero} ahora está ${String(order.estado || '').toLowerCase()}`,
+        to: shopEmail,
+        subject: `Actualización de estado #${order.numero}: ${String(order.estado || '').toLowerCase()}`,
         html: renderEmailLayout({
-          title: `Actualización de tu pedido #${order.numero}`,
-          intro: `El estado de tu pedido cambió a ${order.estado || 'Pendiente'}${previous}. Te dejamos nuevamente el detalle para que puedas seguirlo en todo momento.`,
-          extraBlock: `<div style="margin-bottom:20px;padding:16px;border-radius:16px;background:#ecfdf5;color:#065f46;font-size:14px;line-height:1.7;"><strong>Estado actual:</strong> ${escapeHtml(order.estado || 'Pendiente')}</div>`,
+          title: `Actualización de pedido #${order.numero}`,
+          intro: `El pedido de ${getCustomerName(customer)} cambió a ${order.estado || 'Pendiente'}${previous}. Se envía copia para seguimiento interno.`,
+          extraBlock: `<div style="margin-bottom:20px;padding:16px;border-radius:16px;background:#ecfdf5;color:#065f46;font-size:14px;line-height:1.7;"><strong>Estado actual:</strong> ${escapeHtml(order.estado || 'Pendiente')}<br/><strong>Cliente:</strong> ${escapeHtml(getCustomerName(customer))}<br/><strong>Email cliente:</strong> ${escapeHtml(customer.email || 'No informado')}</div>`,
           invoiceHtml,
         }),
       });
-      sent.push({ to: customer.email, subject: `CeliaShop: tu pedido #${order.numero} ahora está ${String(order.estado || '').toLowerCase()}` });
+      sent.push({ to: shopEmail, subject: `Actualización de estado #${order.numero}: ${String(order.estado || '').toLowerCase()}` });
     }
 
     return jsonResponse({ ok: true, sent });

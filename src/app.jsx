@@ -4,7 +4,7 @@ import { enviarEmailPedido } from './orderNotifications';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
-const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado'];
+const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado', 'Cancelado'];
 
 const CATEGORIAS_PREDEFINIDAS = [
   'Harinas',
@@ -29,19 +29,69 @@ const DATOS_CELIASHOP = {
   condicionIva: 'Responsable Inscripto'
 };
 
-const obtenerProductosPedido = (pedido) => {
-  const candidatos = [pedido?.productos, pedido?.items, pedido?.detalle, pedido?.carrito];
-  for (const valor of candidatos) {
-    if (Array.isArray(valor)) return valor;
-    if (typeof valor === 'string') {
-      try {
-        const parsed = JSON.parse(valor);
-        if (Array.isArray(parsed)) return parsed;
-      } catch {
-        // Ignorar strings que no sean JSON.
+const normalizarProductoPedido = (item = {}) => {
+  const productoBase = item?.producto && typeof item.producto === 'object' ? item.producto : {};
+  const cantidad = Number(
+    item?.cantidad ?? item?.quantity ?? item?.qty ?? item?.cant ?? productoBase?.cantidad ?? productoBase?.quantity ?? 1
+  ) || 1;
+  const precio = Number(
+    item?.precio ?? item?.price ?? item?.unit_price ?? item?.precio_unitario ?? productoBase?.precio ?? productoBase?.price ?? 0
+  ) || 0;
+
+  return {
+    id: item?.id || item?.producto_id || productoBase?.id || null,
+    nombre: item?.nombre || item?.descripcion || item?.name || productoBase?.nombre || productoBase?.descripcion || productoBase?.name || 'Producto sin nombre',
+    cantidad,
+    precio,
+    imagen_url: item?.imagen_url || item?.imagen || item?.image || item?.image_url || productoBase?.imagen_url || productoBase?.imagen || productoBase?.image || productoBase?.image_url || '',
+  };
+};
+
+const extraerArrayProductos = (valor) => {
+  if (!valor) return [];
+  if (Array.isArray(valor)) return valor;
+
+  if (typeof valor === 'string') {
+    try {
+      const parsed = JSON.parse(valor);
+      return extraerArrayProductos(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof valor === 'object') {
+    const claves = ['productos', 'items', 'detalle', 'carrito', 'lineas', 'line_items', 'order_items'];
+    for (const clave of claves) {
+      if (Array.isArray(valor?.[clave])) return valor[clave];
+      if (typeof valor?.[clave] === 'string') {
+        const parsed = extraerArrayProductos(valor[clave]);
+        if (parsed.length) return parsed;
       }
     }
   }
+
+  return [];
+};
+
+const obtenerProductosPedido = (pedido) => {
+  const candidatos = [
+    pedido?.productos,
+    pedido?.items,
+    pedido?.detalle,
+    pedido?.carrito,
+    pedido?.line_items,
+    pedido?.lineas,
+    pedido?.order_items,
+  ];
+
+  for (const valor of candidatos) {
+    const productos = extraerArrayProductos(valor);
+    if (productos.length > 0) {
+      return productos.map((item) => normalizarProductoPedido(item));
+    }
+  }
+
   return [];
 };
 
@@ -65,7 +115,9 @@ const obtenerTotalPedido = (pedido) => Number(pedido?.total ?? pedido?.monto ?? 
 const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.direccion || pedido?.direccion_envio || pedido?.domicilio || 'Sin dirección cargada';
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || null;
 const obtenerNumeroPedido = (pedido) => String(pedido?.id || 'sin-id').replace(/-/g, '').slice(0, 8).toUpperCase();
-const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).reduce((acc, prod) => acc + (Number(prod?.cantidad) || 0), 0);
+const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).reduce((acc, prod) => (
+  acc + (Number(prod?.cantidad ?? prod?.quantity ?? prod?.qty) || 0)
+), 0);
 const formatearMoneda = (valor) => `$${Number(valor || 0).toFixed(2)}`;
 const PEDIDOS_SNAPSHOT_KEY = 'celiashop_pedidos_snapshot';
 const obtenerClaseEstadoPedido = (estado) => {
@@ -74,6 +126,7 @@ const obtenerClaseEstadoPedido = (estado) => {
   if (valor === 'confirmado') return 'bg-blue-100 text-blue-700 ring-1 ring-blue-200';
   if (valor === 'enviado') return 'bg-amber-100 text-amber-700 ring-1 ring-amber-200';
   if (valor === 'entregado') return 'bg-green-100 text-green-700 ring-1 ring-green-200';
+  if (valor === 'cancelado') return 'bg-gray-300 text-gray-700 ring-1 ring-gray-400';
   return 'bg-gray-100 text-gray-700 ring-1 ring-gray-200';
 };
 
@@ -109,6 +162,14 @@ const obtenerVisualEstadoPedido = (estado) => {
       claseContenedor: 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-300',
       claseIcono: 'bg-emerald-600 text-white',
       texto: 'Entregado'
+    };
+  }
+  if (valor === 'cancelado') {
+    return {
+      icono: X,
+      claseContenedor: 'bg-gray-200 text-gray-800 ring-2 ring-gray-400',
+      claseIcono: 'bg-gray-600 text-white',
+      texto: 'Cancelado'
     };
   }
   return {
@@ -317,8 +378,52 @@ const obtenerClienteDePedido = (pedido, clientes = []) => {
   return clientes.find((cliente) => String(cliente?.id || '') === clienteId) || null;
 };
 
+const construirClienteFallbackDesdePedido = (pedido) => ({
+  id: obtenerIdClientePedido(pedido) || null,
+  nombre: '',
+  apellido: '',
+  email: pedido?.email || '',
+  telefono: pedido?.telefono || '',
+  cuit: pedido?.cuit || '',
+  direccion_envio: obtenerDireccionPedido(pedido) || '',
+});
+
 function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
-  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas resaltarEstadoActual />;
+  const [expandido, setExpandido] = useState(false);
+  const productos = obtenerProductosPedido(pedido);
+  const total = obtenerTotalPedido(pedido);
+  const estado = obtenerEstadoPedido(pedido);
+
+  return (
+    <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpandido((prev) => !prev)}
+        className="w-full text-left px-5 py-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Pedido #{obtenerNumeroPedido(pedido)}</p>
+            <p className="text-sm font-semibold text-gray-700 mt-1">{formatearFechaPedido(pedido)}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${obtenerClaseEstadoPedido(estado)}`}>{estado}</span>
+            <span className="text-sm font-black text-emerald-700">{formatearMoneda(total)}</span>
+            <span className="text-xs font-semibold text-gray-500">{obtenerCantidadItemsPedido(pedido) || productos.length} items</span>
+            <span className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest">
+              {expandido ? 'Ocultar detalle' : 'Ver detalle'}
+            </span>
+          </div>
+        </div>
+      </button>
+
+      {expandido && (
+        <div className="border-t border-gray-100 p-4 md:p-5 bg-gray-50/60">
+          <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas resaltarEstadoActual />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false }) {
@@ -661,20 +766,14 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
           { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          { user_id: perfilId, total, direccion_envio: direccion.trim(), estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          { user_id: perfilId, total, estado: 'Pendiente', fecha: new Date().toISOString(), email: emailCliente, telefono: telefonoCliente },
-          { user_id: perfilId, total },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim(), estado: 'Pendiente' },
           { usuario_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim(), estado: 'Pendiente' },
           { usuario_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { user_id: perfilId, productos: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
-          { user_id: perfilId, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { perfil_id: perfilId, items: productosPedido, total, direccion: direccion.trim(), estado: 'Pendiente' },
           { usuario_id: perfilId, carrito: productosPedido, total, estado: 'Pendiente' },
-          { perfil_id: perfilId, total, estado: 'Pendiente' },
-          { usuario_id: perfilId, total },
         ];
         for (const payload of variantes) {
           const { data: ins, error: insErr } = await supabase
@@ -733,11 +832,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           direccion_envio: direccion.trim()
         }
       }).then((resultado) => {
-        if (!resultado.ok) {
-          setMensajeToast('Pedido guardado, pero no se pudo enviar el email automático.');
-          setMostrarToast(true);
-          setTimeout(() => setMostrarToast(false), 5000);
-        }
+        // Email sent, no notification needed
       });
     } catch (err) {
       console.error('Error inesperado checkout:', err);
@@ -1295,6 +1390,17 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [filtroCliente, setFiltroCliente] = useState('');
   const [pedidosExpandido, setPedidosExpandido] = useState({});
   const [pedidosClienteExpandido, setPedidosClienteExpandido] = useState({});
+  const [clientesExpandido, setClientesExpandido] = useState({});
+  const [clienteEditandoId, setClienteEditandoId] = useState(null);
+  const [clienteEditado, setClienteEditado] = useState({
+    nombre: '',
+    apellido: '',
+    email: '',
+    telefono: '',
+    cuit: '',
+    direccion_envio: '',
+  });
+  const [guardandoClienteId, setGuardandoClienteId] = useState(null);
   const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas' });
   const [productoEditando, setProductoEditando] = useState(null);
 
@@ -1446,7 +1552,30 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         }
 
         const pedidoActualizado = { ...pedido, ...data, estado: estadoPersistido };
-        const clientePedido = obtenerClienteDePedido(pedidoActualizado, clientes);
+        const clienteBase = obtenerClienteDePedido(pedidoActualizado, clientes) || construirClienteFallbackDesdePedido(pedidoActualizado);
+        let clientePedido = { ...clienteBase };
+
+        // En la pestaña de ventas, la lista de clientes puede no estar cargada.
+        // Si falta email, intentamos resolverlo desde perfiles para no perder el aviso.
+        if (!clientePedido.email && clientePedido.id) {
+          const { data: perfil, error: errorPerfil } = await supabase
+            .from('perfiles')
+            .select('id, nombre, apellido, email, telefono, cuit, direccion_envio')
+            .eq('id', clientePedido.id)
+            .maybeSingle();
+
+          if (!errorPerfil && perfil) {
+            clientePedido = {
+              ...clientePedido,
+              ...perfil,
+              email: perfil.email || clientePedido.email || '',
+              telefono: perfil.telefono || clientePedido.telefono || '',
+              cuit: perfil.cuit || clientePedido.cuit || '',
+              direccion_envio: perfil.direccion_envio || clientePedido.direccion_envio || '',
+            };
+          }
+        }
+
         guardarSnapshotPedido(pedidoActualizado);
         setPedidos((prev) => prev.map((item) => item.id === pedido.id ? enriquecerPedidoConSnapshot(pedidoActualizado) : item));
         onPedidosSync?.();
@@ -1457,11 +1586,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
           estadoAnterior,
         });
         setActualizandoPedidoId(null);
-        if (!resultadoEmail.ok) {
-          alert(`Estado actualizado a ${nuevoEstado}, pero el email al cliente no pudo enviarse.`);
-          return;
-        }
-        alert(`Estado actualizado a ${nuevoEstado}.`);
         return;
       }
 
@@ -1679,7 +1803,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   };
 
   const clientesConPedidos = clientes.map((cli) => {
-    const pedidosCliente = pedidos.filter((p) => String(p.user_id || p.perfil_id || p.usuario_id || '') === String(cli.id));
+    const pedidosCliente = pedidos.filter((p) => String(p.user_id || p.perfil_id || p.usuario_id || p.cliente_id || '') === String(cli.id));
     const totalGastado = pedidosCliente.reduce((acc, p) => acc + obtenerTotalPedido(p), 0);
     return { ...cli, pedidosCliente, totalGastado };
   });
@@ -1730,6 +1854,88 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       ...prev,
       [key]: !prev[key],
     }));
+  };
+
+  const toggleClienteExpandido = (clienteId) => {
+    setClientesExpandido((prev) => ({
+      ...prev,
+      [clienteId]: !prev[clienteId],
+    }));
+  };
+
+  const iniciarEdicionCliente = (cli) => {
+    setClienteEditandoId(cli.id);
+    setClienteEditado({
+      nombre: cli?.nombre || '',
+      apellido: cli?.apellido || '',
+      email: cli?.email || '',
+      telefono: cli?.telefono || '',
+      cuit: cli?.cuit || '',
+      direccion_envio: cli?.direccion_envio || '',
+    });
+  };
+
+  const cancelarEdicionCliente = () => {
+    setClienteEditandoId(null);
+    setClienteEditado({
+      nombre: '',
+      apellido: '',
+      email: '',
+      telefono: '',
+      cuit: '',
+      direccion_envio: '',
+    });
+  };
+
+  const guardarEdicionCliente = async (clienteId) => {
+    setGuardandoClienteId(clienteId);
+    try {
+      const payload = {
+        nombre: String(clienteEditado.nombre || '').trim(),
+        apellido: String(clienteEditado.apellido || '').trim(),
+        email: String(clienteEditado.email || '').trim(),
+        telefono: String(clienteEditado.telefono || '').trim(),
+        cuit: String(clienteEditado.cuit || '').trim(),
+        direccion_envio: String(clienteEditado.direccion_envio || '').trim(),
+      };
+
+      const { error } = await supabase
+        .from('perfiles')
+        .update(payload)
+        .eq('id', clienteId);
+
+      if (error) throw error;
+
+      setClientes((prev) => prev.map((cli) => (
+        String(cli.id) === String(clienteId)
+          ? { ...cli, ...payload }
+          : cli
+      )));
+      cancelarEdicionCliente();
+      alert('Perfil de cliente actualizado.');
+    } catch (error) {
+      alert('No se pudo actualizar el perfil: ' + (error?.message || 'Error desconocido'));
+    } finally {
+      setGuardandoClienteId(null);
+    }
+  };
+
+  const enviarRecuperacionCliente = async (cli) => {
+    const email = String(cli?.email || '').trim();
+    if (!email) {
+      alert('Este cliente no tiene email cargado.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      alert(`Se envió el email de recuperación a ${email}.`);
+    } catch (error) {
+      alert('No se pudo enviar el email de recuperación: ' + (error?.message || 'Error desconocido'));
+    }
   };
 
   return (
@@ -1873,7 +2079,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             {pedidosFiltrados.map((ped) => {
               const productos = obtenerProductosPedido(ped);
               const estadoActual = obtenerEstadoPedido(ped);
-              const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || 'sin-id');
+              const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || ped.cliente_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
               const clienteFactura = clientesPorId[clienteId] || {
                 id: clienteId,
@@ -1888,11 +2094,18 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-xs md:text-sm font-black uppercase tracking-[0.2em] text-red-100 mb-2">Pedido #{obtenerNumeroPedido(ped)}</p>
-                        <h4 className="font-black text-2xl uppercase tracking-tighter">Cliente {clienteId.slice(0, 8)}</h4>
-                        <p className="text-sm font-semibold text-red-50 mt-1">Compra: {formatearFechaPedido(ped)}</p>
-                        <p className="text-sm font-semibold text-red-100 mt-1 break-all">ID usuario: {clienteId}</p>
+                        <h4 className="font-black text-2xl uppercase tracking-tighter">{clienteFactura.nombre && clienteFactura.apellido ? `${clienteFactura.nombre} ${clienteFactura.apellido}` : 'Cliente'}</h4>
+                        <p className="text-sm font-semibold text-red-50 mt-2">Compra: {formatearFechaPedido(ped)}</p>
+                        <p className="text-sm font-semibold text-red-100 mt-1">Email: {clienteFactura.email || 'No informado'}</p>
+                        <p className="text-sm font-semibold text-red-100 mt-1">Teléfono: {clienteFactura.telefono || 'No informado'}</p>
+                        <p className="text-xs font-semibold text-red-100 mt-1 opacity-75 break-all">ID: {clienteId}</p>
                       </div>
                       <div className="flex flex-col gap-3 min-w-[240px]">
+                        {productos.length === 0 && (
+                          <span className="self-start px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-[11px] font-black uppercase tracking-wide">
+                            Pedido legacy sin detalle
+                          </span>
+                        )}
                         <span className={`self-start px-4 py-2 rounded-full text-sm font-black uppercase tracking-wider ${obtenerClaseEstadoPedido(estadoActual)}`}>
                           {estadoActual}
                         </span>
@@ -1926,6 +2139,31 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   </div>
 
                   <div className="p-6 md:p-8 space-y-4">
+                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 mb-4">
+                      <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-3">Datos del Cliente</p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Nombre</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.nombre && clienteFactura.apellido ? `${clienteFactura.nombre} ${clienteFactura.apellido}` : 'No informado'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Email</p>
+                          <p className="font-bold text-gray-800 break-words">{clienteFactura.email || 'No informado'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Teléfono</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.telefono || 'No informado'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">CUIT</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.cuit || 'No informado'}</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Dirección de Entrega</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.direccion_envio || obtenerDireccionPedido(ped) || 'No informada'}</p>
+                        </div>
+                      </div>
+                    </div>
                     <div className="grid gap-4 md:grid-cols-4">
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Total</p>
@@ -1941,7 +2179,14 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                       </div>
                     </div>
 
-                    {expandido && <FacturaPedido pedido={ped} cliente={clienteFactura} />}
+                    {expandido && productos.length === 0 && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-700">Pedido histórico sin líneas</p>
+                        <p className="text-sm font-semibold text-amber-800 mt-1">Este pedido se guardó sin productos en la base anterior. Los pedidos nuevos ya guardan detalle completo con unidades, precios e imágenes.</p>
+                      </div>
+                    )}
+
+                    {expandido && <FacturaPedido pedido={ped} cliente={clienteFactura} mostrarImagenesEnLineas />}
                   </div>
                 </div>
               );
@@ -1984,83 +2229,190 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 </div>
               )}
 
-              {clientesFiltrados.map((cli) => (
-                <div key={cli.id} className="bg-white rounded-[34px] border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 p-6 text-white">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-300 mb-2">Cliente #{String(cli.id || '').slice(0, 8)}</p>
-                        <h4 className="font-black text-2xl uppercase tracking-tighter">{`${cli.nombre || ''} ${cli.apellido || ''}`.trim() || 'Sin nombre'}</h4>
-                        <p className="text-sm text-gray-300 mt-1 break-all">{cli.email || 'Sin email'}</p>
+              {clientesFiltrados.map((cli) => {
+                const expandidoCliente = Boolean(clientesExpandido[cli.id]);
+                const editandoCliente = String(clienteEditandoId || '') === String(cli.id);
+                return (
+                  <div key={cli.id} className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Fila compacta: nombre, teléfono, email + botón Ver detalle */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4">
+                      <div className="min-w-0">
+                        <p className="text-base font-black uppercase tracking-tight text-gray-900 truncate">{`${cli.nombre || ''} ${cli.apellido || ''}`.trim() || 'Sin nombre'}</p>
+                        <p className="text-sm font-semibold text-gray-500 truncate">{cli.email || 'Sin email'}</p>
+                        <p className="text-sm font-semibold text-gray-500">{cli.telefono || 'Sin teléfono'}</p>
                       </div>
-                      <div className="flex gap-3 flex-wrap">
-                        <span className="px-4 py-2 rounded-full bg-white/10 text-sm font-black uppercase">Pedidos: {cli.pedidosCliente.length}</span>
-                        <span className="px-4 py-2 rounded-full bg-emerald-500/20 text-sm font-black uppercase text-emerald-200">Total: {formatearMoneda(cli.totalGastado)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 md:p-8 space-y-6">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Teléfono</p>
-                        <p className="text-base font-bold text-gray-700 break-words">{cli.telefono || 'No informado'}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">CUIT</p>
-                        <p className="text-base font-bold text-gray-700 break-words">{cli.cuit || 'No informado'}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Dirección</p>
-                        <p className="text-base font-bold text-gray-700 break-words">{cli.direccion_envio || 'No informada'}</p>
-                      </div>
+                      <button
+                        onClick={() => toggleClienteExpandido(cli.id)}
+                        className="shrink-0 px-5 py-2.5 rounded-xl bg-gray-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-gray-700 transition-colors"
+                      >
+                        {expandidoCliente ? 'Ocultar detalle' : 'Ver detalle'}
+                      </button>
                     </div>
 
-                    <div>
-                      <h5 className="text-base md:text-lg font-black uppercase tracking-widest text-gray-900 mb-4">Pedidos del cliente</h5>
-                      {cli.pedidosCliente.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-gray-200 p-5 bg-gray-50">
-                          <p className="text-sm font-semibold text-gray-600">Este cliente todavía no tiene pedidos.</p>
+                    {/* Detalle completo expandido */}
+                    {expandidoCliente && (
+                      <div className="border-t border-gray-100">
+                        <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 px-6 py-5 text-white">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-300 mb-1">Cliente #{String(cli.id || '').slice(0, 8)}</p>
+                              <h4 className="font-black text-2xl uppercase tracking-tighter">{`${cli.nombre || ''} ${cli.apellido || ''}`.trim() || 'Sin nombre'}</h4>
+                              <p className="text-sm text-gray-300 mt-1 break-all">{cli.email || 'Sin email'}</p>
+                            </div>
+                            <div className="flex gap-3 flex-wrap">
+                              <span className="px-4 py-2 rounded-full bg-white/10 text-sm font-black uppercase">Pedidos: {cli.pedidosCliente.length}</span>
+                              <span className="px-4 py-2 rounded-full bg-emerald-500/20 text-sm font-black uppercase text-emerald-200">Total: {formatearMoneda(cli.totalGastado)}</span>
+                              <button
+                                onClick={() => iniciarEdicionCliente(cli)}
+                                className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-black uppercase"
+                              >
+                                Editar perfil
+                              </button>
+                              <button
+                                onClick={() => enviarRecuperacionCliente(cli)}
+                                className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-100 hover:bg-amber-500/35 text-[11px] font-black uppercase"
+                              >
+                                Enviar recovery
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {cli.pedidosCliente.map((p) => {
-                            const productosPedido = obtenerProductosPedido(p);
-                            const key = `${cli.id}-${p.id}`;
-                            const expandidoPedidoCliente = Boolean(pedidosClienteExpandido[key]);
-                            return (
-                              <div key={p.id} className="rounded-2xl border border-gray-100 p-4 bg-white">
-                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-black uppercase text-gray-800">Pedido #{obtenerNumeroPedido(p)}</p>
-                                    <p className="text-sm font-semibold text-gray-600">{formatearFechaPedido(p)} · {obtenerCantidadItemsPedido(p) || productosPedido.length} items</p>
-                                  </div>
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase ${obtenerClaseEstadoPedido(obtenerEstadoPedido(p))}`}>{obtenerEstadoPedido(p)}</span>
-                                    <span className="text-base font-black text-green-700">{formatearMoneda(obtenerTotalPedido(p))}</span>
-                                    <button
-                                      onClick={() => togglePedidoClienteExpandido(cli.id, p.id)}
-                                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-[11px] font-black uppercase"
-                                    >
-                                      {expandidoPedidoCliente ? 'Ocultar detalle' : 'Ver detalle'}
-                                    </button>
-                                  </div>
-                                </div>
 
-                                {expandidoPedidoCliente && (
-                                  <div className="mt-4 border-t border-gray-100 pt-4">
-                                    <FacturaPedido pedido={p} cliente={cli} />
-                                  </div>
-                                )}
+                        <div className="p-6 md:p-8 space-y-6 bg-gradient-to-b from-white to-gray-50/60">
+                          {editandoCliente && (
+                            <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5">
+                              <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-4">Editar perfil del cliente</p>
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <input
+                                  type="text"
+                                  placeholder="Nombre"
+                                  value={clienteEditado.nombre}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, nombre: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Apellido"
+                                  value={clienteEditado.apellido}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, apellido: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold"
+                                />
+                                <input
+                                  type="email"
+                                  placeholder="Email"
+                                  value={clienteEditado.email}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, email: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold md:col-span-2"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Telefono"
+                                  value={clienteEditado.telefono}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, telefono: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="CUIT"
+                                  value={clienteEditado.cuit}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, cuit: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Direccion"
+                                  value={clienteEditado.direccion_envio}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, direccion_envio: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold md:col-span-2"
+                                />
                               </div>
-                            );
-                          })}
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => guardarEdicionCliente(cli.id)}
+                                  disabled={guardandoClienteId === cli.id}
+                                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase disabled:opacity-60"
+                                >
+                                  {guardandoClienteId === cli.id ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                                <button
+                                  onClick={cancelarEdicionCliente}
+                                  className="px-4 py-2 rounded-xl bg-gray-200 text-gray-800 text-xs font-black uppercase"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                              <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Teléfono</p>
+                              <p className="text-base font-bold text-gray-700 break-words">{cli.telefono || 'No informado'}</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                              <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">CUIT</p>
+                              <p className="text-base font-bold text-gray-700 break-words">{cli.cuit || 'No informado'}</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                              <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Dirección</p>
+                              <p className="text-base font-bold text-gray-700 break-words">{cli.direccion_envio || 'No informada'}</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h5 className="text-base md:text-lg font-black uppercase tracking-widest text-gray-900 mb-4">Pedidos del cliente</h5>
+                            {cli.pedidosCliente.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-gray-200 p-5 bg-gray-50">
+                                <p className="text-sm font-semibold text-gray-600">Este cliente todavía no tiene pedidos.</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {cli.pedidosCliente.map((p) => {
+                                  const productosPedido = obtenerProductosPedido(p);
+                                  const key = `${cli.id}-${p.id}`;
+                                  const expandidoPedidoCliente = Boolean(pedidosClienteExpandido[key]);
+                                  return (
+                                    <div key={p.id} className="rounded-2xl border border-gray-100 p-4 bg-white">
+                                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                        <div>
+                                          <p className="text-sm font-black uppercase text-gray-800">Pedido #{obtenerNumeroPedido(p)}</p>
+                                          <p className="text-sm font-semibold text-gray-600">{formatearFechaPedido(p)} · {obtenerCantidadItemsPedido(p) || productosPedido.length} items</p>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                          <span className={`px-3 py-1.5 rounded-full text-xs font-black uppercase ${obtenerClaseEstadoPedido(obtenerEstadoPedido(p))}`}>{obtenerEstadoPedido(p)}</span>
+                                          <span className="text-base font-black text-green-700">{formatearMoneda(obtenerTotalPedido(p))}</span>
+                                          <button
+                                            onClick={() => togglePedidoClienteExpandido(cli.id, p.id)}
+                                            className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-[11px] font-black uppercase"
+                                          >
+                                            {expandidoPedidoCliente ? 'Ocultar' : 'Ver pedido'}
+                                          </button>
+                                          <button
+                                            onClick={() => imprimirFacturaPedido(p, cli)}
+                                            className="px-3 py-2 rounded-xl bg-gray-900 text-white hover:bg-gray-700 text-[11px] font-black uppercase"
+                                          >
+                                            Imprimir
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {expandidoPedidoCliente && (
+                                        <div className="mt-4 border-t border-gray-100 pt-4">
+                                          <FacturaPedido pedido={p} cliente={cli} mostrarImagenesEnLineas />
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -4,29 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CeliaShop</title>
-    <script>
-      if (window.location.hostname.endsWith('github.io')) {
-        const css = document.createElement('link');
-        css.rel = 'stylesheet';
-        css.href = '/celiacos/assets/main.css';
-        document.head.appendChild(css);
-      }
-    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      if (window.location.hostname.endsWith('github.io')) {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = '/celiacos/assets/main.js';
-        document.body.appendChild(script);
-      }
-    </script>
-    <script type="module">
-      if (!window.location.hostname.endsWith('github.io')) {
-        import('/src/main.jsx');
-      }
-    </script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
