@@ -1310,7 +1310,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
   );
 }
 
-function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion }) {
+function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
   const [editando, setEditando] = useState(false);
   const [datosEditados, setDatosEditados] = useState({});
   const [guardando, setGuardando] = useState(false);
@@ -1318,7 +1318,7 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion }) {
   const [exito, setExito] = useState('');
 
   useEffect(() => {
-    if (usuarioLogueado) {
+    if (usuarioLogueado && !editando) {
       setDatosEditados({
         nombre: usuarioLogueado.nombre || '',
         apellido: usuarioLogueado.apellido || '',
@@ -1328,14 +1328,26 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion }) {
         direccion_envio: usuarioLogueado.direccion_envio || ''
       });
     }
-  }, [usuarioLogueado, pedidosVersion]);
+  }, [usuarioLogueado, editando]);
 
   const guardarCambios = async () => {
     setGuardando(true);
     setError('');
     setExito('');
     try {
-      const { error } = await supabase.from('perfiles').update(datosEditados).eq('id', usuarioLogueado.id);
+      const payloadPerfil = {
+        id: usuarioLogueado.id,
+        nombre: datosEditados.nombre || '',
+        apellido: datosEditados.apellido || '',
+        email: datosEditados.email || usuarioLogueado.email || '',
+        cuit: datosEditados.cuit || '',
+        telefono: datosEditados.telefono || '',
+        direccion_envio: datosEditados.direccion_envio || ''
+      };
+
+      const { error } = await supabase
+        .from('perfiles')
+        .upsert(payloadPerfil, { onConflict: 'id' });
       if (error) throw error;
       await onRefrescar();
       setEditando(false);
@@ -2868,7 +2880,7 @@ export default function App() {
           />
         )}
         {pagina === 'perfil' && (
-          <SeccionPerfil usuarioLogueado={usuarioLogueado} user={session?.user} onRefrescar={refrescarPerfil} pedidosVersion={pedidosVersion} />
+          <SeccionPerfil usuarioLogueado={usuarioLogueado} user={session?.user} onRefrescar={refrescarPerfil} />
         )}
         {pagina === 'pedidos' && (
           <SeccionPedidos usuarioLogueado={usuarioLogueado} pedidosVersion={pedidosVersion} />
