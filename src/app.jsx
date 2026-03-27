@@ -941,35 +941,15 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         if (rpcErrV1) lastError = rpcErrV1;
       }
 
-      // Intentos 2-11: variantes de payload directo cubriendo distintos esquemas
-      if (!pedidoId) {
-        const variantes = [
-          // Variantes mínimas para evitar errores por columnas faltantes en esquemas legacy.
-          { user_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion_envio: direccion.trim() },
-          { user_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
-          { perfil_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
-          { usuario_id: perfilId, productos: productosPedido, total, direccion_entrega: direccion.trim() },
-          { user_id: perfilId, productos: productosPedido, total },
-          { perfil_id: perfilId, productos: productosPedido, total },
-          { usuario_id: perfilId, productos: productosPedido, total },
-        ];
-        for (const payload of variantes) {
-          const { data: ins, error: insErr } = await supabase
-            .from('pedidos')
-            .insert([payload])
-            .select('id')
-            .maybeSingle();
-          if (!insErr) { pedidoId = ins?.id || crypto.randomUUID(); break; }
-          lastError = insErr;
-        }
-      }
+      // Sin insert directo a pedidos: evitamos errores de schema cache en columnas legacy.
+      // El alta de pedidos se centraliza en la RPC crear_pedido.
 
       if (!pedidoId) {
         const msg = (lastError?.message || '').toLowerCase();
         console.error('Checkout error final:', lastError);
-        if (msg.includes('security policy') || msg.includes('row-level') || msg.includes('rls')) {
+        if (msg.includes('function') && msg.includes('crear_pedido')) {
+          setMensajeToast('Falta la función crear_pedido. Ejecutá el SQL en Supabase → SQL Editor.');
+        } else if (msg.includes('security policy') || msg.includes('row-level') || msg.includes('rls')) {
           setMensajeToast('Error de permisos (RLS). Ejecutá el SQL en Supabase → SQL Editor.');
         } else if ((msg.includes('relation') || msg.includes('table')) && msg.includes('pedidos')) {
           setMensajeToast('La tabla "pedidos" no existe. Ejecutá el SQL en Supabase → SQL Editor.');
