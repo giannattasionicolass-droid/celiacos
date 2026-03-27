@@ -33,6 +33,10 @@ type Order = {
   fecha?: string;
   total?: number;
   direccion?: string;
+  metodoPago?: string;
+  emailConfirmacion?: string;
+  comprobanteUrl?: string;
+  comprobanteNombre?: string;
   productos?: Product[];
   user_id?: string | null;
 };
@@ -85,6 +89,12 @@ const getCustomerName = (customer: Customer = {}) => {
 };
 
 const getProducts = (order: Order = {}) => Array.isArray(order.productos) ? order.productos : [];
+const getPaymentLabel = (order: Order = {}) => {
+  const raw = String(order.metodoPago || '').toLowerCase();
+  if (raw === 'transferencia') return 'Transferencia bancaria';
+  if (raw === 'contra_entrega') return 'Contra entrega';
+  return raw ? raw.replace(/_/g, ' ') : 'No informado';
+};
 
 const renderInvoice = (order: Order = {}, customer: Customer = {}, shopEmail = DEFAULT_SHOP_EMAIL) => {
   const rows = getProducts(order).length === 0
@@ -119,6 +129,12 @@ const renderInvoice = (order: Order = {}, customer: Customer = {}, shopEmail = D
         Teléfono: ${escapeHtml(customer.telefono || 'No informado')}<br/>
         CUIT: ${escapeHtml(customer.cuit || 'No informado')}<br/>
         Dirección: ${escapeHtml(customer.direccion || order.direccion || 'No informada')}
+      </div>
+      <div style="margin-bottom:18px;padding:12px;border-radius:12px;background:#eff6ff;color:#1e3a8a;font-size:13px;line-height:1.7;">
+        <strong>Método de pago:</strong> ${escapeHtml(getPaymentLabel(order))}<br/>
+        <strong>Email confirmación:</strong> ${escapeHtml(order.emailConfirmacion || customer.email || 'No informado')}<br/>
+        ${String(order.metodoPago || '').toLowerCase() === 'contra_entrega' ? '<strong>Recordatorio:</strong> tener el dinero listo al recibir el pedido.<br/>' : ''}
+        ${String(order.metodoPago || '').toLowerCase() === 'transferencia' ? `<strong>Comprobante:</strong> ${order.comprobanteUrl ? `<a href="${escapeHtml(order.comprobanteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(order.comprobanteNombre || 'Ver comprobante')}</a>` : 'No adjuntado'}` : ''}
       </div>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
@@ -280,6 +296,7 @@ Deno.serve(async (req) => {
 
     if (eventType === 'pedido_creado') {
       const introTienda = `Se registró un nuevo pedido en CeliaShop y esta copia incluye el detalle completo de la factura para seguimiento interno.`;
+      const customerEmail = String(order.emailConfirmacion || customer.email || '').trim();
 
       await sendEmail({
         apiKey: resendApiKey,
@@ -294,6 +311,22 @@ Deno.serve(async (req) => {
         }),
       });
       sent.push({ to: shopEmail, subject: `Nuevo pedido recibido #${order.numero}` });
+
+      if (customerEmail) {
+        await sendEmail({
+          apiKey: resendApiKey,
+          from,
+          to: customerEmail,
+          subject: `Confirmación de tu pedido #${order.numero}`,
+          html: renderEmailLayout({
+            title: `Tu pedido #${order.numero} está confirmado`,
+            intro: `Gracias por comprar en CeliaShop. Este es el detalle completo de tu pedido para control y seguimiento.`,
+            extraBlock: `<div style="margin-bottom:20px;padding:16px;border-radius:16px;background:#ecfdf5;color:#065f46;font-size:14px;line-height:1.7;"><strong>Estado:</strong> ${escapeHtml(order.estado || 'Pendiente')}<br/><strong>Método de pago:</strong> ${escapeHtml(getPaymentLabel(order))}<br/><strong>Email confirmación:</strong> ${escapeHtml(customerEmail)}</div>`,
+            invoiceHtml,
+          }),
+        });
+        sent.push({ to: customerEmail, subject: `Confirmación de tu pedido #${order.numero}` });
+      }
     }
 
     if (eventType === 'estado_actualizado') {

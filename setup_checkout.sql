@@ -12,7 +12,12 @@ create table if not exists public.pedidos (
   total           numeric(12,2) not null default 0,
   direccion_envio text not null default '',
   email           text,
+  email_confirmacion text,
   telefono        text,
+  metodo_pago     text,
+  comprobante_pago_url text,
+  comprobante_pago_nombre text,
+  pago_detalle    jsonb not null default '{}'::jsonb,
   estado          text not null default 'Pendiente',
   fecha           timestamptz not null default now(),
   productos       jsonb not null default '[]'::jsonb
@@ -24,7 +29,12 @@ alter table public.pedidos add column if not exists user_id uuid;
 alter table public.pedidos add column if not exists total numeric(12,2) not null default 0;
 alter table public.pedidos add column if not exists direccion_envio text not null default '';
 alter table public.pedidos add column if not exists email text;
+alter table public.pedidos add column if not exists email_confirmacion text;
 alter table public.pedidos add column if not exists telefono text;
+alter table public.pedidos add column if not exists metodo_pago text;
+alter table public.pedidos add column if not exists comprobante_pago_url text;
+alter table public.pedidos add column if not exists comprobante_pago_nombre text;
+alter table public.pedidos add column if not exists pago_detalle jsonb not null default '{}'::jsonb;
 alter table public.pedidos add column if not exists estado text not null default 'Pendiente';
 alter table public.pedidos add column if not exists fecha timestamptz not null default now();
 alter table public.pedidos add column if not exists productos jsonb not null default '[]'::jsonb;
@@ -163,6 +173,7 @@ grant insert, update on table public.pedidos to authenticated;
 -- 7. Función RPC opcional para el frontend
 drop function if exists public.crear_pedido(uuid, jsonb, numeric, text);
 drop function if exists public.crear_pedido(uuid, jsonb, numeric, text, text, text);
+drop function if exists public.crear_pedido(uuid, jsonb, numeric, text, text, text, text, text, text);
 
 create or replace function public.crear_pedido(
   p_perfil_id uuid,
@@ -170,7 +181,10 @@ create or replace function public.crear_pedido(
   p_total numeric,
   p_direccion text,
   p_email text default null,
-  p_telefono text default null
+  p_telefono text default null,
+  p_email_confirmacion text default null,
+  p_metodo_pago text default null,
+  p_comprobante_url text default null
 )
 returns uuid
 language plpgsql
@@ -180,13 +194,43 @@ as $$
 declare
   v_id uuid;
 begin
-  insert into public.pedidos (user_id, productos, total, direccion_envio, email, telefono, estado, fecha)
-  values (p_perfil_id, coalesce(p_productos, '[]'::jsonb), coalesce(p_total, 0), coalesce(p_direccion, ''), p_email, p_telefono, 'Pendiente', now())
+  insert into public.pedidos (
+    user_id,
+    productos,
+    total,
+    direccion_envio,
+    email,
+    email_confirmacion,
+    telefono,
+    metodo_pago,
+    comprobante_pago_url,
+    estado,
+    fecha,
+    pago_detalle
+  )
+  values (
+    p_perfil_id,
+    coalesce(p_productos, '[]'::jsonb),
+    coalesce(p_total, 0),
+    coalesce(p_direccion, ''),
+    p_email,
+    coalesce(p_email_confirmacion, p_email),
+    p_telefono,
+    coalesce(p_metodo_pago, 'contra_entrega'),
+    p_comprobante_url,
+    'Pendiente',
+    now(),
+    jsonb_build_object(
+      'metodo', coalesce(p_metodo_pago, 'contra_entrega'),
+      'email_confirmacion', coalesce(p_email_confirmacion, p_email),
+      'comprobante_url', p_comprobante_url
+    )
+  )
   returning id into v_id;
   return v_id;
 end;
 $$;
 
-grant execute on function public.crear_pedido(uuid, jsonb, numeric, text, text, text) to authenticated;
+grant execute on function public.crear_pedido(uuid, jsonb, numeric, text, text, text, text, text, text) to authenticated;
 
 notify pgrst, 'reload schema';

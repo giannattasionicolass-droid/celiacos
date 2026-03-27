@@ -54,6 +54,10 @@ const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, t
     fecha: obtenerFechaPedido(pedido),
     total: obtenerTotalPedido(pedido),
     direccion: obtenerDireccionPedido(pedido),
+    metodoPago: pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || '',
+    emailConfirmacion: pedido?.email_confirmacion || pedido?.email || cliente?.email || '',
+    comprobanteUrl: pedido?.comprobante_pago_url || pedido?.comprobante_url || '',
+    comprobanteNombre: pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || '',
     productos: obtenerProductosPedido(pedido).map((item) => ({
       id: item?.id || null,
       nombre: item?.nombre || 'Producto sin nombre',

@@ -29,6 +29,14 @@ const DATOS_CELIASHOP = {
   condicionIva: 'Responsable Inscripto'
 };
 
+const DATOS_BANCARIOS = {
+  banco: '',
+  titular: '',
+  cuit: '',
+  cbu: '',
+  alias: '',
+};
+
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 
@@ -136,6 +144,24 @@ const obtenerEstadoPedido = (pedido) => normalizarEstadoPedido(pedido?.estado, p
 const obtenerTotalPedido = (pedido) => Number(pedido?.total ?? pedido?.monto ?? pedido?.importe ?? pedido?.precio_total ?? 0);
 const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.direccion || pedido?.direccion_envio || pedido?.domicilio || 'Sin dirección cargada';
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || null;
+const obtenerMetodoPagoPedido = (pedido = {}) => String(
+  pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || pedido?.pago_metodo || pedido?.payment_method || ''
+).trim();
+const obtenerEmailConfirmacionPedido = (pedido = {}) => String(
+  pedido?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
+).trim();
+const obtenerComprobantePagoPedido = (pedido = {}) => String(
+  pedido?.comprobante_pago_url || pedido?.comprobante_url || pedido?.payment_receipt_url || ''
+).trim();
+const obtenerComprobanteNombrePedido = (pedido = {}) => String(
+  pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || pedido?.payment_receipt_name || ''
+).trim();
+const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
+  const metodo = obtenerMetodoPagoPedido(pedido).toLowerCase();
+  if (metodo === 'transferencia') return 'Transferencia bancaria';
+  if (metodo === 'contra_entrega') return 'Contra entrega';
+  return metodo ? metodo.replace(/_/g, ' ') : 'No informado';
+};
 const obtenerNumeroPedido = (pedido) => String(pedido?.id || 'sin-id').replace(/-/g, '').slice(0, 8).toUpperCase();
 const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).reduce((acc, prod) => (
   acc + (Number(prod?.cantidad ?? prod?.quantity ?? prod?.qty) || 0)
@@ -309,6 +335,11 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
   const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
   const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+  const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
+  const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
+  const emailConfirmacion = obtenerEmailConfirmacionPedido(pedido) || emailCliente;
+  const comprobantePagoUrl = obtenerComprobantePagoPedido(pedido);
+  const comprobantePagoNombre = obtenerComprobanteNombrePedido(pedido);
 
   const filas = lineas.length === 0
     ? '<tr><td colspan="5" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
@@ -380,7 +411,19 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
       Email: ${escaparHtml(emailCliente)}<br/>
       Teléfono: ${escaparHtml(telefonoCliente)}<br/>
       CUIT: ${escaparHtml(cuitCliente)}<br/>
-      Dirección: ${escaparHtml(direccionCliente)}
+      Dirección: ${escaparHtml(direccionCliente)}<br/>
+      Método de pago: ${escaparHtml(metodoPagoLabel)}<br/>
+      Email confirmación: ${escaparHtml(emailConfirmacion)}
+    </div>
+  </div>
+
+  <div class="box" style="margin-top:12px;background:#f8fafc;">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Pago y validación</div>
+    <div style="font-size:12px;line-height:1.6;">
+      Método: ${escaparHtml(metodoPagoLabel)}<br/>
+      ${metodoPagoRaw === 'contra_entrega' ? 'Recordatorio: entregar dinero al vendedor al recibir el pedido.<br/>' : ''}
+      ${metodoPagoRaw === 'transferencia' ? `Banco: ${escaparHtml(DATOS_BANCARIOS.banco || '(pendiente)')} · Titular: ${escaparHtml(DATOS_BANCARIOS.titular || '(pendiente)')}<br/>CBU: ${escaparHtml(DATOS_BANCARIOS.cbu || '(pendiente)')} · Alias: ${escaparHtml(DATOS_BANCARIOS.alias || '(pendiente)')} · CUIT: ${escaparHtml(DATOS_BANCARIOS.cuit || '(pendiente)')}<br/>` : ''}
+      ${comprobantePagoUrl ? `Comprobante: <a href="${escaparHtml(comprobantePagoUrl)}" target="_blank" rel="noreferrer">${escaparHtml(comprobantePagoNombre || 'Ver comprobante')}</a>` : ''}
     </div>
   </div>
 
@@ -479,6 +522,12 @@ const enriquecerPedidoConSnapshot = (pedido) => {
     status: estadoNormalizado,
     telefono: pedido?.telefono || snapshot.telefono,
     email: pedido?.email || snapshot.email,
+    email_confirmacion: pedido?.email_confirmacion || snapshot.email_confirmacion,
+    metodo_pago: pedido?.metodo_pago || snapshot.metodo_pago,
+    forma_pago: pedido?.forma_pago || snapshot.forma_pago,
+    tipo_pago: pedido?.tipo_pago || snapshot.tipo_pago,
+    comprobante_pago_url: pedido?.comprobante_pago_url || snapshot.comprobante_pago_url,
+    comprobante_pago_nombre: pedido?.comprobante_pago_nombre || snapshot.comprobante_pago_nombre,
     direccion_envio: pedido?.direccion_envio || snapshot.direccion_envio,
     direccion_entrega: pedido?.direccion_entrega || snapshot.direccion_entrega,
     fecha: obtenerFechaPedido(pedido) || snapshot.fecha,
@@ -540,6 +589,7 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
   const productos = obtenerProductosPedido(pedido);
   const total = obtenerTotalPedido(pedido);
   const estado = obtenerEstadoPedido(pedido);
+  const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
 
   return (
     <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
@@ -555,6 +605,7 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${obtenerClaseEstadoPedido(estado)}`}>{estado}</span>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-sky-100 text-sky-700 ring-1 ring-sky-200">{metodoPagoLabel}</span>
             <span className="text-sm font-black text-emerald-700">{formatearMoneda(total)}</span>
             <span className="text-xs font-semibold text-gray-500">{obtenerCantidadItemsPedido(pedido) || productos.length} items</span>
             <span className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest">
@@ -594,6 +645,11 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
   const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
   const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+  const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
+  const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
+  const emailConfirmacion = obtenerEmailConfirmacionPedido(pedido) || emailCliente;
+  const comprobantePagoUrl = obtenerComprobantePagoPedido(pedido);
+  const comprobantePagoNombre = obtenerComprobanteNombrePedido(pedido);
   const estadoActual = obtenerEstadoPedido(pedido);
   const estadoVisual = obtenerVisualEstadoPedido(estadoActual);
   const IconoEstado = estadoVisual.icono;
@@ -614,6 +670,8 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             <p className="text-sm font-black uppercase mt-1">FAC-{obtenerNumeroPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200 mt-2">Pedido #{obtenerNumeroPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200">Fecha: {formatearFechaPedido(pedido)}</p>
+            <p className="text-xs font-semibold text-gray-200">Pago: {metodoPagoLabel}</p>
+            <p className="text-xs font-semibold text-gray-200 break-all">Confirmación: {emailConfirmacion}</p>
             {resaltarEstadoActual ? (
               <div className="mt-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-200 mb-2">Estado actual</p>
@@ -674,6 +732,34 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 <span className="text-xl font-black text-emerald-600">{formatearMoneda(totalPedido)}</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-sky-700 mb-3">Pago y confirmación</p>
+          <div className="grid gap-2 md:grid-cols-2 text-sm font-semibold text-gray-700">
+            <p><span className="font-black text-gray-900">Método:</span> {metodoPagoLabel}</p>
+            <p className="break-all"><span className="font-black text-gray-900">Email confirmación:</span> {emailConfirmacion}</p>
+            {metodoPagoRaw === 'contra_entrega' && (
+              <p className="md:col-span-2 text-amber-700 font-black">Recordatorio: el cliente debe tener el dinero listo para entregar al vendedor al recibir los productos.</p>
+            )}
+            {metodoPagoRaw === 'transferencia' && (
+              <>
+                <p><span className="font-black text-gray-900">Banco:</span> {DATOS_BANCARIOS.banco || '(pendiente)'}</p>
+                <p><span className="font-black text-gray-900">Titular:</span> {DATOS_BANCARIOS.titular || '(pendiente)'}</p>
+                <p><span className="font-black text-gray-900">CBU:</span> {DATOS_BANCARIOS.cbu || '(pendiente)'}</p>
+                <p><span className="font-black text-gray-900">Alias:</span> {DATOS_BANCARIOS.alias || '(pendiente)'}</p>
+                <p><span className="font-black text-gray-900">CUIT:</span> {DATOS_BANCARIOS.cuit || '(pendiente)'}</p>
+                <p className="break-all">
+                  <span className="font-black text-gray-900">Comprobante:</span>{' '}
+                  {comprobantePagoUrl ? (
+                    <a href={comprobantePagoUrl} target="_blank" rel="noreferrer" className="text-sky-700 underline">
+                      {comprobantePagoNombre || 'Ver comprobante'}
+                    </a>
+                  ) : 'No adjuntado'}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -1026,13 +1112,41 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   const [paso, setPaso] = useState(() => confirmandoCarrito ? 2 : 1);
   const [direccion, setDireccion] = useState(usuarioLogueado?.direccion_envio || '');
   const [telefono, setTelefono] = useState(usuarioLogueado?.telefono || '');
+  const [emailConfirmacion, setEmailConfirmacion] = useState(usuarioLogueado?.email || session?.user?.email || '');
+  const [metodoPago, setMetodoPago] = useState('contra_entrega');
+  const [comprobanteArchivo, setComprobanteArchivo] = useState(null);
+  const [comprobanteUrl, setComprobanteUrl] = useState('');
+  const [comprobanteNombre, setComprobanteNombre] = useState('');
+  const [subiendoComprobante, setSubiendoComprobante] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [pedidoConfirmado, setPedidoConfirmado] = useState(null);
 
   useEffect(() => {
     if (usuarioLogueado?.direccion_envio) setDireccion(usuarioLogueado.direccion_envio);
     if (usuarioLogueado?.telefono) setTelefono(usuarioLogueado.telefono);
+    if (usuarioLogueado?.email || session?.user?.email) setEmailConfirmacion(usuarioLogueado?.email || session?.user?.email || '');
   }, [usuarioLogueado]);
+
+  const subirComprobanteTransferencia = async (file, perfilId) => {
+    if (!file) return { url: '', nombre: '' };
+    setSubiendoComprobante(true);
+    try {
+      const safeName = String(file.name || 'comprobante').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `comprobantes/${perfilId}/${Date.now()}-${safeName}`;
+      const { error } = await supabase
+        .storage
+        .from('assets')
+        .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
+      if (error) throw error;
+      const { data } = supabase.storage.from('assets').getPublicUrl(path);
+      return {
+        url: data?.publicUrl || '',
+        nombre: safeName,
+      };
+    } finally {
+      setSubiendoComprobante(false);
+    }
+  };
 
   const total = carrito.reduce((acc, p) => acc + (Number(p.precio) || 0) * (Number(p.cantidad) || 1), 0);
   const totalItems = carrito.reduce((acc, p) => acc + (Number(p.cantidad) || 1), 0);
@@ -1067,6 +1181,12 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       setTimeout(() => setMostrarToast(false), 2500);
       return;
     }
+    if (!emailConfirmacion.trim() || !/^\S+@\S+\.\S+$/.test(emailConfirmacion.trim())) {
+      setMensajeToast('Ingresá un email de confirmación válido.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 2800);
+      return;
+    }
     const perfilId = usuarioLogueado?.id || session?.user?.id;
     if (!perfilId) {
       setMensajeToast('Error: sesión no válida. Volvé a iniciar sesión.');
@@ -1078,7 +1198,34 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
     setCargando(true);
     try {
       const telefonoCliente = telefono.trim() || usuarioLogueado?.telefono || '';
-      const emailCliente = usuarioLogueado?.email || session?.user?.email || '';
+      const emailCliente = emailConfirmacion.trim();
+      let comprobanteFinalUrl = comprobanteUrl;
+      let comprobanteFinalNombre = comprobanteNombre;
+
+      if (metodoPago === 'transferencia') {
+        if (!comprobanteFinalUrl && !comprobanteArchivo) {
+          setMensajeToast('Para transferencia, subí el comprobante de pago.');
+          setMostrarToast(true);
+          setTimeout(() => setMostrarToast(false), 3200);
+          setCargando(false);
+          return;
+        }
+        if (!comprobanteFinalUrl && comprobanteArchivo) {
+          const subida = await subirComprobanteTransferencia(comprobanteArchivo, perfilId);
+          comprobanteFinalUrl = subida.url;
+          comprobanteFinalNombre = subida.nombre;
+          if (!comprobanteFinalUrl) {
+            setMensajeToast('No pudimos subir el comprobante. Intentá nuevamente.');
+            setMostrarToast(true);
+            setTimeout(() => setMostrarToast(false), 3200);
+            setCargando(false);
+            return;
+          }
+          setComprobanteUrl(comprobanteFinalUrl);
+          setComprobanteNombre(comprobanteFinalNombre);
+        }
+      }
+
       const productosPedido = carrito.map(item => ({
         id: item.id,
         nombre: item.nombre,
@@ -1090,19 +1237,36 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       let pedidoId = null;
       let lastError = null;
 
-      // Intento 1: RPC crear_pedido (firma nueva con email/telefono)
-      const { data: rpcIdV2, error: rpcErrV2 } = await supabase.rpc('crear_pedido', {
+      // Intento 1: RPC crear_pedido (firma extendida)
+      const { data: rpcIdV3, error: rpcErrV3 } = await supabase.rpc('crear_pedido', {
         p_perfil_id: perfilId,
         p_productos: productosPedido,
         p_total: total,
         p_direccion: direccion.trim(),
         p_email: emailCliente || null,
         p_telefono: telefonoCliente || null,
+        p_email_confirmacion: emailCliente || null,
+        p_metodo_pago: metodoPago,
+        p_comprobante_url: comprobanteFinalUrl || null,
       });
-      if (!rpcErrV2) pedidoId = rpcIdV2;
-      if (rpcErrV2) lastError = rpcErrV2;
+      if (!rpcErrV3) pedidoId = rpcIdV3;
+      if (rpcErrV3) lastError = rpcErrV3;
 
-      // Intento 1b: compatibilidad con firma vieja (sin email/telefono)
+      // Intento 2: compatibilidad con firma nueva (sin metadatos extra)
+      if (!pedidoId) {
+        const { data: rpcIdV2, error: rpcErrV2 } = await supabase.rpc('crear_pedido', {
+          p_perfil_id: perfilId,
+          p_productos: productosPedido,
+          p_total: total,
+          p_direccion: direccion.trim(),
+          p_email: emailCliente || null,
+          p_telefono: telefonoCliente || null,
+        });
+        if (!rpcErrV2) pedidoId = rpcIdV2;
+        if (rpcErrV2) lastError = rpcErrV2;
+      }
+
+      // Intento 3: compatibilidad con firma vieja (sin email/telefono)
       if (!pedidoId) {
         const { data: rpcIdV1, error: rpcErrV1 } = await supabase.rpc('crear_pedido', {
           p_perfil_id: perfilId,
@@ -1135,6 +1299,51 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         return;
       }
 
+      // Persistir metadatos de pago en variantes de esquema
+      const pagoDetalle = {
+        metodo: metodoPago,
+        email_confirmacion: emailCliente,
+        comprobante_url: comprobanteFinalUrl || null,
+        comprobante_nombre: comprobanteFinalNombre || null,
+        aviso_contra_entrega: metodoPago === 'contra_entrega',
+        banco: DATOS_BANCARIOS.banco,
+        titular: DATOS_BANCARIOS.titular,
+        cuit: DATOS_BANCARIOS.cuit,
+        cbu: DATOS_BANCARIOS.cbu,
+        alias: DATOS_BANCARIOS.alias,
+      };
+
+      const variantesMetadatos = [
+        {
+          metodo_pago: metodoPago,
+          email_confirmacion: emailCliente,
+          comprobante_pago_url: comprobanteFinalUrl || null,
+          comprobante_pago_nombre: comprobanteFinalNombre || null,
+          pago_detalle: pagoDetalle,
+        },
+        {
+          forma_pago: metodoPago,
+          email_confirmacion: emailCliente,
+          comprobante_url: comprobanteFinalUrl || null,
+          pago_detalle: pagoDetalle,
+        },
+        {
+          pago_detalle: pagoDetalle,
+        },
+      ];
+
+      for (const payloadExtra of variantesMetadatos) {
+        const { error } = await supabase
+          .from('pedidos')
+          .update(payloadExtra)
+          .eq('id', pedidoId);
+
+        if (!error) break;
+        const msg = String(error?.message || '').toLowerCase();
+        const esColumna = msg.includes('schema cache') || msg.includes('column');
+        if (!esColumna) break;
+      }
+
       const numPedido = (pedidoId || '').toString().replace(/-/g, '').slice(0, 8).toUpperCase()
                       || Math.random().toString(36).slice(2, 10).toUpperCase();
       const pedidoGenerado = {
@@ -1146,10 +1355,23 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         estado: 'Pendiente',
         fecha: new Date().toISOString(),
         telefono: telefonoCliente,
-        email: emailCliente
+        email: emailCliente,
+        email_confirmacion: emailCliente,
+        metodo_pago: metodoPago,
+        forma_pago: metodoPago,
+        comprobante_pago_url: comprobanteFinalUrl || '',
+        comprobante_pago_nombre: comprobanteFinalNombre || '',
       };
       guardarSnapshotPedido(pedidoGenerado);
-      setPedidoConfirmado({ numero: numPedido, total, productos: [...carrito], direccion: direccion.trim() });
+      setPedidoConfirmado({
+        numero: numPedido,
+        total,
+        productos: [...carrito],
+        direccion: direccion.trim(),
+        metodoPago,
+        emailConfirmacion: emailCliente,
+        comprobanteUrl: comprobanteFinalUrl,
+      });
       setCarrito([]);
       setConfirmandoCarrito(false);
       setPaso(3);
@@ -1208,6 +1430,20 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           <div className="bg-green-50 border border-green-100 rounded-2xl p-5 text-left">
             <p className="text-xs font-black uppercase tracking-widest text-green-600 mb-1">Dirección de entrega</p>
             <p className="text-base font-semibold text-gray-700">{pedidoConfirmado.direccion}</p>
+          </div>
+
+          <div className="bg-sky-50 border border-sky-100 rounded-2xl p-5 text-left space-y-1">
+            <p className="text-xs font-black uppercase tracking-widest text-sky-700 mb-1">Pago y confirmación</p>
+            <p className="text-sm font-semibold text-gray-700">Método: {pedidoConfirmado.metodoPago === 'transferencia' ? 'Transferencia bancaria' : 'Contra entrega'}</p>
+            <p className="text-sm font-semibold text-gray-700 break-all">Email confirmación: {pedidoConfirmado.emailConfirmacion}</p>
+            {pedidoConfirmado.metodoPago === 'contra_entrega' && (
+              <p className="text-xs font-black text-amber-700">Recordatorio: tené el dinero listo al momento de la entrega.</p>
+            )}
+            {pedidoConfirmado.metodoPago === 'transferencia' && pedidoConfirmado.comprobanteUrl && (
+              <a href={pedidoConfirmado.comprobanteUrl} target="_blank" rel="noreferrer" className="text-sm font-black text-sky-700 underline">
+                Ver comprobante enviado
+              </a>
+            )}
           </div>
 
           <p className="text-sm text-gray-500 font-semibold uppercase leading-relaxed">
@@ -1299,19 +1535,90 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
                   className="w-full mt-2 p-4 bg-gray-50 rounded-2xl text-sm font-semibold border-2 border-transparent focus:border-green-500 focus:bg-white outline-none transition-all placeholder-gray-300"
                 />
               </label>
+
+              <label className="block">
+                <span className="text-xs md:text-sm font-black uppercase text-gray-600 ml-1">Email de confirmación *</span>
+                <input
+                  type="email"
+                  placeholder="tu-email@dominio.com"
+                  value={emailConfirmacion}
+                  onChange={e => setEmailConfirmacion(e.target.value)}
+                  className="w-full mt-2 p-4 bg-gray-50 rounded-2xl text-sm font-semibold border-2 border-transparent focus:border-green-500 focus:bg-white outline-none transition-all placeholder-gray-300"
+                />
+              </label>
+
+              <div className="rounded-2xl border border-gray-200 p-4 bg-gray-50 space-y-3">
+                <p className="text-xs md:text-sm font-black uppercase text-gray-600">Forma de pago *</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPago('contra_entrega')}
+                    className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest border transition-colors ${metodoPago === 'contra_entrega' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    Contra entrega
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPago('transferencia')}
+                    className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-widest border transition-colors ${metodoPago === 'transferencia' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'}`}
+                  >
+                    Transferencia
+                  </button>
+                </div>
+
+                {metodoPago === 'contra_entrega' ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                    <p className="text-xs md:text-sm font-black uppercase text-amber-700">Recordatorio</p>
+                    <p className="text-sm font-semibold text-amber-700 mt-1">Tené el dinero listo para entregarle al vendedor cuando reciba los productos.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-sm font-semibold text-sky-800">
+                      <p className="text-xs font-black uppercase mb-1">Datos bancarios (pendiente de completar)</p>
+                      <p>Banco: {DATOS_BANCARIOS.banco || '(pendiente)'}</p>
+                      <p>Titular: {DATOS_BANCARIOS.titular || '(pendiente)'}</p>
+                      <p>CBU: {DATOS_BANCARIOS.cbu || '(pendiente)'}</p>
+                      <p>Alias: {DATOS_BANCARIOS.alias || '(pendiente)'}</p>
+                      <p>CUIT: {DATOS_BANCARIOS.cuit || '(pendiente)'}</p>
+                    </div>
+
+                    <div className="rounded-xl bg-white border border-gray-200 p-3">
+                      <p className="text-xs font-black uppercase text-gray-600 mb-2">Subir comprobante de pago *</p>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setComprobanteArchivo(file);
+                          setComprobanteNombre(file?.name || '');
+                          if (!file) setComprobanteUrl('');
+                        }}
+                        className="w-full text-sm font-semibold text-gray-700"
+                      />
+                      {subiendoComprobante && <p className="text-xs font-black text-sky-700 mt-2">Subiendo comprobante...</p>}
+                      {comprobanteNombre && <p className="text-xs font-semibold text-gray-600 mt-2">Archivo: {comprobanteNombre}</p>}
+                      {comprobanteUrl && (
+                        <a href={comprobanteUrl} target="_blank" rel="noreferrer" className="inline-block mt-2 text-xs font-black text-sky-700 underline">
+                          Ver comprobante subido
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="bg-green-50 border border-green-100 rounded-[20px] p-5">
               <p className="text-xs md:text-sm font-black uppercase text-green-700 leading-relaxed text-center">
-                Al confirmar, tu pedido queda registrado. Nos comunicaremos con vos para coordinar el pago y la entrega.
+                Al confirmar, tu pedido queda registrado, se envía email detallado de confirmación y una copia llega a celiashopazul@gmail.com.
               </p>
             </div>
 
             <button
               onClick={confirmarCompra}
-              disabled={cargando || !direccion.trim()}
+              disabled={cargando || !direccion.trim() || !emailConfirmacion.trim() || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)}
               className={`w-full py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg ${
-                cargando || !direccion.trim()
+                cargando || !direccion.trim() || !emailConfirmacion.trim() || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-green-600 text-white hover:bg-green-700 active:scale-[0.98]'
               }`}
@@ -1358,6 +1665,13 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
                 <div className="flex justify-between items-baseline">
                   <span className="font-black text-lg">Total</span>
                   <span className="font-black text-2xl text-green-400">${total.toFixed(2)}</span>
+                </div>
+                <div className="pt-3 mt-3 border-t border-gray-700 space-y-1 text-xs text-gray-200 font-semibold">
+                  <p>Método de pago: <span className="font-black text-white">{metodoPago === 'transferencia' ? 'Transferencia' : 'Contra entrega'}</span></p>
+                  <p className="break-all">Email confirmación: <span className="font-black text-white">{emailConfirmacion || 'No informado'}</span></p>
+                  {metodoPago === 'transferencia' && (
+                    <p>Comprobante: <span className="font-black text-white">{comprobanteNombre || 'Pendiente'}</span></p>
+                  )}
                 </div>
               </div>
             </div>
@@ -2593,6 +2907,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             {pedidosFiltrados.map((ped) => {
               const productos = obtenerProductosPedido(ped);
               const estadoActual = obtenerEstadoPedido(ped);
+              const metodoPagoLabel = obtenerLabelMetodoPagoPedido(ped);
+              const emailConfirmacionPedido = obtenerEmailConfirmacionPedido(ped) || ped?.email || '';
               const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || ped.cliente_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
               const editandoFactura = pedidoEditandoId === ped.id;
@@ -2612,7 +2928,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         <h4 className="font-black text-2xl uppercase tracking-tighter">{clienteFactura.nombre && clienteFactura.apellido ? `${clienteFactura.nombre} ${clienteFactura.apellido}` : 'Cliente'}</h4>
                         <p className="text-sm font-semibold text-red-50 mt-2">Compra: {formatearFechaPedido(ped)}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Email: {clienteFactura.email || 'No informado'}</p>
+                        <p className="text-sm font-semibold text-red-100 mt-1">Email confirmación: {emailConfirmacionPedido || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Teléfono: {clienteFactura.telefono || 'No informado'}</p>
+                        <p className="text-sm font-semibold text-red-100 mt-1">Pago: {metodoPagoLabel}</p>
                         <p className="text-xs font-semibold text-red-100 mt-1 opacity-75 break-all">ID: {clienteId}</p>
                       </div>
                       <div className="flex flex-col gap-3 min-w-[240px]">
@@ -2623,6 +2941,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         )}
                         <span className={`self-start px-4 py-2 rounded-full text-sm font-black uppercase tracking-wider ${obtenerClaseEstadoPedido(estadoActual)}`}>
                           {estadoActual}
+                        </span>
+                        <span className="self-start px-4 py-2 rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 text-xs font-black uppercase tracking-wider">
+                          {metodoPagoLabel}
                         </span>
                         <label className="block">
                           <span className="text-xs font-black uppercase tracking-widest text-red-100">Cambiar estado</span>
@@ -2685,7 +3006,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         </div>
                       </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-4">
+                    <div className="grid gap-4 md:grid-cols-5">
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Total</p>
                         <p className="text-2xl font-black text-green-600 tracking-tighter">{formatearMoneda(obtenerTotalPedido(ped))}</p>
@@ -2693,6 +3014,15 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Items</p>
                         <p className="text-xl font-black text-gray-800">{obtenerCantidadItemsPedido(ped) || productos.length}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Pago</p>
+                        <p className="text-sm font-black text-sky-700">{metodoPagoLabel}</p>
+                        {obtenerComprobantePagoPedido(ped) ? (
+                          <a href={obtenerComprobantePagoPedido(ped)} target="_blank" rel="noreferrer" className="text-[11px] font-black text-sky-700 underline">Ver comprobante</a>
+                        ) : (
+                          <p className="text-[11px] font-semibold text-gray-500">Sin comprobante</p>
+                        )}
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 md:col-span-2">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Dirección de entrega</p>
