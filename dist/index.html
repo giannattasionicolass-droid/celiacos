@@ -4,14 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CeliaShop</title>
-    <script type="module" crossorigin src="/celiacos/dist/assets/index.js"></script>
+    <script type="module" crossorigin src="/celiacos/assets/index.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <script>
       const isGithubPages = window.location.hostname.endsWith('github.io');
       if (isGithubPages) {
-        window.location.replace('/celiacos/dist/');
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = '/celiacos/assets/main.css';
+        document.head.appendChild(css);
+
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/celiacos/assets/index.js';
+        document.body.appendChild(script);
       }
     </script>
   </body>

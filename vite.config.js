@@ -6,7 +6,7 @@ const pagesMode = process.env.PAGES_DIST === 'true'
 
 export default defineConfig({
   base: pagesMode
-    ? '/celiacos/dist/'
+    ? '/celiacos/'
     : (process.env.GITHUB_ACTIONS ? '/celiacos/' : '/'),
   plugins: [
     react(),
