@@ -34,6 +34,11 @@ const normalizarProductoPedido = (item = {}) => {
   const cantidad = Number(
     item?.cantidad ?? item?.quantity ?? item?.qty ?? item?.cant ?? productoBase?.cantidad ?? productoBase?.quantity ?? 1
   ) || 1;
+  const cantidadOriginalDetectada = Number(
+    item?.cantidad_original ?? item?.cantidad_solicitada ?? item?.cantidad_pedida ?? productoBase?.cantidad_original ?? cantidad
+  ) || cantidad;
+  const cantidadNormalizada = Math.max(1, cantidad);
+  const cantidadOriginal = Math.max(cantidadNormalizada, cantidadOriginalDetectada);
   const precio = Number(
     item?.precio ?? item?.price ?? item?.unit_price ?? item?.precio_unitario ?? productoBase?.precio ?? productoBase?.price ?? 0
   ) || 0;
@@ -41,7 +46,8 @@ const normalizarProductoPedido = (item = {}) => {
   return {
     id: item?.id || item?.producto_id || productoBase?.id || null,
     nombre: item?.nombre || item?.descripcion || item?.name || productoBase?.nombre || productoBase?.descripcion || productoBase?.name || 'Producto sin nombre',
-    cantidad,
+    cantidad: cantidadNormalizada,
+    cantidad_original: cantidadOriginal,
     precio,
     imagen_url: item?.imagen_url || item?.imagen || item?.image || item?.image_url || productoBase?.imagen_url || productoBase?.imagen || productoBase?.image || productoBase?.image_url || '',
     faltante: Boolean(item?.faltante ?? item?.anulado ?? item?.descontado ?? item?.omitido ?? productoBase?.faltante ?? productoBase?.anulado ?? false),
@@ -204,46 +210,70 @@ const escaparHtml = (valor) => String(valor ?? '')
   .replace(/'/g, '&#39;');
 
 const productoFueAjustado = (producto = {}) => Boolean(
-  producto?.faltante || producto?.anulado || producto?.descontado || producto?.omitido || producto?.ajustado_por_admin
+  producto?.faltante ||
+  producto?.anulado ||
+  producto?.descontado ||
+  producto?.omitido ||
+  producto?.ajustado_por_admin ||
+  ((Number(producto?.cantidad_original) || Number(producto?.cantidad) || 0) > (Number(producto?.cantidad) || 0))
 );
 
 const construirLineasFactura = (productos = []) => productos.map((prod, index) => {
   const cantidad = Math.max(1, Number(prod?.cantidad) || 1);
+  const cantidadOriginal = Math.max(cantidad, Number(prod?.cantidad_original) || cantidad);
   const precioUnitario = Math.max(0, Number(prod?.precio) || 0);
-  const subtotalOriginal = cantidad * precioUnitario;
+  const subtotalOriginal = cantidadOriginal * precioUnitario;
   const ajustado = productoFueAjustado(prod);
+  const faltanteTotal = Boolean(prod?.faltante || prod?.anulado || prod?.descontado || prod?.omitido);
+  const ajusteParcial = !faltanteTotal && cantidadOriginal > cantidad;
+  const subtotalFacturable = faltanteTotal ? 0 : (cantidad * precioUnitario);
+  const motivoAjuste = String(
+    prod?.motivo_ajuste ||
+    (faltanteTotal ? 'Producto faltante' : (ajusteParcial ? `Se entregan ${cantidad} de ${cantidadOriginal}` : ''))
+  ).trim();
   return {
     key: prod?.id || `${prod?.nombre || 'producto'}-${index}`,
     id: prod?.id || null,
     descripcion: prod?.nombre || 'Producto sin nombre',
     imagen: prod?.imagen_url || '',
     cantidad,
+    cantidadOriginal,
     precioUnitario,
     subtotalOriginal,
-    subtotalFacturable: ajustado ? 0 : subtotalOriginal,
+    subtotalFacturable,
+    facturableCantidad: faltanteTotal ? 0 : cantidad,
     ajustado,
-    motivoAjuste: prod?.motivo_ajuste || (ajustado ? 'Producto faltante' : ''),
+    faltanteTotal,
+    ajusteParcial,
+    motivoAjuste,
   };
 });
 
 const obtenerTotalFacturaDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalFacturable) || 0), 0);
 const obtenerSubtotalOriginalDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.subtotalOriginal) || 0), 0);
-const obtenerItemsFacturablesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (item?.ajustado ? 0 : (Number(item?.cantidad) || 0)), 0);
+const obtenerItemsFacturablesDesdeLineas = (lineas = []) => lineas.reduce((acc, item) => acc + (Number(item?.facturableCantidad) || 0), 0);
 
 const serializarProductosFactura = (productos = []) => productos.map((producto) => {
   const cantidad = Math.max(1, Number(producto?.cantidad) || 1);
+  const cantidadOriginal = Math.max(cantidad, Number(producto?.cantidad_original) || cantidad);
   const precio = Math.max(0, Number(producto?.precio) || 0);
   const faltante = Boolean(producto?.faltante || producto?.anulado || producto?.ajustado_por_admin);
+  const faltanteCantidad = Math.max(0, cantidadOriginal - cantidad);
+  const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${cantidad} de ${cantidadOriginal}` : '';
   return {
     id: producto?.id || null,
     nombre: String(producto?.nombre || 'Producto sin nombre').trim() || 'Producto sin nombre',
     cantidad,
+    cantidad_original: cantidadOriginal,
     precio,
     imagen_url: String(producto?.imagen_url || '').trim(),
     faltante,
     anulado: faltante,
-    ajustado_por_admin: faltante,
-    motivo_ajuste: faltante ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante') : '',
+    faltante_cantidad: faltanteCantidad,
+    ajustado_por_admin: faltante || faltanteCantidad > 0,
+    motivo_ajuste: faltante
+      ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante')
+      : (String(producto?.motivo_ajuste || motivoPorCantidad).trim()),
   };
 });
 
@@ -260,19 +290,22 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
   const filas = lineas.length === 0
     ? '<tr><td colspan="5" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
     : lineas.map((item) => {
-        const estiloTexto = item.ajustado ? 'color:#9ca3af;text-decoration:line-through;' : 'color:#111827;';
-        const estado = item.ajustado
+        const estiloTexto = item.faltanteTotal ? 'color:#9ca3af;text-decoration:line-through;' : 'color:#111827;';
+        const estado = item.faltanteTotal
           ? '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:800;text-transform:uppercase;">Faltante</span>'
-          : '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;text-transform:uppercase;">Facturado</span>';
+          : item.ajusteParcial
+            ? '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:800;text-transform:uppercase;">Entrega parcial</span>'
+            : '<span style="display:inline-flex;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;text-transform:uppercase;">Facturado</span>';
+        const cantidadVisual = item.ajusteParcial ? `${item.cantidad} de ${item.cantidadOriginal}` : `${item.cantidad}`;
         const imagenHtml = item.imagen
           ? `<img src="${escaparHtml(item.imagen)}" alt="${escaparHtml(item.descripcion)}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;display:block;margin:0 auto;" />`
           : '<div style="width:56px;height:56px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto;">&#128230;</div>';
         return `<tr>
           <td style="padding:10px;border:1px solid #e5e7eb;text-align:center;vertical-align:middle;">${imagenHtml}</td>
           <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;vertical-align:middle;${estiloTexto}">${escaparHtml(item.descripcion)}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;${estiloTexto}">${item.cantidad}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;${estiloTexto}">${cantidadVisual}</td>
           <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;vertical-align:middle;${estiloTexto}">${escaparHtml(formatearMoneda(item.precioUnitario))}</td>
-          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;${estiloTexto}">${escaparHtml(formatearMoneda(item.ajustado ? item.subtotalOriginal : item.subtotalFacturable))}</td>
+          <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;vertical-align:middle;${estiloTexto}">${escaparHtml(formatearMoneda(item.faltanteTotal ? item.subtotalOriginal : item.subtotalFacturable))}</td>
           <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;vertical-align:middle;">${estado}</td>
         </tr>`;
       }).join('');
@@ -500,7 +533,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
   const subtotalCalculado = obtenerSubtotalOriginalDesdeLineas(lineas);
   const totalPedido = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuentoAplicado = Math.max(0, subtotalCalculado - totalPedido);
-  const itemsTotales = obtenerCantidadItemsPedido(pedido) || lineas.reduce((acc, item) => acc + item.cantidad, 0);
+  const itemsTotales = lineas.reduce((acc, item) => acc + (Number(item?.cantidadOriginal) || Number(item?.cantidad) || 0), 0);
   const itemsFacturables = obtenerItemsFacturablesDesdeLineas(lineas);
 
   const clienteId = String(
@@ -619,7 +652,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
               </div>
               <div className="divide-y divide-gray-100">
                 {lineas.map((item, i) => (
-                  <div key={`${pedido.id}-${i}`} className={`grid grid-cols-1 gap-2 px-4 py-3 ${editable ? 'md:grid-cols-14' : 'md:grid-cols-12'} ${item.ajustado ? 'bg-red-50/60' : ''}`}>
+                  <div key={`${pedido.id}-${i}`} className={`grid grid-cols-1 gap-2 px-4 py-3 ${editable ? 'md:grid-cols-14' : 'md:grid-cols-12'} ${item.faltanteTotal ? 'bg-red-50/60' : item.ajusteParcial ? 'bg-amber-50/60' : ''}`}>
                     <div className={`${editable ? 'md:col-span-5' : 'md:col-span-6'} flex items-center gap-3 min-w-0`}>
                       {mostrarImagenesEnLineas && (
                         <img src={item.imagen} alt={item.descripcion} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
@@ -630,7 +663,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                             type="text"
                             value={productos[i]?.nombre || ''}
                             onChange={(e) => onCambiarLinea?.(i, 'nombre', e.target.value)}
-                            className={`w-full rounded-xl border px-3 py-2 text-sm font-black uppercase ${item.ajustado ? 'border-red-200 bg-red-50 text-gray-500 line-through' : 'border-gray-200 text-gray-900'}`}
+                            className={`w-full rounded-xl border px-3 py-2 text-sm font-black uppercase ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
                           />
                           <input
                             type="text"
@@ -642,8 +675,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                         </div>
                       ) : (
                         <div className="min-w-0">
-                          <p className={`text-sm font-black uppercase break-words ${item.ajustado ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{item.descripcion}</p>
-                          {item.ajustado && <p className="text-[11px] font-bold uppercase tracking-wide text-red-600 mt-1">{item.motivoAjuste || 'Producto faltante'}</p>}
+                          <p className={`text-sm font-black uppercase break-words ${item.faltanteTotal ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{item.descripcion}</p>
+                          {item.ajustado && (
+                            <p className={`text-[11px] font-bold uppercase tracking-wide mt-1 ${item.faltanteTotal ? 'text-red-600' : 'text-amber-700'}`}>
+                              {item.motivoAjuste || (item.faltanteTotal ? 'Producto faltante' : `Se entregan ${item.cantidad} de ${item.cantidadOriginal}`)}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -654,10 +691,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                           min="1"
                           value={productos[i]?.cantidad ?? item.cantidad}
                           onChange={(e) => onCambiarLinea?.(i, 'cantidad', e.target.value)}
-                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-center ${item.ajustado ? 'border-red-200 bg-red-50 text-gray-500 line-through' : 'border-gray-200 text-gray-900'}`}
+                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-center ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
                         />
                       ) : (
-                        <p className={item.ajustado ? 'text-gray-400 line-through' : ''}>Cantidad: {item.cantidad}</p>
+                        <p className={item.faltanteTotal ? 'text-gray-400 line-through' : ''}>
+                          Cantidad: {item.ajusteParcial ? `${item.cantidad} de ${item.cantidadOriginal}` : item.cantidad}
+                        </p>
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-right text-sm font-semibold text-gray-700">
@@ -668,17 +707,22 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                           step="0.01"
                           value={productos[i]?.precio ?? item.precioUnitario}
                           onChange={(e) => onCambiarLinea?.(i, 'precio', e.target.value)}
-                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-right ${item.ajustado ? 'border-red-200 bg-red-50 text-gray-500 line-through' : 'border-gray-200 text-gray-900'}`}
+                          className={`w-full rounded-xl border px-3 py-2 text-sm font-black text-right ${item.faltanteTotal ? 'border-red-200 bg-red-50 text-gray-500 line-through' : item.ajusteParcial ? 'border-amber-200 bg-amber-50 text-gray-900' : 'border-gray-200 text-gray-900'}`}
                         />
                       ) : (
-                        <p className={item.ajustado ? 'text-gray-400 line-through' : ''}>{formatearMoneda(item.precioUnitario)}</p>
+                        <p className={item.faltanteTotal ? 'text-gray-400 line-through' : ''}>{formatearMoneda(item.precioUnitario)}</p>
                       )}
                     </div>
                     <div className="md:col-span-2 md:text-right text-sm font-black">
-                      {item.ajustado ? (
+                      {item.faltanteTotal ? (
                         <div className="space-y-1 md:text-right">
                           <p className="text-gray-400 line-through">{formatearMoneda(item.subtotalOriginal)}</p>
                           <p className="text-red-600 uppercase text-[11px]">No se cobra</p>
+                        </div>
+                      ) : item.ajusteParcial ? (
+                        <div className="space-y-1 md:text-right">
+                          <p className="text-gray-400 line-through">{formatearMoneda(item.subtotalOriginal)}</p>
+                          <p className="text-amber-700">{formatearMoneda(item.subtotalFacturable)}</p>
                         </div>
                       ) : (
                         <p className="text-emerald-600">{formatearMoneda(item.subtotalFacturable)}</p>
@@ -689,9 +733,9 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                         <button
                           type="button"
                           onClick={() => onToggleLineaFaltante?.(i)}
-                          className={`rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-wide ${item.ajustado ? 'bg-red-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}
+                          className={`rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-wide ${item.faltanteTotal ? 'bg-red-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}
                         >
-                          {item.ajustado ? 'Marcar disponible' : 'Marcar faltante'}
+                          {item.faltanteTotal ? 'Marcar disponible' : 'Marcar faltante total'}
                         </button>
                         <input
                           type="text"
@@ -1950,7 +1994,23 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const cambiarLineaFactura = (indice, campo, valor) => {
     setProductosFacturaEditados((prev) => prev.map((producto, index) => {
       if (index !== indice) return producto;
-      if (campo === 'cantidad') return { ...producto, cantidad: Math.max(1, Number(valor) || 1) };
+      if (campo === 'cantidad') {
+        const nuevaCantidad = Math.max(1, Number(valor) || 1);
+        const cantidadOriginalActual = Math.max(nuevaCantidad, Number(producto?.cantidad_original) || nuevaCantidad);
+        const faltanteCantidad = Math.max(0, cantidadOriginalActual - nuevaCantidad);
+        const motivoPorCantidad = faltanteCantidad > 0 ? `Se entregan ${nuevaCantidad} de ${cantidadOriginalActual}` : '';
+        const estaMarcadoFaltanteTotal = Boolean(producto?.faltante || producto?.anulado);
+        return {
+          ...producto,
+          cantidad: nuevaCantidad,
+          cantidad_original: cantidadOriginalActual,
+          faltante_cantidad: faltanteCantidad,
+          ajustado_por_admin: estaMarcadoFaltanteTotal || faltanteCantidad > 0,
+          motivo_ajuste: estaMarcadoFaltanteTotal
+            ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante')
+            : motivoPorCantidad,
+        };
+      }
       if (campo === 'precio') return { ...producto, precio: Math.max(0, Number(valor) || 0) };
       return { ...producto, [campo]: valor };
     }));
@@ -1959,13 +2019,22 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const toggleLineaFacturaFaltante = (indice) => {
     setProductosFacturaEditados((prev) => prev.map((producto, index) => {
       if (index !== indice) return producto;
-      const faltante = !Boolean(producto?.faltante || producto?.anulado || producto?.ajustado_por_admin);
+      const cantidad = Math.max(1, Number(producto?.cantidad) || 1);
+      const cantidadOriginal = Math.max(cantidad, Number(producto?.cantidad_original) || cantidad);
+      const faltante = !Boolean(producto?.faltante || producto?.anulado);
+      const faltanteCantidad = faltante ? cantidadOriginal : Math.max(0, cantidadOriginal - cantidad);
+      const motivoPorCantidad = cantidadOriginal > cantidad ? `Se entregan ${cantidad} de ${cantidadOriginal}` : '';
       return {
         ...producto,
+        cantidad,
+        cantidad_original: cantidadOriginal,
         faltante,
         anulado: faltante,
-        ajustado_por_admin: faltante,
-        motivo_ajuste: faltante ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante') : '',
+        faltante_cantidad: faltanteCantidad,
+        ajustado_por_admin: faltante || faltanteCantidad > 0,
+        motivo_ajuste: faltante
+          ? (String(producto?.motivo_ajuste || 'Producto faltante').trim() || 'Producto faltante')
+          : motivoPorCantidad,
       };
     }));
   };
