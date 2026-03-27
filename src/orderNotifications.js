@@ -151,6 +151,29 @@ export const enviarEmailPedido = async ({ tipo, pedido, cliente = {}, estadoAnte
 };
 
 export const enviarMensajeContacto = async ({ nombre, email, telefono = '', mensaje, userId = null }) => {
+  const nombreLimpio = String(nombre || '').trim();
+  const emailLimpio = String(email || '').trim();
+  const telefonoLimpio = String(telefono || '').trim();
+  const mensajeLimpio = String(mensaje || '').trim();
+
+  const abrirFallbackMailto = () => {
+    if (typeof window === 'undefined') return false;
+    const subject = `Contacto web - ${nombreLimpio || 'Cliente'}`;
+    const body = [
+      `Nombre: ${nombreLimpio}`,
+      `Email: ${emailLimpio}`,
+      `Telefono: ${telefonoLimpio || 'No informado'}`,
+      `Usuario: ${userId || 'anonimo'}`,
+      '',
+      'Mensaje:',
+      mensajeLimpio,
+    ].join('\n');
+
+    const href = `mailto:${EMAIL_CELIASHOP}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = href;
+    return true;
+  };
+
   try {
     const payload = {
       eventType: 'contacto_mensaje',
@@ -159,15 +182,15 @@ export const enviarMensajeContacto = async ({ nombre, email, telefono = '', mens
       },
       customer: {
         id: userId,
-        nombre: String(nombre || '').trim(),
-        email: String(email || '').trim(),
-        telefono: String(telefono || '').trim(),
+        nombre: nombreLimpio,
+        email: emailLimpio,
+        telefono: telefonoLimpio,
       },
       contact: {
-        nombre: String(nombre || '').trim(),
-        email: String(email || '').trim(),
-        telefono: String(telefono || '').trim(),
-        mensaje: String(mensaje || '').trim(),
+        nombre: nombreLimpio,
+        email: emailLimpio,
+        telefono: telefonoLimpio,
+        mensaje: mensajeLimpio,
         origen: 'contacto_web',
       },
     };
@@ -184,6 +207,16 @@ export const enviarMensajeContacto = async ({ nombre, email, telefono = '', mens
   } catch (error) {
     const detalle = await extraerMensajeErrorInvoke(error);
     console.error('No se pudo enviar el mensaje de contacto:', detalle, error);
+
+    const fallbackAbierto = abrirFallbackMailto();
+    if (fallbackAbierto) {
+      return {
+        ok: true,
+        fallback: 'mailto',
+        mensaje: 'Abrimos tu app de correo para completar el envio del mensaje.',
+      };
+    }
+
     return {
       ok: false,
       error,

@@ -3930,7 +3930,9 @@ function SeccionContacto({ usuarioLogueado, session, setMensajeToast, setMostrar
         return;
       }
 
-      setMensajeToast('Mensaje enviado. Te responderemos pronto.');
+      setMensajeToast(resultado?.fallback === 'mailto'
+        ? 'Se abrió tu correo para finalizar el envío del mensaje.'
+        : 'Mensaje enviado. Te responderemos pronto.');
       setMostrarToast(true);
       setTimeout(() => setMostrarToast(false), 2800);
       setContacto((prev) => ({ ...prev, mensaje: '' }));
