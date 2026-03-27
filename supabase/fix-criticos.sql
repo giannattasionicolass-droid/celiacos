@@ -241,12 +241,10 @@ begin
     get diagnostics v_deleted_perfiles = row_count;
   end if;
 
-  delete from auth.identities
-  where user_id is distinct from v_admin_id;
-
-  delete from auth.users
-  where id is distinct from v_admin_id;
-  get diagnostics v_deleted_users = row_count;
+  -- Nota: no borramos auth.users/auth.identities desde SQL RPC porque en varios
+  -- proyectos Supabase falla por permisos/FK en SQL Editor. Para borrar cuentas
+  -- de Auth usar Dashboard (Authentication > Users) o Edge Function con service role.
+  v_deleted_users := 0;
 
   return jsonb_build_object(
     'ok', true,
