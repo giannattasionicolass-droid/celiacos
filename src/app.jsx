@@ -2974,6 +2974,7 @@ export default function App() {
   const [filtroPrecio, setFiltroPrecio] = useState('todos');
   const [filtroSoloNuevos, setFiltroSoloNuevos] = useState(false);
   const [ordenProductos, setOrdenProductos] = useState('nuevos');
+  const [paginaProductos, setPaginaProductos] = useState(1);
   const [pedidosVersion, setPedidosVersion] = useState(0);
   const [perfilVersion, setPerfilVersion] = useState(0);
   const [datos, setDatos] = useState({ 
@@ -3039,6 +3040,18 @@ export default function App() {
     };
   }, [productosBD]);
 
+  const productosPorPagina = 9;
+  const totalPaginasProductos = Math.max(1, Math.ceil(productosFiltrados.length / productosPorPagina));
+  const paginaProductosSegura = Math.min(paginaProductos, totalPaginasProductos);
+  const inicioProductos = (paginaProductosSegura - 1) * productosPorPagina;
+  const productosPaginados = productosFiltrados.slice(inicioProductos, inicioProductos + productosPorPagina);
+  const indiceInicioVisible = productosFiltrados.length === 0 ? 0 : (inicioProductos + 1);
+  const indiceFinVisible = Math.min(inicioProductos + productosPorPagina, productosFiltrados.length);
+
+  useEffect(() => {
+    setPaginaProductos(1);
+  }, [queryBusqueda, categoriaFiltro, filtroDisponibilidad, filtroPrecio, filtroSoloNuevos, ordenProductos]);
+
   const limpiarFiltrosTienda = () => {
     setQueryBusqueda('');
     setCategoriaFiltro('');
@@ -3046,6 +3059,7 @@ export default function App() {
     setFiltroPrecio('todos');
     setFiltroSoloNuevos(false);
     setOrdenProductos('nuevos');
+    setPaginaProductos(1);
   };
 
   const notificarSincronizacionPedidos = () => setPedidosVersion((prev) => prev + 1);
@@ -3293,7 +3307,7 @@ export default function App() {
               <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
                 <div className="space-y-2">
                   <p className="text-[11px] md:text-xs font-black uppercase tracking-[0.24em] text-emerald-700">Tienda premium</p>
-                  <h2 className="text-3xl md:text-5xl uppercase tracking-tight leading-none text-gray-900">Catalogo Curado</h2>
+                  <h2 className="text-3xl md:text-5xl uppercase tracking-tight leading-none text-gray-900">Catalogo Inteligente</h2>
                   <p className="text-sm md:text-base text-gray-600 font-semibold max-w-3xl">Filtros inteligentes, busqueda rapida y cards mejoradas para encontrar productos en segundos.</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 md:gap-3 w-full xl:w-auto">
@@ -3386,7 +3400,7 @@ export default function App() {
                   Limpiar filtros
                 </button>
                 <p className="ml-auto text-xs md:text-sm font-black uppercase tracking-[0.12em] text-gray-500">
-                  {productosFiltrados.length} resultados
+                  {productosFiltrados.length} resultados · mostrando {indiceInicioVisible}-{indiceFinVisible}
                 </p>
               </div>
             </div>
@@ -3397,11 +3411,12 @@ export default function App() {
                 <p className="text-sm text-gray-500 font-semibold mt-2">Probá limpiando filtros o cambiando el texto de búsqueda.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {productosFiltrados.map((p) => {
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
-                    <div key={p.id} className="premium-product-card premium-store-card p-4 rounded-[30px] relative overflow-hidden group">
+                    <div key={p.id} className="premium-product-card premium-store-card p-4 rounded-[30px] relative overflow-hidden group" style={{ '--card-delay': `${index * 75}ms` }}>
                       <div className="relative">
                         <img src={p.imagen_url} className="h-44 w-full object-cover rounded-2xl mb-3" alt={p.nombre} />
                         {esNuevo && (
@@ -3429,8 +3444,45 @@ export default function App() {
                       </button>
                     </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+
+                {productosFiltrados.length > productosPorPagina && (
+                  <div className="mt-7 flex flex-col items-center gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Pagina {paginaProductosSegura} de {totalPaginasProductos}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPaginaProductos((prev) => Math.max(1, prev - 1))}
+                        disabled={paginaProductosSegura <= 1}
+                        className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                      >
+                        Anterior
+                      </button>
+                      {Array.from({ length: Math.min(totalPaginasProductos, 5) }, (_, i) => {
+                        const base = Math.max(1, Math.min(paginaProductosSegura - 2, totalPaginasProductos - 4));
+                        const pagina = base + i;
+                        if (pagina > totalPaginasProductos) return null;
+                        return (
+                          <button
+                            key={pagina}
+                            onClick={() => setPaginaProductos(pagina)}
+                            className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaProductosSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          >
+                            {pagina}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setPaginaProductos((prev) => Math.min(totalPaginasProductos, prev + 1))}
+                        disabled={paginaProductosSegura >= totalPaginasProductos}
+                        className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
