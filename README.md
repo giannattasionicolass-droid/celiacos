@@ -50,3 +50,30 @@ Notas:
 - ORDER_EMAIL_FROM debe ser un remitente válido en Resend.
 - la función vive en [supabase/functions/order-email/index.ts](supabase/functions/order-email/index.ts).
 - el frontend la invoca desde [src/orderNotifications.js](src/orderNotifications.js).
+
+### Verificación en producción (paso 1)
+
+1. Crear un pedido de prueba desde una cuenta cliente real.
+2. Confirmar que llega email al cliente y a celiashopazul@gmail.com.
+3. Entrar al panel admin y cambiar estado del mismo pedido a Confirmado, Enviado y Entregado.
+4. Confirmar que cada cambio dispara email al cliente.
+5. Si no llega email:
+	- revisar logs de la función order-email en Supabase;
+	- validar variables RESEND_API_KEY y ORDER_EMAIL_FROM;
+	- validar ORDER_ADMIN_EMAILS con el email admin real.
+
+### Backup de deploy inmediato (paso 2)
+
+El repositorio quedó preparado para correr desde dos fuentes de Pages:
+
+- principal: main /docs;
+- backup: main /(root).
+
+Si vuelve a fallar /docs, podés cambiar en GitHub Settings > Pages:
+
+1. Source: Deploy from a branch.
+2. Branch: main.
+3. Folder: /(root).
+4. Save.
+
+Con eso la web usa [index.html](index.html) y sigue cargando desde /celiacos/assets/main.js.
