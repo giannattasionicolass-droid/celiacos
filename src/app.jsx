@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { ShoppingCart, User, Package, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X } from 'lucide-react';
+import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
 const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado'];
@@ -18,6 +18,15 @@ const CATEGORIAS_PREDEFINIDAS = [
   'Productos Lácteos',
   'Desayuno'
 ];
+
+const DATOS_CELIASHOP = {
+  razonSocial: 'CELIASHOP SRL',
+  cuit: '30-71234567-8',
+  direccion: 'Buenos Aires, Argentina',
+  telefono: '+54 11 4000-0000',
+  email: 'ventas@celiashop.com',
+  condicionIva: 'Responsable Inscripto'
+};
 
 const obtenerProductosPedido = (pedido) => {
   const candidatos = [pedido?.productos, pedido?.items, pedido?.detalle, pedido?.carrito];
@@ -151,86 +160,119 @@ const traerPedidosPorUsuario = async (usuarioId) => {
 };
 
 function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
+  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} />;
+}
+
+function FacturaPedido({ pedido, cliente = {} }) {
   const productos = obtenerProductosPedido(pedido);
-  const total = obtenerTotalPedido(pedido);
-  const cantidadItems = obtenerCantidadItemsPedido(pedido);
-  const telefono = pedido?.telefono || usuarioLogueado?.telefono || 'No informado';
-  const email = pedido?.email || usuarioLogueado?.email || 'No informado';
-  const nombreCliente = [usuarioLogueado?.nombre, usuarioLogueado?.apellido].filter(Boolean).join(' ').trim() || 'Cliente';
+  const lineas = productos.map((prod) => {
+    const cantidad = Number(prod?.cantidad) || 1;
+    const precioUnitario = Number(prod?.precio) || 0;
+    const subtotal = cantidad * precioUnitario;
+    return {
+      descripcion: prod?.nombre || 'Producto sin nombre',
+      cantidad,
+      precioUnitario,
+      subtotal,
+    };
+  });
+
+  const subtotalCalculado = lineas.reduce((acc, item) => acc + item.subtotal, 0);
+  const totalPedido = obtenerTotalPedido(pedido) || subtotalCalculado;
+  const itemsTotales = obtenerCantidadItemsPedido(pedido) || lineas.reduce((acc, item) => acc + item.cantidad, 0);
+
+  const clienteId = String(
+    cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id'
+  );
+  const nombreCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim() || 'Cliente CeliaShop';
+  const emailCliente = pedido?.email || cliente?.email || 'No informado';
+  const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
+  const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
+  const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
 
   return (
-    <div className="bg-white rounded-[30px] border border-gray-100 shadow-sm overflow-hidden">
-      <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="bg-white rounded-[30px] border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-slate-900 via-gray-800 to-slate-900 text-white p-6 md:p-7">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-green-300 mb-2">Pedido #{obtenerNumeroPedido(pedido)}</p>
-            <h3 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter">{nombreCliente}</h3>
-            <p className="text-xs text-gray-300 font-semibold mt-1">Compra realizada: {formatearFechaPedido(pedido)}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-emerald-300 mb-2">Factura premium CeliaShop</p>
+            <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight">{DATOS_CELIASHOP.razonSocial}</h3>
+            <p className="text-xs text-gray-300 font-semibold mt-1">CUIT: {DATOS_CELIASHOP.cuit} · IVA: {DATOS_CELIASHOP.condicionIva}</p>
+            <p className="text-xs text-gray-300 font-semibold">{DATOS_CELIASHOP.direccion}</p>
+            <p className="text-xs text-gray-300 font-semibold">{DATOS_CELIASHOP.telefono} · {DATOS_CELIASHOP.email}</p>
           </div>
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${obtenerClaseEstadoPedido(obtenerEstadoPedido(pedido))}`}>
-              {obtenerEstadoPedido(pedido)}
-            </span>
-            <span className="px-4 py-2 rounded-full bg-green-400/15 text-[10px] font-black uppercase tracking-widest text-green-300">
-              {cantidadItems || productos.length} {(cantidadItems || productos.length) === 1 ? 'ítem' : 'ítems'}
-            </span>
+          <div className="bg-white/10 border border-white/20 rounded-2xl p-4 min-w-[250px]">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-200">Comprobante</p>
+            <p className="text-sm font-black uppercase mt-1">FAC-{obtenerNumeroPedido(pedido)}</p>
+            <p className="text-xs font-semibold text-gray-200 mt-2">Pedido #{obtenerNumeroPedido(pedido)}</p>
+            <p className="text-xs font-semibold text-gray-200">Fecha: {formatearFechaPedido(pedido)}</p>
+            <p className="text-xs font-semibold text-gray-200">Estado: {obtenerEstadoPedido(pedido)}</p>
           </div>
         </div>
       </div>
 
-      <div className="p-6 md:p-8 space-y-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Total abonado</p>
-            <p className="text-2xl font-black text-green-600 tracking-tighter">{formatearMoneda(total)}</p>
+      <div className="p-6 md:p-8 space-y-6 bg-gradient-to-b from-white to-gray-50/60">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Cliente</p>
+            <p className="text-base font-black text-gray-900 uppercase">{nombreCliente}</p>
+            <p className="text-sm font-semibold text-gray-700 mt-1 break-all">{emailCliente}</p>
+            <p className="text-sm font-semibold text-gray-700 break-words">{telefonoCliente}</p>
+            <p className="text-sm font-semibold text-gray-700 break-words">CUIT: {cuitCliente}</p>
+            <p className="text-sm font-semibold text-gray-700 break-words">Dirección: {direccionCliente}</p>
+            <p className="text-xs font-semibold text-gray-500 mt-2 break-all">ID cliente: {clienteId}</p>
           </div>
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Dirección de entrega</p>
-            <p className="text-sm font-bold text-gray-700 leading-snug">{obtenerDireccionPedido(pedido)}</p>
-          </div>
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Datos de contacto</p>
-            <p className="text-sm font-bold text-gray-700 leading-snug break-all overflow-hidden">{email}</p>
-            <p className="text-sm font-bold text-gray-500 leading-snug mt-1 break-words">{telefono}</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Resumen de cobro</p>
+            <div className="space-y-2 text-sm font-semibold text-gray-700">
+              <div className="flex items-center justify-between">
+                <span>Items totales</span>
+                <span className="font-black text-gray-900">{itemsTotales}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span className="font-black text-gray-900">{formatearMoneda(subtotalCalculado)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                <span className="font-black uppercase">Total final</span>
+                <span className="text-xl font-black text-emerald-600">{formatearMoneda(totalPedido)}</span>
+              </div>
+            </div>
           </div>
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Detalle de productos</h4>
-            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Verificación del pedido</span>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Detalle completo del pedido (sin imágenes)</h4>
+            <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Copia idéntica admin/cliente</span>
           </div>
 
-          {productos.length === 0 ? (
+          {lineas.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-200 p-5 bg-gray-50">
               <p className="text-xs font-semibold text-gray-500">Este pedido no tiene el detalle de productos guardado en la base actual.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {productos.map((prod, i) => {
-                const cantidad = Number(prod?.cantidad) || 1;
-                const precio = Number(prod?.precio) || 0;
-                const subtotal = cantidad * precio;
-                return (
-                  <div key={`${pedido.id}-${i}`} className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4 bg-white">
-                    {prod?.imagen_url ? (
-                      <img src={prod.imagen_url} alt={prod?.nombre || 'Producto'} className="w-14 h-14 rounded-2xl object-cover bg-gray-100" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-300">
-                        <Package size={20} />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black uppercase text-gray-900 truncate">{prod?.nombre || 'Producto sin nombre'}</p>
-                      <p className="text-xs text-gray-500 font-semibold mt-1">Cantidad: {cantidad} · Unitario: {formatearMoneda(precio)}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Subtotal</p>
-                      <p className="text-sm font-black text-green-600">{formatearMoneda(subtotal)}</p>
-                    </div>
+            <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+              <div className="hidden md:grid grid-cols-12 bg-gray-50 border-b border-gray-200 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-gray-500">
+                <p className="col-span-6">Producto</p>
+                <p className="col-span-2 text-center">Cantidad</p>
+                <p className="col-span-2 text-right">Unitario</p>
+                <p className="col-span-2 text-right">Subtotal</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {lineas.map((item, i) => (
+                  <div key={`${pedido.id}-${i}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 px-4 py-3">
+                    <p className="md:col-span-6 text-sm font-black uppercase text-gray-900">{item.descripcion}</p>
+                    <p className="md:col-span-2 md:text-center text-sm font-semibold text-gray-700">Cantidad: {item.cantidad}</p>
+                    <p className="md:col-span-2 md:text-right text-sm font-semibold text-gray-700">{formatearMoneda(item.precioUnitario)}</p>
+                    <p className="md:col-span-2 md:text-right text-sm font-black text-emerald-600">{formatearMoneda(item.subtotal)}</p>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-widest text-gray-500">Total de la factura</p>
+                <p className="text-lg font-black text-emerald-600">{formatearMoneda(totalPedido)}</p>
+              </div>
             </div>
           )}
         </div>
@@ -1322,6 +1364,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       .some((v) => v.includes(q));
   });
 
+  const clientesPorId = clientes.reduce((acc, cli) => {
+    acc[String(cli.id)] = cli;
+    return acc;
+  }, {});
+
   const exportarClientesExcel = () => {
     const filas = clientesFiltrados.map((cli) => [
       cli.id,
@@ -1497,11 +1544,15 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             )}
             {pedidosFiltrados.map((ped) => {
               const productos = obtenerProductosPedido(ped);
-              const telefono = ped?.telefono || 'No informado';
-              const email = ped?.email || 'No informado';
               const estadoActual = obtenerEstadoPedido(ped);
               const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
+              const clienteFactura = clientesPorId[clienteId] || {
+                id: clienteId,
+                email: ped?.email || '',
+                telefono: ped?.telefono || '',
+                direccion_envio: obtenerDireccionPedido(ped),
+              };
 
               return (
                 <div key={ped.id} className="bg-white rounded-[34px] border border-gray-100 shadow-sm overflow-hidden">
@@ -1556,59 +1607,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                       </div>
                     </div>
 
-                    {expandido && (
-                      <>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                            <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Email del cliente</p>
-                            <p className="text-base font-bold text-gray-700 break-all">{email}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                            <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Teléfono del cliente</p>
-                            <p className="text-base font-bold text-gray-700 break-words">{telefono}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <h5 className="text-base md:text-lg font-black uppercase tracking-widest text-gray-900">Detalle completo del pedido</h5>
-                            <span className="text-xs font-black uppercase text-gray-500 tracking-widest">Seguimiento de compra</span>
-                          </div>
-
-                          {productos.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-gray-200 p-5 bg-gray-50">
-                              <p className="text-sm font-semibold text-gray-600">Este pedido no tiene productos guardados en la base actual.</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {productos.map((item, i) => {
-                                const cantidad = Number(item?.cantidad) || 1;
-                                const precio = Number(item?.precio) || 0;
-                                return (
-                                  <div key={`${ped.id}-${i}`} className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4 bg-white">
-                                    {item?.imagen_url ? (
-                                      <img src={item.imagen_url} alt={item?.nombre || 'Producto'} className="w-14 h-14 rounded-2xl object-cover bg-gray-100" />
-                                    ) : (
-                                      <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-300">
-                                        <Package size={20} />
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-base font-black uppercase text-gray-900 truncate">{item?.nombre || 'Producto sin nombre'}</p>
-                                      <p className="text-sm text-gray-600 font-semibold mt-1">Cantidad: {cantidad} · Unitario: {formatearMoneda(precio)}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="text-xs font-black uppercase tracking-widest text-gray-500">Subtotal</p>
-                                      <p className="text-base font-black text-green-600">{formatearMoneda(cantidad * precio)}</p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    {expandido && <FacturaPedido pedido={ped} cliente={clienteFactura} />}
                   </div>
                 </div>
               );
@@ -1715,43 +1714,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                                 </div>
 
                                 {expandidoPedidoCliente && (
-                                  <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                                    <div className="grid gap-3 md:grid-cols-3">
-                                      <div className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Dirección</p>
-                                        <p className="text-sm font-semibold text-gray-700 break-words">{obtenerDireccionPedido(p)}</p>
-                                      </div>
-                                      <div className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Email</p>
-                                        <p className="text-sm font-semibold text-gray-700 break-all">{p?.email || cli.email || 'No informado'}</p>
-                                      </div>
-                                      <div className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Teléfono</p>
-                                        <p className="text-sm font-semibold text-gray-700 break-words">{p?.telefono || cli.telefono || 'No informado'}</p>
-                                      </div>
-                                    </div>
-
-                                    {productosPedido.length === 0 ? (
-                                      <div className="rounded-xl border border-dashed border-gray-200 p-4 bg-gray-50">
-                                        <p className="text-sm font-semibold text-gray-600">Este pedido no tiene productos guardados en la base actual.</p>
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-2">
-                                        {productosPedido.map((item, i) => {
-                                          const cantidad = Number(item?.cantidad) || 1;
-                                          const precio = Number(item?.precio) || 0;
-                                          return (
-                                            <div key={`${p.id}-${i}`} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 bg-white">
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-black uppercase text-gray-800 truncate">{item?.nombre || 'Producto sin nombre'}</p>
-                                                <p className="text-xs font-semibold text-gray-600 mt-1">Cantidad: {cantidad} · Unitario: {formatearMoneda(precio)}</p>
-                                              </div>
-                                              <p className="text-sm font-black text-green-600">{formatearMoneda(cantidad * precio)}</p>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                  <div className="mt-4 border-t border-gray-100 pt-4">
+                                    <FacturaPedido pedido={p} cliente={cli} />
                                   </div>
                                 )}
                               </div>

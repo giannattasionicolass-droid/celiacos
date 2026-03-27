@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/celiacos/' : '/',
+  base: process.env.PAGES_DIST === 'true'
+    ? '/celiacos/dist/'
+    : (process.env.GITHUB_ACTIONS ? '/celiacos/' : '/'),
   plugins: [
     react(),
     tailwindcss(),
