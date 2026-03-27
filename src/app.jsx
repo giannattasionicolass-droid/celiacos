@@ -160,10 +160,10 @@ const traerPedidosPorUsuario = async (usuarioId) => {
 };
 
 function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
-  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} />;
+  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas />;
 }
 
-function FacturaPedido({ pedido, cliente = {} }) {
+function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false }) {
   const productos = obtenerProductosPedido(pedido);
   const lineas = productos.map((prod) => {
     const cantidad = Number(prod?.cantidad) || 1;
@@ -171,6 +171,7 @@ function FacturaPedido({ pedido, cliente = {} }) {
     const subtotal = cantidad * precioUnitario;
     return {
       descripcion: prod?.nombre || 'Producto sin nombre',
+      imagen: prod?.imagen_url || '',
       cantidad,
       precioUnitario,
       subtotal,
@@ -243,7 +244,9 @@ function FacturaPedido({ pedido, cliente = {} }) {
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Detalle completo del pedido (sin imágenes)</h4>
+            <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">
+              {mostrarImagenesEnLineas ? 'Detalle completo del pedido (con imágenes)' : 'Detalle completo del pedido (sin imágenes)'}
+            </h4>
             <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Copia idéntica admin/cliente</span>
           </div>
 
@@ -262,7 +265,12 @@ function FacturaPedido({ pedido, cliente = {} }) {
               <div className="divide-y divide-gray-100">
                 {lineas.map((item, i) => (
                   <div key={`${pedido.id}-${i}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 px-4 py-3">
-                    <p className="md:col-span-6 text-sm font-black uppercase text-gray-900">{item.descripcion}</p>
+                    <div className="md:col-span-6 flex items-center gap-3 min-w-0">
+                      {mostrarImagenesEnLineas && (
+                        <img src={item.imagen} alt={item.descripcion} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
+                      )}
+                      <p className="text-sm font-black uppercase text-gray-900 break-words">{item.descripcion}</p>
+                    </div>
                     <p className="md:col-span-2 md:text-center text-sm font-semibold text-gray-700">Cantidad: {item.cantidad}</p>
                     <p className="md:col-span-2 md:text-right text-sm font-semibold text-gray-700">{formatearMoneda(item.precioUnitario)}</p>
                     <p className="md:col-span-2 md:text-right text-sm font-black text-emerald-600">{formatearMoneda(item.subtotal)}</p>
@@ -1285,6 +1293,111 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     URL.revokeObjectURL(url);
   };
 
+  const escaparHtml = (valor) => String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const imprimirFacturaPedido = (pedido, cliente = {}) => {
+    const productos = obtenerProductosPedido(pedido);
+    const clienteId = String(cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id');
+    const nombreCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim() || 'Cliente CeliaShop';
+    const emailCliente = pedido?.email || cliente?.email || 'No informado';
+    const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
+    const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
+    const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+
+    const filas = productos.length === 0
+      ? '<tr><td colspan="4" style="padding:12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Sin productos disponibles</td></tr>'
+      : productos.map((item) => {
+          const cantidad = Number(item?.cantidad) || 1;
+          const precio = Number(item?.precio) || 0;
+          const subtotal = cantidad * precio;
+          return `<tr>
+            <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;font-weight:700;">${escaparHtml(item?.nombre || 'Producto sin nombre')}</td>
+            <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:center;">${cantidad}</td>
+            <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;">${escaparHtml(formatearMoneda(precio))}</td>
+            <td style="padding:12px;border:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:800;">${escaparHtml(formatearMoneda(subtotal))}</td>
+          </tr>`;
+        }).join('');
+
+    const total = obtenerTotalPedido(pedido);
+    const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Factura ${escaparHtml(obtenerNumeroPedido(pedido))}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color:#111827; margin:28px; }
+    .top { display:flex; justify-content:space-between; gap:20px; }
+    .brand { background:#0f172a; color:white; padding:16px; border-radius:12px; }
+    .box { border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin-top:12px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th { background:#f9fafb; font-size:11px; text-transform:uppercase; letter-spacing:.08em; padding:10px; border:1px solid #e5e7eb; text-align:left; }
+    .right { text-align:right; }
+    .center { text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">
+      <h2 style="margin:0 0 8px 0;">${escaparHtml(DATOS_CELIASHOP.razonSocial)}</h2>
+      <div style="font-size:12px;line-height:1.5;">CUIT: ${escaparHtml(DATOS_CELIASHOP.cuit)}<br/>IVA: ${escaparHtml(DATOS_CELIASHOP.condicionIva)}<br/>${escaparHtml(DATOS_CELIASHOP.direccion)}<br/>${escaparHtml(DATOS_CELIASHOP.telefono)} - ${escaparHtml(DATOS_CELIASHOP.email)}</div>
+    </div>
+    <div class="box" style="min-width:230px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;">Comprobante</div>
+      <div style="font-size:16px;font-weight:900;margin-top:6px;">FAC-${escaparHtml(obtenerNumeroPedido(pedido))}</div>
+      <div style="font-size:12px;margin-top:8px;">Fecha: ${escaparHtml(formatearFechaPedido(pedido))}</div>
+      <div style="font-size:12px;">Estado: ${escaparHtml(obtenerEstadoPedido(pedido))}</div>
+    </div>
+  </div>
+
+  <div class="box">
+    <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Datos del cliente</div>
+    <div style="font-size:12px;line-height:1.55;">
+      <strong>${escaparHtml(nombreCliente)}</strong><br/>
+      ID cliente: ${escaparHtml(clienteId)}<br/>
+      Email: ${escaparHtml(emailCliente)}<br/>
+      Teléfono: ${escaparHtml(telefonoCliente)}<br/>
+      CUIT: ${escaparHtml(cuitCliente)}<br/>
+      Dirección: ${escaparHtml(direccionCliente)}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th class="center">Cantidad</th>
+        <th class="right">Unitario</th>
+        <th class="right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filas}
+    </tbody>
+  </table>
+
+  <div class="box" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:12px;font-weight:800;text-transform:uppercase;">Total factura</span>
+    <span style="font-size:22px;font-weight:900;color:#059669;">${escaparHtml(formatearMoneda(total))}</span>
+  </div>
+</body>
+</html>`;
+
+    const ventana = window.open('', '_blank', 'width=960,height=760');
+    if (!ventana) {
+      alert('No se pudo abrir la ventana de impresión. Verificá el bloqueador de popups.');
+      return;
+    }
+    ventana.document.write(html);
+    ventana.document.close();
+    ventana.focus();
+    ventana.print();
+  };
+
   const pedidosFiltrados = pedidos.filter((ped) => {
     const estado = obtenerEstadoPedido(ped);
     const fechaRaw = obtenerFechaPedido(ped);
@@ -1586,6 +1699,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                           className="self-start px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-black uppercase tracking-wider"
                         >
                           {expandido ? 'Ocultar detalle' : 'Ver detalle completo'}
+                        </button>
+                        <button
+                          onClick={() => imprimirFacturaPedido(ped, clienteFactura)}
+                          className="self-start px-4 py-2 rounded-xl bg-white text-gray-900 hover:bg-gray-100 text-xs font-black uppercase tracking-wider"
+                        >
+                          Imprimir factura
                         </button>
                       </div>
                     </div>
