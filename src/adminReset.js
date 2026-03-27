@@ -39,6 +39,14 @@ const normalizarMensajeReset = (detalle) => {
     return 'La funcion reset-test-data aun no esta desplegada en Supabase.';
   }
 
+  if (lower.includes('failed to send a request to the edge function')) {
+    return 'No se pudo conectar con la funcion reset-test-data. Normalmente significa que aun no esta desplegada o que falta configurarla en Supabase.';
+  }
+
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return 'Error de red al llamar la funcion reset-test-data. Verifica conexion y que la funcion exista en Supabase.';
+  }
+
   if (lower.includes('solo un administrador')) {
     return 'Solo el admin puede ejecutar el reseteo de prueba.';
   }
