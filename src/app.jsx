@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X } from 'lucide-react';
+import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House } from 'lucide-react';
 
 const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
 const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado'];
@@ -74,6 +74,48 @@ const obtenerClaseEstadoPedido = (estado) => {
   if (valor === 'enviado') return 'bg-amber-100 text-amber-700 ring-1 ring-amber-200';
   if (valor === 'entregado') return 'bg-green-100 text-green-700 ring-1 ring-green-200';
   return 'bg-gray-100 text-gray-700 ring-1 ring-gray-200';
+};
+
+const obtenerVisualEstadoPedido = (estado) => {
+  const valor = String(estado || '').toLowerCase();
+  if (valor === 'pendiente') {
+    return {
+      icono: Package,
+      claseContenedor: 'bg-amber-100 text-amber-800 ring-2 ring-amber-300',
+      claseIcono: 'bg-amber-500 text-white',
+      texto: 'Pendiente'
+    };
+  }
+  if (valor === 'confirmado') {
+    return {
+      icono: CheckCircle,
+      claseContenedor: 'bg-blue-100 text-blue-800 ring-2 ring-blue-300',
+      claseIcono: 'bg-blue-600 text-white',
+      texto: 'Confirmado'
+    };
+  }
+  if (valor === 'enviado') {
+    return {
+      icono: Truck,
+      claseContenedor: 'bg-violet-100 text-violet-800 ring-2 ring-violet-300',
+      claseIcono: 'bg-violet-600 text-white',
+      texto: 'Enviado'
+    };
+  }
+  if (valor === 'entregado') {
+    return {
+      icono: House,
+      claseContenedor: 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-300',
+      claseIcono: 'bg-emerald-600 text-white',
+      texto: 'Entregado'
+    };
+  }
+  return {
+    icono: Package,
+    claseContenedor: 'bg-gray-100 text-gray-700 ring-2 ring-gray-300',
+    claseIcono: 'bg-gray-600 text-white',
+    texto: estado || 'Pendiente'
+  };
 };
 const formatearFechaPedido = (pedido) => {
   const fecha = obtenerFechaPedido(pedido);
@@ -160,10 +202,10 @@ const traerPedidosPorUsuario = async (usuarioId) => {
 };
 
 function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
-  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas />;
+  return <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas resaltarEstadoActual />;
 }
 
-function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false }) {
+function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false }) {
   const productos = obtenerProductosPedido(pedido);
   const lineas = productos.map((prod) => {
     const cantidad = Number(prod?.cantidad) || 1;
@@ -190,6 +232,9 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false }
   const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
   const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+  const estadoActual = obtenerEstadoPedido(pedido);
+  const estadoVisual = obtenerVisualEstadoPedido(estadoActual);
+  const IconoEstado = estadoVisual.icono;
 
   return (
     <div className="bg-white rounded-[30px] border border-gray-200 shadow-sm overflow-hidden">
@@ -207,7 +252,19 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false }
             <p className="text-sm font-black uppercase mt-1">FAC-{obtenerNumeroPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200 mt-2">Pedido #{obtenerNumeroPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200">Fecha: {formatearFechaPedido(pedido)}</p>
-            <p className="text-xs font-semibold text-gray-200">Estado: {obtenerEstadoPedido(pedido)}</p>
+            {resaltarEstadoActual ? (
+              <div className="mt-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-200 mb-2">Estado actual</p>
+                <div className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${estadoVisual.claseContenedor}`}>
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${estadoVisual.claseIcono}`}>
+                    <IconoEstado size={20} />
+                  </span>
+                  <span className="text-lg font-black uppercase tracking-wide">{estadoVisual.texto}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs font-semibold text-gray-200">Estado: {estadoActual}</p>
+            )}
           </div>
         </div>
       </div>
