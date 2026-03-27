@@ -1215,7 +1215,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
     <div className="max-w-4xl mx-auto pb-20 px-4 flex flex-col items-center">
       <h2 className="text-2xl md:text-3xl font-black italic uppercase mb-6 text-center">Mis Pedidos</h2>
 
-      <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 md:p-5 mb-5">
+      <div className="w-full max-w-3xl mx-auto bg-white border border-gray-200 rounded-2xl p-4 md:p-5 mb-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <input
             type="text"
@@ -1262,7 +1262,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
         </div>
       </div>
 
-      <div className="space-y-4 w-full">
+      <div className="space-y-4 w-full max-w-3xl mx-auto">
         {pedidosFiltrados.length === 0 ? (
           <p className="text-center text-gray-500">No hay pedidos para esos filtros.</p>
         ) : (
@@ -1273,7 +1273,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
       </div>
 
       {pedidosFiltrados.length > 0 && (
-        <div className="mt-6 flex flex-col items-center gap-3">
+        <div className="mt-6 w-full max-w-3xl mx-auto flex flex-col items-center gap-3">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
             Página {paginaSegura} de {totalPaginas} · {pedidosFiltrados.length} pedidos
           </p>
@@ -1310,8 +1310,7 @@ function SeccionPedidos({ usuarioLogueado, pedidosVersion }) {
   );
 }
 
-function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion, perfilVersion }) {
-  const [misPedidos, setMisPedidos] = useState([]);
+function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion }) {
   const [editando, setEditando] = useState(false);
   const [datosEditados, setDatosEditados] = useState({});
   const [guardando, setGuardando] = useState(false);
@@ -1330,15 +1329,6 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion, per
       });
     }
   }, [usuarioLogueado, pedidosVersion]);
-
-  useEffect(() => {
-    const traerMisPedidos = async () => {
-      if (!usuarioLogueado) return;
-      const pedidos = await traerPedidosPorUsuario(usuarioLogueado.id);
-      setMisPedidos(pedidos);
-    };
-    traerMisPedidos();
-  }, [usuarioLogueado, perfilVersion]);
 
   const guardarCambios = async () => {
     setGuardando(true);
@@ -1500,16 +1490,6 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar, pedidosVersion, per
         </div>
       </div>
 
-      <h3 className="text-xl font-black italic uppercase mb-6">Mis Compras</h3>
-      <div className="space-y-4">
-        {misPedidos.length === 0 ? (
-          <p className="text-center text-gray-500">Todavía no tenés compras registradas.</p>
-        ) : (
-          misPedidos.map((p) => (
-            <TarjetaPedidoDetalle key={p.id} pedido={p} usuarioLogueado={usuarioLogueado} />
-          ))
-        )}
-      </div>
     </div>
   );
 }
@@ -2888,7 +2868,7 @@ export default function App() {
           />
         )}
         {pagina === 'perfil' && (
-          <SeccionPerfil usuarioLogueado={usuarioLogueado} user={session?.user} onRefrescar={refrescarPerfil} pedidosVersion={pedidosVersion} perfilVersion={perfilVersion} />
+          <SeccionPerfil usuarioLogueado={usuarioLogueado} user={session?.user} onRefrescar={refrescarPerfil} pedidosVersion={pedidosVersion} />
         )}
         {pagina === 'pedidos' && (
           <SeccionPedidos usuarioLogueado={usuarioLogueado} pedidosVersion={pedidosVersion} />
