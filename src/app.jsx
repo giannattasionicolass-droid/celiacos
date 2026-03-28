@@ -3813,18 +3813,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
               <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Stock total</p>
               <p className="text-2xl font-black text-gray-900 mt-2">{resumenBalance.stockTotal}</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Entrante / Saliente</p>
-              <p className="text-lg font-black text-gray-900 mt-2">{resumenBalance.entrante} / {resumenBalance.saliente}</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Vendidos / Faltantes</p>
-              <p className="text-lg font-black text-gray-900 mt-2">{resumenBalance.vendidos} / {resumenBalance.faltantes}</p>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
               <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Costo inventario</p>
@@ -3836,52 +3828,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <form onSubmit={registrarIngresoStock} className="bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm space-y-4 h-fit">
-              <h4 className="text-sm font-black uppercase tracking-widest text-gray-600">Registrar stock entrante</h4>
-              <select
-                value={movimientoEntrada.producto_id}
-                onChange={(e) => setMovimientoEntrada((prev) => ({ ...prev, producto_id: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
-                required
-              >
-                <option value="">Seleccioná producto</option>
-                {productos.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={movimientoEntrada.cantidad}
-                onChange={(e) => setMovimientoEntrada((prev) => ({ ...prev, cantidad: e.target.value }))}
-                placeholder="Cantidad que ingresa"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
-                required
-              />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={movimientoEntrada.costo_unitario}
-                onChange={(e) => setMovimientoEntrada((prev) => ({ ...prev, costo_unitario: e.target.value }))}
-                placeholder="Costo unitario fábrica"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm"
-              />
-              <textarea
-                value={movimientoEntrada.detalle}
-                onChange={(e) => setMovimientoEntrada((prev) => ({ ...prev, detalle: e.target.value }))}
-                placeholder="Detalle (ej: compra proveedor mayo)"
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 font-semibold text-sm min-h-[96px]"
-              />
-              <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider">
-                Guardar ingreso
-              </button>
-              <p className="text-xs font-semibold text-gray-500">Cada ingreso suma stock y queda registrado para balance.</p>
-            </form>
-
-            <div className="xl:col-span-2 bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 gap-6">
+            <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h4 className="text-sm font-black uppercase tracking-widest text-gray-600">Productos y rendimiento</h4>
                 {cargandoInventario && <span className="text-xs font-semibold text-gray-500">Cargando movimientos...</span>}
@@ -3919,8 +3867,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                     <tr>
                       <th className="text-left px-4 py-3">Producto</th>
                       <th className="text-left px-4 py-3">Stock</th>
-                      <th className="text-left px-4 py-3">Entr/Sal</th>
-                      <th className="text-left px-4 py-3">Vend/Falt</th>
                       <th className="text-left px-4 py-3">Costo</th>
                       <th className="text-left px-4 py-3">Precio</th>
                       <th className="text-left px-4 py-3">Margen</th>
@@ -3935,8 +3881,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                           <p className="text-[11px] font-semibold text-gray-500">{item.producto.categoria || 'Sin categoría'}</p>
                         </td>
                         <td className="px-4 py-3 font-black text-gray-900">{item.stockActual}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-700">{item.entrante} / {item.saliente}</td>
-                        <td className="px-4 py-3 font-semibold text-gray-700">{item.vendidos} / {item.faltantes}</td>
                         <td className="px-4 py-3">
                           <p className="font-black text-gray-900">{formatearMoneda(item.costoFabrica)}</p>
                           <p className="text-[11px] font-semibold text-gray-500">Stock costo: {formatearMoneda(item.valorStockCosto)}</p>
