@@ -1391,17 +1391,19 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
                   </div>
                   <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 leading-snug">{p.nombre}</h3>
-                  {p.en_oferta && Number(p.precio_oferta) > 0 ? (
-                    <div className="mb-1">
-                      <p className="text-xl md:text-2xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
-                      <p className="text-xs text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
-                    </div>
-                  ) : (
-                    <p className="text-xl md:text-2xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
-                  )}
-                  <p className={`text-xs md:text-sm font-black mb-3 ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
-                  </p>
+                  <div className="mt-2 mb-3 text-center">
+                    {p.en_oferta && Number(p.precio_oferta) > 0 ? (
+                      <div className="mb-1">
+                        <p className="text-xl md:text-2xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
+                        <p className="text-xs text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
+                      </div>
+                    ) : (
+                      <p className="text-xl md:text-2xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
+                    )}
+                    <p className={`text-xs md:text-sm font-black ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
+                    </p>
+                  </div>
                   </div>
                   <button
                     onClick={() => agregarAlCarrito(p)}
@@ -1412,7 +1414,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                         : 'bg-gradient-to-r from-zinc-900 to-zinc-800 text-white hover:from-zinc-800 hover:to-zinc-700 shadow-md hover:shadow-lg'
                     }`}
                   >
-                    {p.activo && p.stock > 0 ? 'Agregar al carrito' : 'No disponible'}
+                    {p.activo && p.stock > 0 ? 'Agregar producto' : 'No disponible'}
                   </button>
                 </div>
               </div>
@@ -5789,22 +5791,25 @@ export default function App() {
                         <div>
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
-                          {!p.activo || Number(p.stock || 0) <= 0 ? (
-                            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
-                          ) : (
-                            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
-                          )}
+                          <span className="text-[9px] font-black uppercase tracking-[0.1em] text-transparent select-none">Stock</span>
                         </div>
 
                         <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
-                        {p.en_oferta && Number(p.precio_oferta) > 0 ? (
-                          <div className="mt-1 mb-2.5">
-                            <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
-                            <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
-                          </div>
-                        ) : (
-                          <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-2.5">{formatearMoneda(p.precio)}</p>
-                        )}
+                        <div className="mt-2 mb-2.5 text-center">
+                          {p.en_oferta && Number(p.precio_oferta) > 0 ? (
+                            <div className="mb-1">
+                              <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
+                              <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
+                            </div>
+                          ) : (
+                            <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-1">{formatearMoneda(p.precio)}</p>
+                          )}
+                          {!p.activo || Number(p.stock || 0) <= 0 ? (
+                            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
+                          ) : (
+                            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
+                          )}
+                        </div>
                         </div>
                       </div>
 
@@ -5815,7 +5820,7 @@ export default function App() {
                         }}
                         disabled={!p.activo || p.stock <= 0}
                         className={`w-full mt-auto py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 flex items-center justify-center ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
-                        {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
+                        {p.activo && p.stock > 0 ? 'Agregar producto' : 'No disponible'}
                       </button>
                     </div>
                   );
