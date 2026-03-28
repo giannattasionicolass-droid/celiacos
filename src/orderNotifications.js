@@ -41,42 +41,52 @@ const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || new Date().toISOString();
 const obtenerNumeroPedido = (pedido) => String(pedido?.id || 'sin-id').replace(/-/g, '').slice(0, 8).toUpperCase();
 
-const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, tipo }) => ({
-  eventType: tipo,
-  shop: {
-    email: EMAIL_CELIASHOP,
-  },
-  order: {
-    id: pedido?.id || null,
-    numero: obtenerNumeroPedido(pedido),
-    estado: obtenerEstadoPedido(pedido),
-    estadoAnterior: estadoAnterior || null,
-    fecha: obtenerFechaPedido(pedido),
-    total: obtenerTotalPedido(pedido),
-    direccion: obtenerDireccionPedido(pedido),
-    metodoPago: pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || '',
-    emailConfirmacion: pedido?.email_confirmacion || pedido?.email || cliente?.email || '',
-    comprobanteUrl: pedido?.comprobante_pago_url || pedido?.comprobante_url || '',
-    comprobanteNombre: pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || '',
-    productos: obtenerProductosPedido(pedido).map((item) => ({
-      id: item?.id || null,
-      nombre: item?.nombre || 'Producto sin nombre',
-      cantidad: Number(item?.cantidad) || 1,
-      precio: Number(item?.precio) || 0,
-      imagen_url: item?.imagen_url || '',
-    })),
-    user_id: pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || cliente?.id || null,
-  },
-  customer: {
-    id: cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || null,
-    nombre: cliente?.nombre || '',
-    apellido: cliente?.apellido || '',
-    email: pedido?.email || cliente?.email || '',
-    telefono: pedido?.telefono || cliente?.telefono || '',
-    cuit: cliente?.cuit || pedido?.cuit || '',
-    direccion: obtenerDireccionPedido(pedido) || cliente?.direccion_envio || '',
-  },
-});
+const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, tipo }) => {
+  const payload = {
+    eventType: tipo,
+    shop: {
+      email: EMAIL_CELIASHOP,
+    },
+    order: {
+      id: pedido?.id || null,
+      numero: obtenerNumeroPedido(pedido),
+      estado: obtenerEstadoPedido(pedido),
+      estadoAnterior: estadoAnterior || null,
+      fecha: obtenerFechaPedido(pedido),
+      total: obtenerTotalPedido(pedido),
+      direccion: obtenerDireccionPedido(pedido),
+      metodoPago: pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || '',
+      emailConfirmacion: pedido?.email_confirmacion || pedido?.email || cliente?.email || '',
+      comprobanteUrl: pedido?.comprobante_pago_url || pedido?.comprobante_url || '',
+      comprobanteNombre: pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || '',
+      productos: obtenerProductosPedido(pedido).map((item) => ({
+        id: item?.id || null,
+        nombre: item?.nombre || 'Producto sin nombre',
+        cantidad: Number(item?.cantidad) || 1,
+        precio: Number(item?.precio) || 0,
+        imagen_url: item?.imagen_url || '',
+      })),
+      user_id: pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || cliente?.id || null,
+    },
+    customer: {
+      id: cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || null,
+      nombre: cliente?.nombre || '',
+      apellido: cliente?.apellido || '',
+      email: pedido?.email || cliente?.email || '',
+      telefono: pedido?.telefono || cliente?.telefono || '',
+      cuit: cliente?.cuit || pedido?.cuit || '',
+      direccion: obtenerDireccionPedido(pedido) || cliente?.direccion_envio || '',
+    },
+  };
+  
+  console.log('[DEBUG] Payload del email construido:', {
+    metodoPago: payload.order.metodoPago,
+    comprobanteUrl: payload.order.comprobanteUrl,
+    comprobanteNombre: payload.order.comprobanteNombre
+  });
+  
+  return payload;
+};
 
 const extraerMensajeErrorInvoke = async (error) => {
   if (!error) return 'Error desconocido al enviar email.';
