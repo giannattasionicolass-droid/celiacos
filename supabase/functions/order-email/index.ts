@@ -90,6 +90,23 @@ const getCustomerName = (customer: Customer = {}) => {
 
 const getProducts = (order: Order = {}) => Array.isArray(order.productos) ? order.productos : [];
 const getPaymentLabel = (order: Order = {}) => {
+const renderVoucherBlock = (order: Order = {}) => {
+  const metodoPago = String(order.metodoPago || '').toLowerCase().trim();
+  const comprobanteUrl = String(order.comprobanteUrl || '').trim();
+  
+  console.log('[DEBUG Edge renderVoucher]', { metodoPago, comprobanteUrl_present: !!comprobanteUrl });
+  
+  if (metodoPago !== 'transferencia') {
+    return '';
+  }
+  
+  if (!comprobanteUrl) {
+    return '<strong>Comprobante:</strong> <em>No adjuntado</em><br/>';
+  }
+  
+  return `<strong>Comprobante de transferencia:</strong><br/>
+    <img src="${comprobanteUrl}" alt="Comprobante de pago" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;border:1px solid #0ea5e9;display:block;" />`;
+};
   const raw = String(order.metodoPago || '').toLowerCase();
   if (raw === 'transferencia') return 'Transferencia bancaria';
   if (raw === 'contra_entrega') return 'Contra entrega';
