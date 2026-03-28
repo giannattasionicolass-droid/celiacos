@@ -4619,6 +4619,59 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <section className="relative overflow-hidden rounded-[42px] border border-emerald-200 bg-gradient-to-br from-emerald-950 via-emerald-900 to-lime-800 px-6 py-9 md:px-10 md:py-12 shadow-[0_35px_90px_-35px_rgba(6,78,59,0.65)]">
+              <div className="pointer-events-none absolute -top-24 -left-20 h-56 w-56 rounded-full bg-lime-300/15 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -right-20 h-64 w-64 rounded-full bg-amber-300/20 blur-3xl" />
+
+              <div className="relative grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 items-stretch">
+                <div className="xl:col-span-7 rounded-[30px] border border-white/20 bg-white/10 backdrop-blur-sm p-6 md:p-8 text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-white/90 border border-white/60 p-2 flex items-center justify-center shadow-xl">
+                      <img src={URL_LOGO} alt="Logo CeliaShop" className="h-full w-full object-contain" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-200">Identidad CeliaShop</p>
+                      <h3 className="text-2xl md:text-4xl font-black uppercase tracking-tight leading-tight">Sabor, confianza y salud en cada pedido</h3>
+                    </div>
+                  </div>
+
+                  <p className="mt-5 text-sm md:text-base font-semibold text-emerald-100/90 max-w-2xl leading-relaxed">
+                    Tienda premium 100% enfocada en productos libres de gluten, con atención humana, stock real y una experiencia de compra que se siente cuidada de principio a fin.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-2.5">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white"><Sparkles size={14} /> Curaduría premium</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white"><Truck size={14} /> Entrega en Azul</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white"><ShieldCheck size={14} /> Compra confiable</span>
+                  </div>
+                </div>
+
+                <div className="xl:col-span-5 rounded-[30px] border border-white/20 bg-white/90 p-5 md:p-6 shadow-2xl">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">Canales directos</p>
+                  <div className="mt-4 space-y-2.5">
+                    <a href="mailto:celiashopazul@gmail.com" className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 hover:bg-emerald-100 transition-colors">
+                      <span className="inline-flex items-center gap-2 text-sm font-black text-emerald-900"><Mail size={16} /> Email</span>
+                      <span className="text-xs font-black text-emerald-700">celiashopazul@gmail.com</span>
+                    </a>
+                    <a href="tel:+541140000000" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 transition-colors">
+                      <span className="inline-flex items-center gap-2 text-sm font-black text-gray-900"><Phone size={16} /> Teléfono</span>
+                      <span className="text-xs font-black text-gray-700">+54 11 4000-0000</span>
+                    </a>
+                    <div className="flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                      <span className="inline-flex items-center gap-2 text-sm font-black text-amber-900"><Globe size={16} /> Zona de entrega</span>
+                      <span className="text-xs font-black text-amber-700">Azul y alrededores</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl bg-gray-900 px-4 py-4 text-white">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">CeliaShop</p>
+                    <p className="text-sm font-semibold mt-1">Productos libres de gluten</p>
+                    <p className="text-xs text-gray-300 mt-1">Compra simple, seguimiento claro y soporte real antes y después de cada pedido.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         )}
         
