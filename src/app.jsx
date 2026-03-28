@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
+import { resetearDatosPrueba } from './adminReset';
 import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles, Mail, Phone, Globe, Share2, Download, Smartphone } from 'lucide-react';
 
@@ -2406,6 +2407,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
   const [filtroInventarioNombre, setFiltroInventarioNombre] = useState('');
   const [filtroInventarioCategoria, setFiltroInventarioCategoria] = useState('');
+  const [filtroStockProducto, setFiltroStockProducto] = useState('');
+  const [reseteandoBase, setReseteandoBase] = useState(false);
   const [ofertaColumnaFaltante, setOfertaColumnaFaltante] = useState(false);
 
   const esErrorColumna = (error) => {
@@ -2478,6 +2481,52 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
       return next;
     });
+  };
+
+  const productosFiltradosStock = useMemo(() => {
+    const filtro = String(filtroStockProducto || '').trim().toLowerCase();
+    if (!filtro) return productos;
+    return productos.filter((p) => {
+      const nombre = String(p?.nombre || '').toLowerCase();
+      const categoria = String(p?.categoria || '').toLowerCase();
+      return nombre.includes(filtro) || categoria.includes(filtro);
+    });
+  }, [productos, filtroStockProducto]);
+
+  const ejecutarResetTotalBase = async () => {
+    if (reseteandoBase) return;
+
+    const confirmarPaso1 = window.confirm('Esto va a eliminar TODOS los productos, ventas, movimientos de inventario y cuentas de clientes. Solo quedará admin. ¿Continuar?');
+    if (!confirmarPaso1) return;
+
+    const confirmarPaso2 = window.prompt('Confirmación final: escribí RESET TOTAL para continuar.');
+    if (confirmarPaso2 !== 'RESET TOTAL') {
+      alert('Reset cancelado.');
+      return;
+    }
+
+    setReseteandoBase(true);
+    try {
+      const resultado = await resetearDatosPrueba();
+      if (!resultado?.ok) {
+        alert(resultado?.mensaje || 'No se pudo ejecutar el reset total. Si persiste, ejecutá supabase/reset-total-conservar-admin.sql en SQL Editor.');
+        return;
+      }
+
+      localStorage.removeItem(PEDIDOS_SNAPSHOT_KEY);
+      await Promise.all([
+        traerProductos?.(),
+        traerPedidos(),
+        traerClientes(),
+        traerMovimientosInventario(),
+      ]);
+
+      alert('Reset total ejecutado. La base quedó limpia y conservando solo admin.');
+    } catch (error) {
+      alert('No se pudo completar el reset: ' + (error?.message || 'Error desconocido'));
+    } finally {
+      setReseteandoBase(false);
+    }
   };
 
   const traerPedidos = async () => {
@@ -2695,11 +2744,14 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
   const agregarProducto = async (e) => {
     e.preventDefault();
+    const stockObjetivo = Number(nuevoP.stock) || 0;
+    const usarHistorialInventario = !inventarioSinHistorial;
+
     const payloadBase = {
       nombre: nuevoP.nombre,
       precio: Number(nuevoP.precio) || 0,
       imagen_url: nuevoP.imagen_url,
-      stock: Number(nuevoP.stock) || 0,
+      stock: usarHistorialInventario ? 0 : stockObjetivo,
       categoria: nuevoP.categoria,
       activo: Boolean(nuevoP.activo),
     };
@@ -2734,19 +2786,33 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       insertado = dataV1;
     }
 
-    if (insertado?.id && (Number(payloadBase.stock) || 0) > 0) {
+    if (insertado?.id && stockObjetivo > 0 && usarHistorialInventario) {
       const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
         producto_id: insertado.id,
         tipo: 'entrada',
-        cantidad: Number(payloadBase.stock) || 0,
+        cantidad: stockObjetivo,
         costo_unitario: Number(payloadExtendido.costo_fabrica) || 0,
         detalle: 'Stock inicial por alta de producto',
         origen: 'alta_producto',
       }]);
       if (errorMov && !esTablaInventarioNoDisponible(errorMov)) {
         console.warn('No se pudo guardar movimiento de stock inicial:', errorMov);
+        const { error: errorStockDirecto } = await supabase
+          .from('productos')
+          .update({ stock: stockObjetivo })
+          .eq('id', insertado.id);
+        if (errorStockDirecto) {
+          console.warn('No se pudo aplicar fallback de stock directo tras error de movimiento:', errorStockDirecto);
+        }
       }
       if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
+        const { error: errorStockDirecto } = await supabase
+          .from('productos')
+          .update({ stock: stockObjetivo })
+          .eq('id', insertado.id);
+        if (errorStockDirecto) {
+          console.warn('No se pudo aplicar fallback de stock directo con inventario no disponible:', errorStockDirecto);
+        }
         activarAvisoInventario('Se creó el producto y el stock inicial, pero no se pudo guardar el movimiento en historial.');
       }
     }
@@ -2761,6 +2827,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     e.preventDefault();
     if (!productoEditando) return;
 
+    const usarHistorialInventario = !inventarioSinHistorial;
     const stockAnterior = Number(productos.find((p) => String(p.id) === String(productoEditando.id))?.stock) || 0;
     const stockNuevo = Number(productoEditando.stock) || 0;
 
@@ -2768,9 +2835,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       nombre: productoEditando.nombre,
       precio: Number(productoEditando.precio),
       imagen_url: productoEditando.imagen_url,
-      stock: stockNuevo,
       categoria: productoEditando.categoria,
       activo: Boolean(productoEditando.activo),
+      ...(usarHistorialInventario ? {} : { stock: stockNuevo }),
     };
     const payloadExtendido = {
       ...payloadBase,
@@ -2802,7 +2869,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     }
 
     const variacionStock = stockNuevo - stockAnterior;
-    if (variacionStock !== 0) {
+    if (variacionStock !== 0 && usarHistorialInventario) {
       const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
         producto_id: productoEditando.id,
         tipo: variacionStock > 0 ? 'entrada' : 'salida',
@@ -2814,8 +2881,22 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       }]);
       if (errorMov && !esTablaInventarioNoDisponible(errorMov)) {
         console.warn('No se pudo guardar movimiento por ajuste manual:', errorMov);
+        const { error: errorStockDirecto } = await supabase
+          .from('productos')
+          .update({ stock: stockNuevo })
+          .eq('id', productoEditando.id);
+        if (errorStockDirecto) {
+          console.warn('No se pudo aplicar fallback de stock directo en ajuste manual:', errorStockDirecto);
+        }
       }
       if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
+        const { error: errorStockDirecto } = await supabase
+          .from('productos')
+          .update({ stock: stockNuevo })
+          .eq('id', productoEditando.id);
+        if (errorStockDirecto) {
+          console.warn('No se pudo aplicar fallback de stock directo con inventario no disponible:', errorStockDirecto);
+        }
         activarAvisoInventario('Se actualizó el stock, pero el historial de movimientos no está activo en la base.');
       }
     }
@@ -3543,6 +3624,21 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
       {tab === 'stock' && (
         <div className="space-y-6">
+          <div className="bg-white border border-red-100 rounded-2xl p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-600">Reset total de base</p>
+              <p className="text-xs font-semibold text-gray-700">Borra productos, ventas, inventario y cuentas de clientes. Conserva solo admin.</p>
+            </div>
+            <button
+              type="button"
+              onClick={ejecutarResetTotalBase}
+              disabled={reseteandoBase}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide ${reseteandoBase ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+            >
+              {reseteandoBase ? 'Reseteando...' : 'Reset Total'}
+            </button>
+          </div>
+
           {ofertaColumnaFaltante && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
               <p className="text-[11px] font-black uppercase tracking-widest mb-1">⚠️ Columnas de oferta faltantes en Supabase</p>
@@ -3623,7 +3719,18 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
           )}
 
           <div className="lg:col-span-2 space-y-3">
-            {productos.map(p => (
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Buscar producto en stock</label>
+              <input
+                type="text"
+                value={filtroStockProducto}
+                onChange={(e) => setFiltroStockProducto(e.target.value)}
+                placeholder="Nombre o categoría"
+                className="mt-2 w-full p-3 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold"
+              />
+            </div>
+
+            {productosFiltradosStock.map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[30px] border border-gray-100 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
                   <img src={p.imagen_url} className="w-16 h-16 object-cover rounded-2xl bg-gray-50" alt={p.nombre} />
@@ -3643,6 +3750,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 </div>
               </div>
             ))}
+
+            {productosFiltradosStock.length === 0 && (
+              <div className="bg-white p-6 rounded-[24px] border border-gray-100 text-center text-sm font-semibold text-gray-500">
+                No hay productos que coincidan con la búsqueda.
+              </div>
+            )}
           </div>
         </div>
         </div>
