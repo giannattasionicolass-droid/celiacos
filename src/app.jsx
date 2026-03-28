@@ -2377,6 +2377,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [cargandoInventario, setCargandoInventario] = useState(false);
   const [inventarioSinHistorial, setInventarioSinHistorial] = useState(false);
   const [mensajeInventario, setMensajeInventario] = useState('');
+  const [diagnosticoTriggerStock, setDiagnosticoTriggerStock] = useState({
+    estado: 'pendiente',
+    titulo: 'Verificando automatización de stock...',
+    detalle: 'Chequeando movimientos de inventario y bandera stock_descontado en pedidos.',
+  });
   const [periodoBalance, setPeriodoBalance] = useState('mensual');
   const [movimientoEntrada, setMovimientoEntrada] = useState({
     producto_id: '',
@@ -2560,11 +2565,110 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     }
   };
 
+  const diagnosticarTriggerDescuentoStock = async () => {
+    setDiagnosticoTriggerStock({
+      estado: 'pendiente',
+      titulo: 'Verificando automatización de stock...',
+      detalle: 'Chequeando movimientos de inventario y bandera stock_descontado en pedidos.',
+    });
+
+    try {
+      const [movResult, pedidosResult] = await Promise.all([
+        supabase
+          .from('inventario_movimientos')
+          .select('id', { count: 'exact', head: true }),
+        supabase
+          .from('pedidos')
+          .select('id, stock_descontado')
+          .order('fecha', { ascending: false })
+          .limit(200),
+      ]);
+
+      const errMov = movResult?.error;
+      const errPedidos = pedidosResult?.error;
+      const pedidosDiag = Array.isArray(pedidosResult?.data) ? pedidosResult.data : [];
+
+      if (errMov && esTablaInventarioNoDisponible(errMov)) {
+        setDiagnosticoTriggerStock({
+          estado: 'faltante_sql',
+          titulo: 'Automatización no activa',
+          detalle: 'Falta la tabla de inventario/trigger en Supabase. Ejecutá setup_inventory_balance.sql para activar descuento automático robusto.',
+        });
+        return;
+      }
+
+      if (errMov && !esTablaInventarioNoDisponible(errMov)) {
+        setDiagnosticoTriggerStock({
+          estado: 'error',
+          titulo: 'No se pudo verificar',
+          detalle: `Error al consultar inventario_movimientos: ${errMov.message || 'desconocido'}`,
+        });
+        return;
+      }
+
+      if (errPedidos) {
+        const msg = String(errPedidos?.message || '');
+        const faltanColumnas = esErrorColumna(errPedidos) && msg.toLowerCase().includes('stock_descontado');
+        if (faltanColumnas) {
+          setDiagnosticoTriggerStock({
+            estado: 'faltante_sql',
+            titulo: 'Automatización incompleta',
+            detalle: 'La columna stock_descontado no existe en pedidos. Ejecutá setup_inventory_balance.sql.',
+          });
+          return;
+        }
+
+        setDiagnosticoTriggerStock({
+          estado: 'error',
+          titulo: 'No se pudo verificar',
+          detalle: `Error al consultar pedidos: ${msg || 'desconocido'}`,
+        });
+        return;
+      }
+
+      const totalPedidosDiag = pedidosDiag.length;
+      const pedidosConDescuento = pedidosDiag.filter((p) => p?.stock_descontado === true).length;
+
+      if (totalPedidosDiag === 0) {
+        setDiagnosticoTriggerStock({
+          estado: 'sin_datos',
+          titulo: 'Sin pedidos para validar',
+          detalle: 'No hay pedidos recientes para confirmar el trigger. Hacé una compra de prueba y revisá de nuevo.',
+        });
+        return;
+      }
+
+      if (pedidosConDescuento > 0) {
+        setDiagnosticoTriggerStock({
+          estado: 'activo',
+          titulo: 'Automatización activa',
+          detalle: `Detectados ${pedidosConDescuento} pedidos con stock_descontado=true en los últimos ${totalPedidosDiag}.`,
+        });
+        return;
+      }
+
+      setDiagnosticoTriggerStock({
+        estado: 'dudoso',
+        titulo: 'Automatización no confirmada',
+        detalle: 'No se detectaron pedidos con stock_descontado=true. Puede faltar setup_inventory_balance.sql o todavía no hubo pedidos con trigger aplicado.',
+      });
+    } catch (error) {
+      setDiagnosticoTriggerStock({
+        estado: 'error',
+        titulo: 'No se pudo verificar',
+        detalle: `Error inesperado: ${error?.message || 'desconocido'}`,
+      });
+    }
+  };
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === 'ventas' || tab === 'clientes' || tab === 'inventario') traerPedidos();
     if (tab === 'clientes') traerClientes();
-    if (tab === 'inventario') traerMovimientosInventario();
+    if (tab === 'inventario') {
+      traerMovimientosInventario();
+      diagnosticarTriggerDescuentoStock();
+    }
   }, [tab, pedidosVersion]);
 
   useEffect(() => {
@@ -3520,6 +3624,19 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               >
                 Exportar balance ({periodoSeleccionado.label})
               </button>
+            </div>
+            <div className={`mt-4 rounded-2xl border px-4 py-3 ${
+              diagnosticoTriggerStock.estado === 'activo'
+                ? 'bg-emerald-50 border-emerald-200'
+                : diagnosticoTriggerStock.estado === 'faltante_sql' || diagnosticoTriggerStock.estado === 'error'
+                  ? 'bg-rose-50 border-rose-200'
+                  : diagnosticoTriggerStock.estado === 'pendiente'
+                    ? 'bg-sky-50 border-sky-200'
+                    : 'bg-amber-50 border-amber-200'
+            }`}>
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-700">Diagnóstico de descuento automático</p>
+              <p className="text-sm font-black mt-1 text-gray-900">{diagnosticoTriggerStock.titulo}</p>
+              <p className="text-xs font-semibold mt-1 text-gray-700">{diagnosticoTriggerStock.detalle}</p>
             </div>
             {inventarioSinHistorial && (
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
