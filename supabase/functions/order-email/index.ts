@@ -134,7 +134,7 @@ const renderInvoice = (order: Order = {}, customer: Customer = {}, shopEmail = D
         <strong>Método de pago:</strong> ${escapeHtml(getPaymentLabel(order))}<br/>
         <strong>Email confirmación:</strong> ${escapeHtml(order.emailConfirmacion || customer.email || 'No informado')}<br/>
         ${String(order.metodoPago || '').toLowerCase() === 'contra_entrega' ? '<strong>Recordatorio:</strong> tener el dinero listo al recibir el pedido.<br/>' : ''}
-        ${String(order.metodoPago || '').toLowerCase() === 'transferencia' ? `<strong>Comprobante de transferencia:</strong><br/>${order.comprobanteUrl ? `<img src="${escapeHtml(order.comprobanteUrl)}" alt="Comprobante de pago" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;border:1px solid #0ea5e9;" />` : '<em>No adjuntado</em>'}` : ''}
+        ${String(order.metodoPago || '').toLowerCase() === 'transferencia' ? `<strong>Comprobante de transferencia:</strong><br/>${order.comprobanteUrl ? `<img src="${order.comprobanteUrl}" alt="Comprobante de pago" style="max-width:100%;height:auto;border-radius:8px;margin-top:8px;border:1px solid #0ea5e9;" />` : '<em>No adjuntado</em>'}` : ''}
       </div>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
