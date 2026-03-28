@@ -23,15 +23,38 @@ child.on('exit', (code) => {
   const rootDir = resolve(process.cwd());
   const distDir = resolve(rootDir, 'dist');
   const docsDir = resolve(rootDir, 'docs');
+  const docsBackupDir = resolve(rootDir, '.tmp_docs_backup');
 
   if (!existsSync(distDir)) {
     console.error('No se encontro dist despues del build.');
     process.exit(1);
   }
 
+  // Preservar artefactos de APK/versión para no romper el flujo de actualización
+  // cuando se publica solo web (sync:online).
+  const preservar = ['celiashop-android.apk', 'celiashop.apk', 'apk-version.json'];
+  rmSync(docsBackupDir, { recursive: true, force: true });
+  mkdirSync(docsBackupDir, { recursive: true });
+
+  for (const nombre of preservar) {
+    const origen = resolve(docsDir, nombre);
+    if (existsSync(origen)) {
+      cpSync(origen, resolve(docsBackupDir, nombre), { force: true });
+    }
+  }
+
   rmSync(docsDir, { recursive: true, force: true });
   mkdirSync(docsDir, { recursive: true });
   cpSync(distDir, docsDir, { recursive: true, force: true });
+
+  for (const nombre of preservar) {
+    const respaldo = resolve(docsBackupDir, nombre);
+    if (existsSync(respaldo)) {
+      cpSync(respaldo, resolve(docsDir, nombre), { force: true });
+    }
+  }
+
+  rmSync(docsBackupDir, { recursive: true, force: true });
 
   process.exit(0);
 });
