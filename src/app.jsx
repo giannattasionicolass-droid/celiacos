@@ -4891,7 +4891,7 @@ export default function App() {
             <Carrusel productos={productosBD} agregarAlCarrito={agregarAlCarrito} />
             <div className="premium-panel rounded-[40px] p-10 md:p-12">
               <h2 className="text-2xl md:text-4xl italic text-gray-900 uppercase tracking-tighter text-center mb-3">Por qué elegir CeliaShop</h2>
-              <p className="text-center text-sm text-gray-500 font-semibold mb-10">Diseñamos una compra simple, confiable y antojadiza desde el primer scroll.</p>
+              <p className="text-center text-sm text-gray-500 font-semibold mb-10">Diseñamos una compra simple, confiable y adaptada a cada cliente</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="text-center">
                   <div className="bg-green-100/80 p-6 rounded-[26px] mb-4 border border-green-200">
@@ -4903,7 +4903,7 @@ export default function App() {
                   <div className="bg-orange-100/80 p-6 rounded-[26px] mb-4 border border-orange-200">
                     <h3 className="text-xl uppercase text-orange-700">Calidad Premium</h3>
                   </div>
-                  <p className="text-gray-600 font-medium">Seleccionamos los mejores ingredientes para garantizar la máxima calidad.</p>
+                  <p className="text-gray-600 font-medium">Seleccionamos las mejores marcas para garantizar la máxima calidad.</p>
                 </div>
                 <div className="text-center">
                   <div className="bg-gray-900 p-6 rounded-[26px] mb-4 border border-gray-800">
