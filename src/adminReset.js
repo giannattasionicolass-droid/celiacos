@@ -1,6 +1,20 @@
 import { supabase } from './supabaseClient';
 
-const ADMIN_EMAIL_RESET = 'giannattasio.nicolas@hotmail.com';
+const ADMIN_EMAIL_RESET_FALLBACK = 'giannattasio.nicolas@hotmail.com';
+
+const obtenerEmailAdminObjetivo = async () => {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+
+    const email = String(data?.user?.email || '').trim().toLowerCase();
+    if (email) return email;
+  } catch {
+    // Si no se puede resolver el usuario actual, usamos el admin por defecto.
+  }
+
+  return ADMIN_EMAIL_RESET_FALLBACK;
+};
 
 const extraerMensajeErrorInvoke = async (error) => {
   if (!error) return 'Error desconocido al resetear datos.';
@@ -37,6 +51,15 @@ const normalizarMensajeReset = (detalle) => {
   const mensaje = String(detalle || '').trim();
   const lower = mensaje.toLowerCase();
 
+  if (
+    lower.includes('could not find the function public.reset_test_data')
+    || lower.includes('function public.reset_test_data') && lower.includes('does not exist')
+    || lower.includes('schema cache') && lower.includes('reset_test_data')
+    || lower.includes('pgrst202')
+  ) {
+    return 'Falta crear la funcion RPC reset_test_data en Supabase. Ejecuta supabase/reset-test-data-rpc.sql en SQL Editor y vuelve a probar.';
+  }
+
   if (lower.includes('no route matched') || lower.includes('function not found')) {
     return 'La funcion reset-test-data aun no esta desplegada en Supabase.';
   }
@@ -53,53 +76,41 @@ const normalizarMensajeReset = (detalle) => {
     return 'Solo el admin puede ejecutar el reseteo de prueba.';
   }
 
+  if (lower.includes('debes estar autenticado') || lower.includes('sesion invalida') || lower.includes('no hay sesion autenticada')) {
+    return 'Tu sesion admin no es valida para resetear. Cerra sesion, volve a entrar con el admin y reintenta.';
+  }
+
   return mensaje || 'No se pudo resetear la base de clientes de prueba.';
 };
 
 export const resetearDatosPrueba = async () => {
+  const adminEmail = await obtenerEmailAdminObjetivo();
+
   try {
     const { data, error } = await supabase.functions.invoke('reset-test-data', {
-      body: { preserveAdminEmail: ADMIN_EMAIL_RESET },
+      body: { preserveAdminEmail: adminEmail },
     });
 
     if (error) throw error;
     return { ok: true, data };
   } catch (error) {
     const detalleEdge = await extraerMensajeErrorInvoke(error);
-    const lowerEdge = String(detalleEdge || '').toLowerCase();
+    try {
+      const { data: dataRpc, error: errorRpc } = await supabase.rpc('reset_test_data', {
+        preserve_admin_email: adminEmail,
+      });
 
-    const deberiaIntentarRpc =
-      lowerEdge.includes('failed to send a request to the edge function')
-      || lowerEdge.includes('no route matched')
-      || lowerEdge.includes('function not found')
-      || lowerEdge.includes('network')
-      || lowerEdge.includes('fetch');
-
-    if (deberiaIntentarRpc) {
-      try {
-        const { data: dataRpc, error: errorRpc } = await supabase.rpc('reset_test_data', {
-          preserve_admin_email: ADMIN_EMAIL_RESET,
-        });
-
-        if (errorRpc) throw errorRpc;
-        return { ok: true, data: dataRpc };
-      } catch (rpcError) {
-        const detalleRpc = await extraerMensajeErrorInvoke(rpcError);
-        const detalle = `${detalleEdge} | RPC: ${detalleRpc}`;
-        return {
-          ok: false,
-          error: rpcError,
-          detalle,
-          mensaje: normalizarMensajeReset(detalle),
-        };
-      }
+      if (errorRpc) throw errorRpc;
+      return { ok: true, data: dataRpc };
+    } catch (rpcError) {
+      const detalleRpc = await extraerMensajeErrorInvoke(rpcError);
+      const detalle = `${detalleEdge} | RPC: ${detalleRpc}`;
+      return {
+        ok: false,
+        error: rpcError,
+        detalle,
+        mensaje: normalizarMensajeReset(detalle),
+      };
     }
-
-    return {
-      ok: false,
-      error,
-      detalle: detalleEdge,
-      mensaje: normalizarMensajeReset(detalleEdge),
-    };
   }
 };
