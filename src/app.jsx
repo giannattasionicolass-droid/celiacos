@@ -47,6 +47,7 @@ const PERIODOS_BALANCE = [
 
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
+const APK_DOWNLOAD_URL = '/celiashop.apk';
 
 const esProductoNuevo = (producto = {}) => {
   const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
@@ -966,6 +967,16 @@ function InstallAppBanner() {
     setPromptEvento(null);
   };
 
+  const descargarAPK = () => {
+    const enlace = document.createElement('a');
+    enlace.href = APK_DOWNLOAD_URL;
+    enlace.setAttribute('download', 'celiashop.apk');
+    enlace.setAttribute('rel', 'noopener');
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+  };
+
   if (instalado) return null;
 
   const abrirGuiaGeneral = () => setMostrarGuiaGeneral(true);
@@ -1007,6 +1018,18 @@ function InstallAppBanner() {
           </div>
         )}
       </>
+    );
+  }
+
+  if (esAndroid) {
+    return (
+      <button
+        onClick={descargarAPK}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
+      >
+        <Download size={15} />
+        <span>Descargar APK</span>
+      </button>
     );
   }
 
