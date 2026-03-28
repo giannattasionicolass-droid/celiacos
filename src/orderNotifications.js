@@ -40,6 +40,24 @@ const obtenerTotalPedido = (pedido) => Number(pedido?.total ?? pedido?.monto ?? 
 const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.direccion || pedido?.direccion_envio || pedido?.domicilio || 'Sin dirección cargada';
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || new Date().toISOString();
 const obtenerNumeroPedido = (pedido) => String(pedido?.id || 'sin-id').replace(/-/g, '').slice(0, 8).toUpperCase();
+const obtenerComprobanteUrlPedido = (pedido = {}) => (
+  pedido?.comprobante_pago_url
+  || pedido?.comprobante_url
+  || pedido?.payment_receipt_url
+  || pedido?.pago_detalle?.comprobante_url
+  || pedido?.pago_detalle?.comprobante_pago_url
+  || pedido?.pago_detalle?.factura?.comprobante_url
+  || ''
+);
+const obtenerComprobanteNombrePedido = (pedido = {}) => (
+  pedido?.comprobante_pago_nombre
+  || pedido?.comprobante_nombre
+  || pedido?.payment_receipt_name
+  || pedido?.pago_detalle?.comprobante_nombre
+  || pedido?.pago_detalle?.comprobante_pago_nombre
+  || pedido?.pago_detalle?.factura?.comprobante_nombre
+  || ''
+);
 
 const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, tipo }) => {
   const payload = {
@@ -56,9 +74,9 @@ const construirPayloadPedido = ({ pedido, cliente = {}, estadoAnterior = null, t
       total: obtenerTotalPedido(pedido),
       direccion: obtenerDireccionPedido(pedido),
       metodoPago: pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || '',
-      emailConfirmacion: pedido?.email_confirmacion || pedido?.email || cliente?.email || '',
-      comprobanteUrl: pedido?.comprobante_pago_url || pedido?.comprobante_url || '',
-      comprobanteNombre: pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || '',
+      emailConfirmacion: pedido?.email_confirmacion || pedido?.pago_detalle?.email_confirmacion || pedido?.email || cliente?.email || '',
+      comprobanteUrl: obtenerComprobanteUrlPedido(pedido),
+      comprobanteNombre: obtenerComprobanteNombrePedido(pedido),
       productos: obtenerProductosPedido(pedido).map((item) => ({
         id: item?.id || null,
         nombre: item?.nombre || 'Producto sin nombre',

@@ -181,13 +181,25 @@ const obtenerMetodoPagoPedido = (pedido = {}) => String(
   || ''
 ).trim();
 const obtenerEmailConfirmacionPedido = (pedido = {}) => String(
-  pedido?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
+  pedido?.email_confirmacion || pedido?.pago_detalle?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
 ).trim();
 const obtenerComprobantePagoPedido = (pedido = {}) => String(
-  pedido?.comprobante_pago_url || pedido?.comprobante_url || pedido?.payment_receipt_url || ''
+  pedido?.comprobante_pago_url
+  || pedido?.comprobante_url
+  || pedido?.payment_receipt_url
+  || pedido?.pago_detalle?.comprobante_url
+  || pedido?.pago_detalle?.comprobante_pago_url
+  || pedido?.pago_detalle?.factura?.comprobante_url
+  || ''
 ).trim();
 const obtenerComprobanteNombrePedido = (pedido = {}) => String(
-  pedido?.comprobante_pago_nombre || pedido?.comprobante_nombre || pedido?.payment_receipt_name || ''
+  pedido?.comprobante_pago_nombre
+  || pedido?.comprobante_nombre
+  || pedido?.payment_receipt_name
+  || pedido?.pago_detalle?.comprobante_nombre
+  || pedido?.pago_detalle?.comprobante_pago_nombre
+  || pedido?.pago_detalle?.factura?.comprobante_nombre
+  || ''
 ).trim();
 const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
   const metodo = obtenerMetodoPagoPedido(pedido).toLowerCase();
@@ -628,6 +640,9 @@ const enriquecerPedidoConSnapshot = (pedido) => {
     pedido?.estado ?? snapshot?.estado,
     pedido?.status ?? snapshot?.status
   );
+  const emailConfirmacionNormalizado = obtenerEmailConfirmacionPedido(pedido) || obtenerEmailConfirmacionPedido(snapshot);
+  const comprobanteUrlNormalizado = obtenerComprobantePagoPedido(pedido) || obtenerComprobantePagoPedido(snapshot);
+  const comprobanteNombreNormalizado = obtenerComprobanteNombrePedido(pedido) || obtenerComprobanteNombrePedido(snapshot);
   return {
     ...snapshot,
     ...pedido,
@@ -636,12 +651,14 @@ const enriquecerPedidoConSnapshot = (pedido) => {
     status: estadoNormalizado,
     telefono: pedido?.telefono || snapshot.telefono,
     email: pedido?.email || snapshot.email,
-    email_confirmacion: pedido?.email_confirmacion || snapshot.email_confirmacion,
+    email_confirmacion: emailConfirmacionNormalizado,
     metodo_pago: pedido?.metodo_pago || snapshot.metodo_pago,
     forma_pago: pedido?.forma_pago || snapshot.forma_pago,
     tipo_pago: pedido?.tipo_pago || snapshot.tipo_pago,
-    comprobante_pago_url: pedido?.comprobante_pago_url || snapshot.comprobante_pago_url,
-    comprobante_pago_nombre: pedido?.comprobante_pago_nombre || snapshot.comprobante_pago_nombre,
+    comprobante_pago_url: comprobanteUrlNormalizado,
+    comprobante_url: comprobanteUrlNormalizado,
+    comprobante_pago_nombre: comprobanteNombreNormalizado,
+    comprobante_nombre: comprobanteNombreNormalizado,
     direccion_envio: pedido?.direccion_envio || snapshot.direccion_envio,
     direccion_entrega: pedido?.direccion_entrega || snapshot.direccion_entrega,
     fecha: obtenerFechaPedido(pedido) || snapshot.fecha,
