@@ -60,6 +60,8 @@ const PERIODOS_BALANCE = [
   { id: 'anual', label: 'Anual', dias: 365 },
 ];
 
+const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
+
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 const APK_DOWNLOAD_URL = `${import.meta.env.BASE_URL}celiashop.apk`;
@@ -5198,7 +5200,7 @@ export default function App() {
 
             {session ? (
               <>
-                {session.user.email === 'giannattasio.nicolas@hotmail.com' && (
+                {String(session?.user?.email || '').trim().toLowerCase() === ADMIN_EMAIL && (
                   <button
                     onClick={() => setPagina('admin')}
                     className={`px-6 py-3 rounded-full transition-colors flex items-center gap-2 ${pagina === 'admin' ? 'bg-red-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}
