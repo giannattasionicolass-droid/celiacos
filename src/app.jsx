@@ -190,7 +190,7 @@ const obtenerComprobanteNombrePedido = (pedido = {}) => String(
 const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
   const metodo = obtenerMetodoPagoPedido(pedido).toLowerCase();
   if (metodo === 'transferencia') return 'Transferencia bancaria';
-  if (metodo === 'contra_entrega') return 'Contra entrega';
+  if (metodo === 'contra_entrega') return 'Efectivo';
   return metodo ? metodo.replace(/_/g, ' ') : 'No informado';
 };
 const normalizarDescuentoAdminPct = (valor) => {
@@ -1796,7 +1796,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 
           <div className="bg-sky-50 border border-sky-100 rounded-2xl p-5 text-left space-y-1">
             <p className="text-xs font-black uppercase tracking-widest text-sky-700 mb-1">Pago y confirmación</p>
-            <p className="text-sm font-semibold text-gray-700">Método: {pedidoConfirmado.metodoPago === 'transferencia' ? 'Transferencia bancaria' : 'Contra entrega'}</p>
+            <p className="text-sm font-semibold text-gray-700">Método: {pedidoConfirmado.metodoPago === 'transferencia' ? 'Transferencia bancaria' : 'Efectivo'}</p>
             <p className="text-sm font-semibold text-gray-700 break-all">Email confirmación: {pedidoConfirmado.emailConfirmacion}</p>
             {pedidoConfirmado.metodoPago === 'contra_entrega' && (
               <p className="text-xs font-black text-amber-700">Recordatorio: tené el dinero listo al momento de la entrega.</p>
@@ -3167,6 +3167,70 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     alert('Error al actualizar estado del pedido: ' + (errorFinal?.message || 'desconocido'));
   };
 
+  const actualizarMetodoPagoPedido = async (pedido, nuevoMetodoPago) => {
+    setActualizandoPedidoId(pedido.id);
+    let errorFinal = null;
+
+    const pagoDetalleBase = pedido?.pago_detalle && typeof pedido.pago_detalle === 'object' ? pedido.pago_detalle : {};
+    const pagoDetalleActualizado = {
+      ...pagoDetalleBase,
+      metodo: nuevoMetodoPago,
+      aviso_contra_entrega: nuevoMetodoPago === 'contra_entrega',
+    };
+
+    const variantes = [
+      { metodo_pago: nuevoMetodoPago, forma_pago: nuevoMetodoPago, pago_detalle: pagoDetalleActualizado },
+      { metodo_pago: nuevoMetodoPago, forma_pago: nuevoMetodoPago },
+      { forma_pago: nuevoMetodoPago, pago_detalle: pagoDetalleActualizado },
+      { forma_pago: nuevoMetodoPago },
+    ];
+
+    for (const payload of variantes) {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update(payload)
+        .eq('id', pedido.id)
+        .select('*')
+        .maybeSingle();
+
+      if (!error) {
+        if (!data?.id) {
+          errorFinal = { message: 'No se pudo confirmar la actualización de la forma de pago (permisos o RLS).' };
+          continue;
+        }
+
+        const metodoPersistido = obtenerMetodoPagoPedido({ ...pedido, ...data, pago_detalle: data?.pago_detalle || payload.pago_detalle || pagoDetalleActualizado });
+        if (metodoPersistido !== nuevoMetodoPago) {
+          errorFinal = { message: `La base devolvió forma de pago "${metodoPersistido}" en lugar de "${nuevoMetodoPago}".` };
+          continue;
+        }
+
+        const pedidoActualizado = {
+          ...pedido,
+          ...data,
+          metodo_pago: data?.metodo_pago || payload.metodo_pago || nuevoMetodoPago,
+          forma_pago: data?.forma_pago || payload.forma_pago || nuevoMetodoPago,
+          pago_detalle: data?.pago_detalle || payload.pago_detalle || pagoDetalleActualizado,
+        };
+
+        guardarSnapshotPedido(pedidoActualizado);
+        setPedidos((prev) => prev.map((item) => item.id === pedido.id ? enriquecerPedidoConSnapshot(pedidoActualizado) : item));
+        onPedidosSync?.();
+        setActualizandoPedidoId(null);
+        return;
+      }
+
+      if (!esErrorColumna(error)) {
+        errorFinal = error;
+        break;
+      }
+      errorFinal = error;
+    }
+
+    setActualizandoPedidoId(null);
+    alert('Error al actualizar la forma de pago: ' + (errorFinal?.message || 'desconocido'));
+  };
+
   const toggleActivo = async (producto) => {
     const { error } = await supabase.from('productos').update({ activo: !producto.activo }).eq('id', producto.id);
     if (error) {
@@ -4312,6 +4376,18 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                             {ESTADOS_PEDIDO.map((estado) => (
                               <option key={estado} value={estado}>{estado}</option>
                             ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-black uppercase tracking-widest text-red-100">Forma de pago</span>
+                          <select
+                            value={obtenerMetodoPagoPedido(ped) || 'contra_entrega'}
+                            disabled={actualizandoPedidoId === ped.id}
+                            onChange={(e) => actualizarMetodoPagoPedido(ped, e.target.value)}
+                            className="w-full mt-2 rounded-2xl bg-white text-gray-800 px-4 py-3 text-sm font-black uppercase outline-none"
+                          >
+                            <option value="contra_entrega">Efectivo</option>
+                            <option value="transferencia">Transferencia bancaria</option>
                           </select>
                         </label>
                         <button
