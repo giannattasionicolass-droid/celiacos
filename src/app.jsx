@@ -5235,20 +5235,20 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 min-[560px]:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
                     <div
                       key={p.id}
-                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-transform ${p.activo && p.stock > 0 ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 ${p.activo && p.stock > 0 ? 'cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]' : ''}`}
                       style={{ '--card-delay': `${index * 75}ms` }}
                       onClick={() => {
                         if (p.activo && p.stock > 0) agregarAlCarrito(p);
                       }}
                     >
                       <div className="relative">
-                        <img src={p.imagen_url} className="h-28 min-[560px]:h-32 xl:h-36 w-full object-cover rounded-2xl mb-2.5" alt={p.nombre} />
+                        <img src={p.imagen_url} className="h-24 sm:h-28 xl:h-32 w-full object-cover rounded-2xl mb-2.5 transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
                         {esNuevo && (
                           <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Nuevo</span>
                         )}
