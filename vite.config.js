@@ -62,15 +62,7 @@ export default defineConfig({
       },
     }),
   ],
-  build: {
-    rollupOptions: pagesMode ? {
-      output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
-      },
-    } : undefined,
-  },
+  build: {},
   server: {
     watch: {
       usePolling: true, // Esto fuerza la actualización en Windows
