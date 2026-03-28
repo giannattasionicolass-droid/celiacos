@@ -4775,7 +4775,7 @@ export default function App() {
     };
   }, [productosBD]);
 
-  const productosPorPagina = 9;
+  const productosPorPagina = 12;
   const totalPaginasProductos = Math.max(1, Math.ceil(productosFiltrados.length / productosPorPagina));
   const paginaProductosSegura = Math.min(paginaProductos, totalPaginasProductos);
   const inicioProductos = (paginaProductosSegura - 1) * productosPorPagina;
@@ -5235,45 +5235,55 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 min-[560px]:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
-                    <div key={p.id} className="premium-product-card premium-store-card p-4 rounded-[30px] relative overflow-hidden group" style={{ '--card-delay': `${index * 75}ms` }}>
+                    <div
+                      key={p.id}
+                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-transform ${p.activo && p.stock > 0 ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+                      style={{ '--card-delay': `${index * 75}ms` }}
+                      onClick={() => {
+                        if (p.activo && p.stock > 0) agregarAlCarrito(p);
+                      }}
+                    >
                       <div className="relative">
-                        <img src={p.imagen_url} className="h-44 w-full object-cover rounded-2xl mb-3" alt={p.nombre} />
+                        <img src={p.imagen_url} className="h-28 min-[560px]:h-32 xl:h-36 w-full object-cover rounded-2xl mb-2.5" alt={p.nombre} />
                         {esNuevo && (
-                          <span className="absolute top-2 left-2 px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.12em]">Nuevo</span>
+                          <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Nuevo</span>
                         )}
                         {p.en_oferta && Number(p.precio_oferta) > 0 && (
-                          <span className="absolute top-2 right-2 px-3 py-1 rounded-full bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.12em]">Oferta</span>
+                          <span className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Oferta</span>
                         )}
                       </div>
 
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-400">{p.categoria || 'Sin categoría'}</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
                         {!p.activo || Number(p.stock || 0) <= 0 ? (
-                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-rose-500">Sin stock</p>
+                          <p className="text-[9px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
                         ) : (
-                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-600">Stock {p.stock}</p>
+                          <p className="text-[9px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
                         )}
                       </div>
 
-                      <h3 className="font-black text-base text-gray-900 leading-tight min-h-[2.7rem]">{p.nombre}</h3>
+                      <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight min-h-[2.5rem] line-clamp-2">{p.nombre}</h3>
                       {p.en_oferta && Number(p.precio_oferta) > 0 ? (
-                        <div className="mt-1 mb-3">
-                          <p className="text-2xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
-                          <p className="text-sm text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
+                        <div className="mt-1 mb-2.5">
+                          <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
+                          <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
                         </div>
                       ) : (
-                        <p className="text-2xl text-emerald-600 font-black mt-1 mb-3">{formatearMoneda(p.precio)}</p>
+                        <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-2.5">{formatearMoneda(p.precio)}</p>
                       )}
 
                       <button
-                        onClick={() => agregarAlCarrito(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          agregarAlCarrito(p);
+                        }}
                         disabled={!p.activo || p.stock <= 0}
-                        className={`w-full py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.12em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
-                        {p.activo && p.stock > 0 ? 'Agregar al carrito' : 'No disponible'}
+                        className={`w-full py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
+                        {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
                       </button>
                     </div>
                   );
@@ -5281,13 +5291,14 @@ export default function App() {
                 </div>
 
                 {productosFiltrados.length > productosPorPagina && (
-                  <div className="mt-7 flex flex-col items-center gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Pagina {paginaProductosSegura} de {totalPaginasProductos}</p>
-                    <div className="flex items-center gap-2">
+                  <div className="mt-7 rounded-[28px] border border-gray-200 bg-white/90 p-4 shadow-sm flex flex-col items-center gap-3">
+                    <p className="text-sm font-black uppercase tracking-[0.12em] text-gray-700">Pagina {paginaProductosSegura} de {totalPaginasProductos}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">12 productos por página</p>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
                         onClick={() => setPaginaProductos((prev) => Math.max(1, prev - 1))}
                         disabled={paginaProductosSegura <= 1}
-                        className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                        className="px-4 py-2.5 rounded-2xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
                       >
                         Anterior
                       </button>
@@ -5299,7 +5310,7 @@ export default function App() {
                           <button
                             key={pagina}
                             onClick={() => setPaginaProductos(pagina)}
-                            className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaProductosSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            className={`min-w-11 px-3 py-2.5 rounded-2xl text-xs font-black uppercase ${pagina === paginaProductosSegura ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                           >
                             {pagina}
                           </button>
@@ -5308,7 +5319,7 @@ export default function App() {
                       <button
                         onClick={() => setPaginaProductos((prev) => Math.min(totalPaginasProductos, prev + 1))}
                         disabled={paginaProductosSegura >= totalPaginasProductos}
-                        className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                        className="px-4 py-2.5 rounded-2xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
                       >
                         Siguiente
                       </button>
