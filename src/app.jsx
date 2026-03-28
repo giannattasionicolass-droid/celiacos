@@ -1359,12 +1359,12 @@ function Carrusel({ productos, agregarAlCarrito }) {
 
       <div className="overflow-hidden">
         <div
-          className="flex transition-transform duration-700 ease-out"
+          className="flex items-stretch transition-transform duration-700 ease-out"
           style={{ transform: `translateX(-${actual * (100 / slidesPorVista)}%)` }}
         >
           {productosOrdenados.map((p, i) => (
-            <div key={p.id} className="px-2" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
+            <div key={p.id} className="px-2 h-full" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
+              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
                 <div className="relative h-36 md:h-40">
                   <img
                     src={p.imagen_url}
@@ -1384,7 +1384,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     </span>
                   )}
                 </div>
-                <div className="p-4">
+                <div className="p-4 flex-1 flex flex-col">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
@@ -1404,7 +1404,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                   <button
                     onClick={() => agregarAlCarrito(p)}
                     disabled={!p.activo || p.stock <= 0}
-                    className={`w-full py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 ${
+                    className={`w-full mt-auto py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 ${
                       !p.activo || p.stock <= 0
                         ? 'bg-zinc-300 text-zinc-600 cursor-not-allowed'
                         : 'bg-gradient-to-r from-zinc-900 to-zinc-800 text-white hover:from-zinc-800 hover:to-zinc-700 shadow-md hover:shadow-lg'
@@ -5761,13 +5761,13 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 items-stretch">
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
                     <div
                       key={p.id}
-                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 ${p.activo && p.stock > 0 ? 'cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]' : ''}`}
+                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 h-full flex flex-col ${p.activo && p.stock > 0 ? 'cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]' : ''}`}
                       style={{ '--card-delay': `${index * 75}ms` }}
                       onClick={() => {
                         if (p.activo && p.stock > 0) agregarAlCarrito(p);
@@ -5783,24 +5783,26 @@ export default function App() {
                         )}
                       </div>
 
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
-                        {!p.activo || Number(p.stock || 0) <= 0 ? (
-                          <p className="text-[9px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
+                      <div className="flex-1 flex flex-col">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
+                          {!p.activo || Number(p.stock || 0) <= 0 ? (
+                            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
+                          ) : (
+                            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
+                          )}
+                        </div>
+
+                        <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
+                        {p.en_oferta && Number(p.precio_oferta) > 0 ? (
+                          <div className="mt-1 mb-2.5">
+                            <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
+                            <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
+                          </div>
                         ) : (
-                          <p className="text-[9px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
+                          <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-2.5">{formatearMoneda(p.precio)}</p>
                         )}
                       </div>
-
-                      <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
-                      {p.en_oferta && Number(p.precio_oferta) > 0 ? (
-                        <div className="mt-1 mb-2.5">
-                          <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
-                          <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
-                        </div>
-                      ) : (
-                        <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-2.5">{formatearMoneda(p.precio)}</p>
-                      )}
 
                       <button
                         onClick={(e) => {
@@ -5808,7 +5810,7 @@ export default function App() {
                           agregarAlCarrito(p);
                         }}
                         disabled={!p.activo || p.stock <= 0}
-                        className={`w-full py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
+                        className={`w-full mt-auto py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
                         {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
                       </button>
                     </div>
