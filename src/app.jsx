@@ -4481,66 +4481,75 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         )}
                         <p className="text-xs font-semibold text-red-100 mt-1 opacity-75 break-all">ID: {clienteId}</p>
                       </div>
-                      <div className="flex flex-col gap-3 min-w-[240px]">
-                        {productos.length === 0 && (
-                          <span className="self-start px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-[11px] font-black uppercase tracking-wide">
-                            Pedido legacy sin detalle
+                      <div className="w-full lg:w-[360px] lg:shrink-0 rounded-2xl border border-white/25 bg-black/10 p-4">
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {productos.length === 0 && (
+                            <span className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-[11px] font-black uppercase tracking-wide">
+                              Pedido legacy sin detalle
+                            </span>
+                          )}
+                          <span className={`px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${obtenerClaseEstadoPedido(estadoActual)}`}>
+                            {estadoActual}
                           </span>
-                        )}
-                        <span className={`self-start px-4 py-2 rounded-full text-sm font-black uppercase tracking-wider ${obtenerClaseEstadoPedido(estadoActual)}`}>
-                          {estadoActual}
-                        </span>
-                        <span className="self-start px-4 py-2 rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 text-xs font-black uppercase tracking-wider">
-                          {metodoPagoLabel}
-                        </span>
-                        {metodoPagoCambiado && (
-                          <span className="self-start px-4 py-2 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-xs font-black uppercase tracking-wider">
-                            Cambio de pago por admin
+                          <span className="px-3.5 py-1.5 rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 text-xs font-black uppercase tracking-wider">
+                            {metodoPagoLabel}
                           </span>
-                        )}
-                        <label className="block">
-                          <span className="text-xs font-black uppercase tracking-widest text-red-100">Cambiar estado</span>
-                          <select
-                            value={estadoActual}
-                            disabled={actualizandoPedidoId === ped.id}
-                            onChange={(e) => actualizarEstadoPedido(ped, e.target.value)}
-                            className="w-full mt-2 rounded-2xl bg-white text-gray-800 px-4 py-3 text-sm font-black uppercase outline-none"
+                          {metodoPagoCambiado && (
+                            <span className="px-3.5 py-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-[11px] font-black uppercase tracking-wider">
+                              Cambio de pago por admin
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          <label className="block">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-red-100">Cambiar estado</span>
+                            <select
+                              value={estadoActual}
+                              disabled={actualizandoPedidoId === ped.id}
+                              onChange={(e) => actualizarEstadoPedido(ped, e.target.value)}
+                              className="w-full mt-1.5 rounded-xl bg-white text-gray-800 px-3.5 py-2.5 text-sm font-black uppercase outline-none"
+                            >
+                              {ESTADOS_PEDIDO.map((estado) => (
+                                <option key={estado} value={estado}>{estado}</option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="block">
+                            <span className="text-[11px] font-black uppercase tracking-widest text-red-100">Forma de pago</span>
+                            <select
+                              value={obtenerMetodoPagoPedido(ped) || 'contra_entrega'}
+                              disabled={actualizandoPedidoId === ped.id}
+                              onChange={(e) => actualizarMetodoPagoPedido(ped, e.target.value)}
+                              className="w-full mt-1.5 rounded-xl bg-white text-gray-800 px-3.5 py-2.5 text-sm font-black uppercase outline-none"
+                            >
+                              <option value="contra_entrega">Efectivo</option>
+                              <option value="transferencia">Transferencia bancaria</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <button
+                            onClick={() => togglePedidoExpandido(ped.id)}
+                            className="sm:col-span-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-black uppercase tracking-wider"
                           >
-                            {ESTADOS_PEDIDO.map((estado) => (
-                              <option key={estado} value={estado}>{estado}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-xs font-black uppercase tracking-widest text-red-100">Forma de pago</span>
-                          <select
-                            value={obtenerMetodoPagoPedido(ped) || 'contra_entrega'}
-                            disabled={actualizandoPedidoId === ped.id}
-                            onChange={(e) => actualizarMetodoPagoPedido(ped, e.target.value)}
-                            className="w-full mt-2 rounded-2xl bg-white text-gray-800 px-4 py-3 text-sm font-black uppercase outline-none"
+                            {expandido ? 'Ocultar detalle' : 'Ver detalle completo'}
+                          </button>
+                          <button
+                            onClick={() => iniciarEdicionFactura(ped)}
+                            className="px-4 py-2.5 rounded-xl bg-amber-300 text-gray-900 hover:bg-amber-200 text-xs font-black uppercase tracking-wider"
                           >
-                            <option value="contra_entrega">Efectivo</option>
-                            <option value="transferencia">Transferencia bancaria</option>
-                          </select>
-                        </label>
-                        <button
-                          onClick={() => togglePedidoExpandido(ped.id)}
-                          className="self-start px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-black uppercase tracking-wider"
-                        >
-                          {expandido ? 'Ocultar detalle' : 'Ver detalle completo'}
-                        </button>
-                        <button
-                          onClick={() => iniciarEdicionFactura(ped)}
-                          className="self-start px-4 py-2 rounded-xl bg-amber-300 text-gray-900 hover:bg-amber-200 text-xs font-black uppercase tracking-wider"
-                        >
-                          {editandoFactura ? 'Editando factura' : 'Editar factura'}
-                        </button>
-                        <button
-                          onClick={() => imprimirFacturaPedidoAdmin(ped, clienteFactura)}
-                          className="self-start px-4 py-2 rounded-xl bg-white text-gray-900 hover:bg-gray-100 text-xs font-black uppercase tracking-wider"
-                        >
-                          Imprimir factura
-                        </button>
+                            {editandoFactura ? 'Editando factura' : 'Editar factura'}
+                          </button>
+                          <button
+                            onClick={() => imprimirFacturaPedidoAdmin(ped, clienteFactura)}
+                            className="px-4 py-2.5 rounded-xl bg-white text-gray-900 hover:bg-gray-100 text-xs font-black uppercase tracking-wider"
+                          >
+                            Imprimir factura
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
