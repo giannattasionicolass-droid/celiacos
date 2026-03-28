@@ -58,16 +58,7 @@ const fetchRemoteBuildId = async () => {
 }
 
 const abrirDescargaApkExterna = (buildId) => {
-  const urlFinal = `${APK_UPDATE_URL}?build=${encodeURIComponent(buildId)}&ts=${Date.now()}`
-
-  try {
-    const sinProtocolo = urlFinal.replace(/^https?:\/\//i, '')
-    const intentUrl = `intent://${sinProtocolo}#Intent;scheme=https;action=android.intent.action.VIEW;end`
-    const intentWindow = window.open(intentUrl, '_blank')
-    if (intentWindow) return
-  } catch {
-    // Fallback a apertura externa estándar.
-  }
+  const urlFinal = APK_UPDATE_URL
 
   try {
     const enlace = document.createElement('a')
