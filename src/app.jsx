@@ -1317,6 +1317,15 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   const totalItems = carrito.reduce((acc, p) => acc + (Number(p.cantidad) || 1), 0);
 
   const actualizarCantidad = (id, delta) => {
+    if (delta > 0) {
+      const item = carrito.find(i => i.id === id);
+      const stockDisponible = Number(item?.stock) || 0;
+      const cantidadActual = Number(item?.cantidad) || 1;
+      if (stockDisponible > 0 && cantidadActual >= stockDisponible) {
+        alert(`Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${item?.nombre || 'este producto'}".`);
+        return;
+      }
+    }
     setCarrito(prev =>
       prev.map(item => item.id === id ? { ...item, cantidad: Math.max(0, (item.cantidad || 1) + delta) } : item)
           .filter(item => item.cantidad > 0)
@@ -4571,15 +4580,24 @@ export default function App() {
       return;
     }
 
-    if (producto.stock <= 0) {
+    const stockDisponible = Number(producto.stock) || 0;
+    if (stockDisponible <= 0) {
       alert("Lo sentimos, este producto no tiene stock disponible.");
+      return;
+    }
+
+    const enCarrito = carrito.find(item => item.id === producto.id);
+    const cantidadActualEnCarrito = Number(enCarrito?.cantidad) || 0;
+
+    if (cantidadActualEnCarrito >= stockDisponible) {
+      alert(`Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${producto.nombre}".`);
       return;
     }
 
     setCarrito((prev) => {
       const existe = prev.find(item => item.id === producto.id);
       if (existe) {
-        return prev.map(item => 
+        return prev.map(item =>
           item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item
         );
       }
