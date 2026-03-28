@@ -4024,16 +4024,18 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
   return (
     <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
-      <div className="flex justify-between items-center mb-10">
+      <div className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <div className="bg-red-600 p-4 rounded-3xl shadow-lg text-white"><ShieldCheck size={30}/></div>
           <h2 className="text-2xl md:text-4xl font-black italic uppercase text-gray-800 tracking-tighter">CeliaAdmin</h2>
         </div>
-        <div className="flex gap-2 bg-white p-2 rounded-3xl shadow-sm border border-gray-100">
-          <button onClick={() => setTab('stock')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'stock' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Stock</button>
-          <button onClick={() => setTab('inventario')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'inventario' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Inventario</button>
-          <button onClick={() => setTab('ventas')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'ventas' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Ventas</button>
-          <button onClick={() => setTab('clientes')} className={`px-6 py-2 rounded-2xl font-black text-sm uppercase transition-all ${tab === 'clientes' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Clientes</button>
+        <div className="w-full overflow-x-auto md:w-auto">
+          <div className="inline-flex min-w-full gap-2 bg-white p-2 rounded-3xl shadow-sm border border-gray-100 md:min-w-0 md:flex-wrap">
+            <button onClick={() => setTab('stock')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'stock' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Stock</button>
+            <button onClick={() => setTab('inventario')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'inventario' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Inventario</button>
+            <button onClick={() => setTab('ventas')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'ventas' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Ventas</button>
+            <button onClick={() => setTab('clientes')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'clientes' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Clientes</button>
+          </div>
         </div>
       </div>
 
