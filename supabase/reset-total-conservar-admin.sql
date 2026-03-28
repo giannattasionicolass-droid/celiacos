@@ -13,7 +13,7 @@ begin;
 
 do $$
 declare
-  admin_email constant text := 'giannattasio.nicolas@hotmail.com';
+  admin_email constant text := 'celiashopazul@gmail.com';
   admin_user_id uuid;
   v_deleted_inventario integer := 0;
   v_deleted_pedidos integer := 0;

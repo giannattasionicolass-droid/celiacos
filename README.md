@@ -38,7 +38,7 @@ Flujo implementado:
 	- ORDER_ADMIN_EMAILS
 3. Recomendado:
 	- ORDER_NOTIFICATION_EMAIL=celiashopazul@gmail.com
-	- ORDER_ADMIN_EMAILS=giannattasio.nicolas@hotmail.com
+	- ORDER_ADMIN_EMAILS=celiashopazul@gmail.com
 4. Desplegá la función:
 
 ```bash

@@ -1,7 +1,7 @@
 // ============================================================
 // CONFIGURACION EMAIL
 // ============================================================
-const OWNER_EMAIL = "giannattasio.nicolass@gmail.com";
+const OWNER_EMAIL = "celiashopazul@gmail.com";
 
 // ============================================================
 // DATOS BANCARIOS DE LA EMPRESA

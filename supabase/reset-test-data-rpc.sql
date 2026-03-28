@@ -4,7 +4,7 @@
 drop function if exists public.reset_test_data(text);
 
 create or replace function public.reset_test_data(
-  preserve_admin_email text default 'giannattasio.nicolas@hotmail.com'
+  preserve_admin_email text default 'celiashopazul@gmail.com'
 )
 returns jsonb
 language plpgsql
@@ -12,7 +12,7 @@ security definer
 set search_path = public, auth
 as $$
 declare
-  v_admin_email text := lower(trim(coalesce(preserve_admin_email, 'giannattasio.nicolas@hotmail.com')));
+  v_admin_email text := lower(trim(coalesce(preserve_admin_email, 'celiashopazul@gmail.com')));
   v_calling_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
   v_admin_id uuid;
   v_deleted_inventario integer := 0;

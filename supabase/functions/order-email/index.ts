@@ -5,7 +5,7 @@ const CORS_HEADERS = {
 };
 
 const DEFAULT_SHOP_EMAIL = 'celiashopazul@gmail.com';
-const DEFAULT_ADMIN_EMAILS = ['giannattasio.nicolas@hotmail.com'];
+const DEFAULT_ADMIN_EMAILS = ['celiashopazul@gmail.com'];
 
 type Product = {
   id?: string | null;

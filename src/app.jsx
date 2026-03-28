@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import { resetearDatosPrueba } from './adminReset';
 import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
@@ -25,7 +25,7 @@ const DATOS_CELIASHOP = {
   razonSocial: 'CELIASHOP SRL',
   cuit: '30-71234567-8',
   direccion: 'Buenos Aires, Argentina',
-  telefono: '+54 11 4000-0000',
+  telefono: '2281-537168',
   email: 'celiashopazul@gmail.com',
   condicionIva: 'Responsable Inscripto'
 };
@@ -1985,7 +1985,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
                 <span className="text-xs md:text-sm font-black uppercase text-gray-600 ml-1">Teléfono (opcional)</span>
                 <input
                   type="tel"
-                  placeholder="11 1234-5678"
+                  placeholder="2281-537168"
                   value={telefono}
                   onChange={e => setTelefono(e.target.value)}
                   className="w-full mt-2 p-4 bg-gray-50 rounded-2xl text-sm font-semibold border-2 border-transparent focus:border-green-500 focus:bg-white outline-none transition-all placeholder-gray-300"
@@ -5198,7 +5198,7 @@ export default function App() {
 
             {session ? (
               <>
-                {session.user.email === 'giannattasio.nicolas@hotmail.com' && (
+                {session.user.email === 'celiashopazul@gmail.com' && (
                   <button
                     onClick={() => setPagina('admin')}
                     className={`px-6 py-3 rounded-full transition-colors flex items-center gap-2 ${pagina === 'admin' ? 'bg-red-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}
@@ -5300,9 +5300,9 @@ export default function App() {
                       <span className="inline-flex items-center gap-2 text-sm font-black text-emerald-900"><Mail size={16} /> Email</span>
                       <span className="text-xs font-black text-emerald-700">celiashopazul@gmail.com</span>
                     </a>
-                    <a href="tel:+541140000000" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <a href="tel:2281537168" className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 transition-colors">
                       <span className="inline-flex items-center gap-2 text-sm font-black text-gray-900"><Phone size={16} /> Teléfono</span>
-                      <span className="text-xs font-black text-gray-700">+54 11 4000-0000</span>
+                      <span className="text-xs font-black text-gray-700">2281-537168</span>
                     </a>
                     <div className="flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
                       <span className="inline-flex items-center gap-2 text-sm font-black text-amber-900"><Globe size={16} /> Zona de entrega</span>
@@ -5681,9 +5681,9 @@ function SeccionContacto({ usuarioLogueado, session, setMensajeToast, setMostrar
             </div>
             <div className="rounded-2xl bg-white/85 border border-gray-200 p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500 mb-2">Telefono</p>
-              <a href="tel:+541140000000" className="inline-flex items-center gap-2 text-base md:text-lg font-black text-gray-800 hover:text-gray-900">
+              <a href="tel:2281537168" className="inline-flex items-center gap-2 text-base md:text-lg font-black text-gray-800 hover:text-gray-900">
                 <Phone size={18} />
-                +54 11 4000-0000
+                2281-537168
               </a>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-const ADMIN_EMAIL_RESET = 'giannattasio.nicolas@hotmail.com';
+const ADMIN_EMAIL_RESET = 'celiashopazul@gmail.com';
 
 const extraerMensajeErrorInvoke = async (error) => {
   if (!error) return 'Error desconocido al resetear datos.';
