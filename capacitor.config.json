@@ -1,5 +1,12 @@
 {
   "appId": "com.celiashop.app",
   "appName": "CeliaShop",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://giannattasionicolass-droid.github.io/celiacos/",
+    "cleartext": false,
+    "allowNavigation": [
+      "giannattasionicolass-droid.github.io"
+    ]
+  }
 }
