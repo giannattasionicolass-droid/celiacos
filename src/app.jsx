@@ -5198,7 +5198,7 @@ export default function App() {
 
             {session ? (
               <>
-                {session.user.email === 'celiashopazul@gmail.com' && (
+                {session.user.email === 'giannattasio.nicolas@hotmail.com' && (
                   <button
                     onClick={() => setPagina('admin')}
                     className={`px-6 py-3 rounded-full transition-colors flex items-center gap-2 ${pagina === 'admin' ? 'bg-red-600 text-white shadow-md' : 'bg-white/75 hover:bg-white'}`}

@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const DEFAULT_ADMIN_EMAIL = 'celiashopazul@gmail.com';
+const DEFAULT_ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 
 const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,

@@ -2,7 +2,7 @@ begin;
 
 do $$
 declare
-  admin_email constant text := 'celiashopazul@gmail.com';
+  admin_email constant text := 'giannattasio.nicolas@hotmail.com';
   admin_user_id uuid;
   columnas_pedido text[] := array[]::text[];
   expresion_usuario_pedido text;

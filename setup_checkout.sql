@@ -137,7 +137,7 @@ returns boolean
 language sql
 stable
 as $$
-  select lower(coalesce(auth.jwt() ->> 'email', '')) = 'celiashopazul@gmail.com';
+  select lower(coalesce(auth.jwt() ->> 'email', '')) = 'giannattasio.nicolas@hotmail.com';
 $$;
 
 drop policy if exists "pedidos_select_own" on public.pedidos;
