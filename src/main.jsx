@@ -3,12 +3,110 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './app.jsx'
 
+const APP_BUILD_ID = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : 'unknown'
+
+const esCapacitorNativo = () => {
+  try {
+    if (typeof window === 'undefined') return false
+    if (typeof window.Capacitor === 'undefined') return false
+    if (typeof window.Capacitor.isNativePlatform === 'function') {
+      return Boolean(window.Capacitor.isNativePlatform())
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+const buildVersionCandidates = () => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const urls = [
+    `${origin}/celiacos/app-version.json`,
+    `${origin}/app-version.json`,
+    `${import.meta.env.BASE_URL || '/'}app-version.json`,
+  ]
+
+  return Array.from(new Set(
+    urls
+      .map((url) => String(url || '').trim())
+      .filter(Boolean)
+  ))
+}
+
+const fetchRemoteBuildId = async () => {
+  const candidates = buildVersionCandidates()
+
+  for (const rawUrl of candidates) {
+    const separator = rawUrl.includes('?') ? '&' : '?'
+    const url = `${rawUrl}${separator}ts=${Date.now()}`
+
+    try {
+      const response = await fetch(url, { cache: 'no-store' })
+      if (!response.ok) continue
+      const json = await response.json().catch(() => null)
+      const buildId = String(json?.buildId || '').trim()
+      if (buildId) return buildId
+    } catch {
+      // Intentamos el siguiente candidate.
+    }
+  }
+
+  return null
+}
+
+const iniciarChequeoActualizacionNativa = () => {
+  if (!esCapacitorNativo()) return
+
+  let checkInProgress = false
+
+  const ejecutarChequeo = async () => {
+    if (checkInProgress) return
+    checkInProgress = true
+
+    try {
+      const remoteBuildId = await fetchRemoteBuildId()
+      if (!remoteBuildId || remoteBuildId === APP_BUILD_ID) return
+
+      const dismissedBuild = String(localStorage.getItem('otaDismissedBuild') || '')
+      if (dismissedBuild === remoteBuildId) return
+
+      const aceptar = window.confirm('Hay una actualización disponible de CeliaShop. ¿Querés aplicarla ahora?')
+      if (!aceptar) {
+        localStorage.setItem('otaDismissedBuild', remoteBuildId)
+        return
+      }
+
+      localStorage.removeItem('otaDismissedBuild')
+      const current = window.location.href
+      const separator = current.includes('?') ? '&' : '?'
+      window.location.replace(`${current}${separator}update=${encodeURIComponent(remoteBuildId)}&ts=${Date.now()}`)
+    } finally {
+      checkInProgress = false
+    }
+  }
+
+  window.addEventListener('focus', ejecutarChequeo)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void ejecutarChequeo()
+    }
+  })
+
+  // Primer chequeo al iniciar + chequeo periódico.
+  void ejecutarChequeo()
+  window.setInterval(() => {
+    void ejecutarChequeo()
+  }, 2 * 60 * 1000)
+}
+
 // Registrar Service Worker solo en web/PWA, NO en Capacitor nativo
 if ('serviceWorker' in navigator && !window.Capacitor) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
   })
 }
+
+iniciarChequeoActualizacionNativa()
 
 class ErrorBoundary extends Component {
   constructor(props) {

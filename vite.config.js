@@ -4,14 +4,33 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const pagesMode = process.env.PAGES_DIST === 'true'
+const appBuildId = new Date().toISOString()
+
+const appVersionPlugin = {
+  name: 'app-version-file',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'app-version.json',
+      source: JSON.stringify({
+        buildId: appBuildId,
+        generatedAt: appBuildId,
+      }),
+    })
+  },
+}
 
 export default defineConfig({
   base: pagesMode
     ? '/celiacos/'
     : (process.env.GITHUB_ACTIONS ? '/celiacos/' : '/'),
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(appBuildId),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    appVersionPlugin,
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null,
