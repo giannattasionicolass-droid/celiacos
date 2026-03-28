@@ -25,3 +25,4 @@ dist-ssr
 
 # Build/deploy temporaries
 tmp_apk_extract/
+tmp_apk_inspect/
