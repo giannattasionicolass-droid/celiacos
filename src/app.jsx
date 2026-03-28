@@ -791,6 +791,34 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
       </div>
 
       <div className="p-6 md:p-8 space-y-6 bg-gradient-to-b from-white to-gray-50/60">
+        {editable && (
+          <div className="rounded-3xl border-2 border-sky-300 bg-gradient-to-r from-sky-50 to-cyan-50 p-5 md:p-6 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-700 mb-2">Descuento admin de esta factura</p>
+                <h4 className="text-lg md:text-xl font-black text-sky-900">Aplicá el porcentaje que quieras y el total se actualiza automáticamente</h4>
+                <p className="text-sm font-semibold text-sky-700 mt-2">Este descuento se calcula sobre el subtotal final luego de faltantes.</p>
+              </div>
+              <div className="min-w-[220px] rounded-2xl bg-white border border-sky-200 p-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-2">Porcentaje de descuento</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={descuentoAdminPct ?? 0}
+                    onChange={(e) => onCambiarDescuentoAdmin?.(e.target.value)}
+                    className="w-full rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 text-right text-2xl font-black text-sky-900"
+                  />
+                  <span className="text-2xl font-black text-sky-700">%</span>
+                </div>
+                <p className="text-xs font-black text-sky-700 mt-3">Descuento actual: -{formatearMoneda(descuentoAdminMonto)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Cliente</p>
