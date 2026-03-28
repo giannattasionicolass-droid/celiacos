@@ -29,6 +29,13 @@ if (process.platform === 'win32') {
   run('npm', ['run', 'build:pages']);
 }
 
+// Sincronizar assets al proyecto Android (para que la APK quede al dia).
+if (process.platform === 'win32') {
+  run('cmd.exe', ['/c', 'npx', 'cap', 'copy', 'android'], true);
+} else {
+  run('npx', ['cap', 'copy', 'android'], true);
+}
+
 run('git', ['add', '-A']);
 
 const commitStatus = run('git', ['commit', '-m', commitMessage], true);
