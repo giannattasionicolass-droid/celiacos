@@ -1317,19 +1317,25 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   const totalItems = carrito.reduce((acc, p) => acc + (Number(p.cantidad) || 1), 0);
 
   const actualizarCantidad = (id, delta) => {
-    if (delta > 0) {
-      const item = carrito.find(i => i.id === id);
-      const stockDisponible = Number(item?.stock) || 0;
-      const cantidadActual = Number(item?.cantidad) || 1;
-      if (stockDisponible > 0 && cantidadActual >= stockDisponible) {
-        alert(`Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${item?.nombre || 'este producto'}".`);
-        return;
+    let mensajeStockMaximo = '';
+    setCarrito((prev) => {
+      const idBuscado = String(id);
+      if (delta > 0) {
+        const item = prev.find((i) => String(i.id) === idBuscado);
+        const stockDisponible = Number(item?.stock) || 0;
+        const cantidadActual = Number(item?.cantidad) || 1;
+        if (stockDisponible > 0 && cantidadActual >= stockDisponible) {
+          mensajeStockMaximo = `Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${item?.nombre || 'este producto'}".`;
+          return prev;
+        }
       }
-    }
-    setCarrito(prev =>
-      prev.map(item => item.id === id ? { ...item, cantidad: Math.max(0, (item.cantidad || 1) + delta) } : item)
-          .filter(item => item.cantidad > 0)
-    );
+
+      return prev
+        .map((item) => String(item.id) === idBuscado ? { ...item, cantidad: Math.max(0, (item.cantidad || 1) + delta) } : item)
+        .filter((item) => item.cantidad > 0);
+    });
+
+    if (mensajeStockMaximo) alert(mensajeStockMaximo);
   };
 
   const eliminarItem = (id) => setCarrito(prev => prev.filter(i => i.id !== id));
@@ -4578,25 +4584,34 @@ export default function App() {
       return;
     }
 
-    const enCarrito = carrito.find(item => item.id === producto.id);
-    const cantidadActualEnCarrito = Number(enCarrito?.cantidad) || 0;
-
-    if (cantidadActualEnCarrito >= stockDisponible) {
-      alert(`Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${producto.nombre}".`);
-      return;
-    }
+    let limiteAlcanzado = false;
+    const productoId = String(producto.id);
 
     setCarrito((prev) => {
-      const existe = prev.find(item => item.id === producto.id);
+      const enCarrito = prev.find((item) => String(item.id) === productoId);
+      const cantidadActualEnCarrito = Number(enCarrito?.cantidad) || 0;
+
+      if (cantidadActualEnCarrito >= stockDisponible) {
+        limiteAlcanzado = true;
+        return prev;
+      }
+
+      const existe = prev.find((item) => String(item.id) === productoId);
       if (existe) {
-        return prev.map(item =>
-          item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item
+        return prev.map((item) =>
+          String(item.id) === productoId ? { ...item, cantidad: (Number(item.cantidad) || 0) + 1 } : item
         );
       }
+
       // Forzamos el precio correcto (oferta si aplica) para evitar el error de $NaN
       const precioFinal = (producto.en_oferta && Number(producto.precio_oferta) > 0) ? Number(producto.precio_oferta) : Number(producto.precio);
       return [...prev, { ...producto, precio: precioFinal, cantidad: 1 }];
     });
+
+    if (limiteAlcanzado) {
+      alert(`Stock máximo alcanzado. Solo hay ${stockDisponible} unidad${stockDisponible === 1 ? '' : 'es'} disponible${stockDisponible === 1 ? '' : 's'} de "${producto.nombre}".`);
+      return;
+    }
 
     setMensajeToast('Producto agregado al carrito');
     setMostrarToast(true);
