@@ -2353,6 +2353,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [paginaVentasActual, setPaginaVentasActual] = useState(1);
   const [filtroCliente, setFiltroCliente] = useState('');
   const [pedidosExpandido, setPedidosExpandido] = useState({});
   const [pedidosClienteExpandido, setPedidosClienteExpandido] = useState({});
@@ -2565,6 +2566,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     if (tab === 'clientes') traerClientes();
     if (tab === 'inventario') traerMovimientosInventario();
   }, [tab, pedidosVersion]);
+
+  useEffect(() => {
+    setPaginaVentasActual(1);
+  }, [tab, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroBusqueda]);
 
   const agregarProducto = async (e) => {
     e.preventDefault();
@@ -2968,6 +2973,14 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
     return true;
   });
+
+  const ventasPorPagina = 10;
+  const totalPaginasVentas = Math.max(1, Math.ceil(pedidosFiltrados.length / ventasPorPagina));
+  const paginaVentasSegura = Math.min(paginaVentasActual, totalPaginasVentas);
+  const inicioVentas = (paginaVentasSegura - 1) * ventasPorPagina;
+  const finVentas = inicioVentas + ventasPorPagina;
+  const pedidosFiltradosPaginados = pedidosFiltrados.slice(inicioVentas, finVentas);
+  const paginasVentas = Array.from({ length: totalPaginasVentas }, (_, i) => i + 1);
 
   const totalFacturadoFiltrado = pedidosFiltrados.reduce((acc, ped) => acc + obtenerTotalPedido(ped), 0);
 
@@ -3728,7 +3741,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 <p className="text-sm font-semibold text-gray-500 mt-2">Ajustá búsqueda, estado o rango de fechas.</p>
               </div>
             )}
-            {pedidosFiltrados.map((ped) => {
+            {pedidosFiltradosPaginados.map((ped) => {
               const productos = obtenerProductosPedido(ped);
               const estadoActual = obtenerEstadoPedido(ped);
               const metodoPagoLabel = obtenerLabelMetodoPagoPedido(ped);
@@ -3879,6 +3892,41 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 </div>
               );
             })}
+
+            {pedidosFiltrados.length > 0 && (
+              <div className="mt-2 w-full flex flex-col items-center gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.11em] text-gray-500">
+                  Pagina {paginaVentasSegura} de {totalPaginasVentas} · Mostrando {Math.min(inicioVentas + 1, pedidosFiltrados.length)}-{Math.min(finVentas, pedidosFiltrados.length)} de {pedidosFiltrados.length} ventas
+                </p>
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setPaginaVentasActual((prev) => Math.max(1, prev - 1))}
+                    disabled={paginaVentasSegura <= 1}
+                    className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+
+                  {paginasVentas.map((pagina) => (
+                    <button
+                      key={pagina}
+                      onClick={() => setPaginaVentasActual(pagina)}
+                      className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaVentasSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      {pagina}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setPaginaVentasActual((prev) => Math.min(totalPaginasVentas, prev + 1))}
+                    disabled={paginaVentasSegura >= totalPaginasVentas}
+                    className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
