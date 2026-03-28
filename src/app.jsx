@@ -5774,7 +5774,7 @@ export default function App() {
                       }}
                     >
                       <div className="relative">
-                        <img src={p.imagen_url} className="h-24 sm:h-28 xl:h-32 w-full object-cover rounded-2xl mb-2.5 transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
+                        <img src={p.imagen_url} className="h-24 sm:h-28 xl:h-32 w-full object-contain bg-white rounded-2xl mb-2.5 transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
                         {esNuevo && (
                           <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Nuevo</span>
                         )}
@@ -5792,7 +5792,7 @@ export default function App() {
                         )}
                       </div>
 
-                      <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight min-h-[2.5rem] line-clamp-2">{p.nombre}</h3>
+                      <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
                       {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                         <div className="mt-1 mb-2.5">
                           <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
