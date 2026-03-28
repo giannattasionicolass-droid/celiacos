@@ -1413,6 +1413,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   const [direccion, setDireccion] = useState(usuarioLogueado?.direccion_envio || '');
   const [telefono, setTelefono] = useState(usuarioLogueado?.telefono || '');
   const [emailConfirmacion, setEmailConfirmacion] = useState(usuarioLogueado?.email || session?.user?.email || '');
+  const [aceptoPlazoEntrega, setAceptoPlazoEntrega] = useState(false);
   const [metodoPago, setMetodoPago] = useState('contra_entrega');
   const [comprobanteArchivo, setComprobanteArchivo] = useState(null);
   const [comprobanteUrl, setComprobanteUrl] = useState('');
@@ -1545,6 +1546,12 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       setMensajeToast('Ingresá un email de confirmación válido.');
       setMostrarToast(true);
       setTimeout(() => setMostrarToast(false), 2800);
+      return;
+    }
+    if (!aceptoPlazoEntrega) {
+      setMensajeToast('Debes aceptar el plazo de entrega para confirmar el pedido.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 3000);
       return;
     }
     const perfilId = usuarioLogueado?.id || session?.user?.id;
@@ -2063,11 +2070,23 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
               </p>
             </div>
 
+            <label className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={aceptoPlazoEntrega}
+                onChange={(e) => setAceptoPlazoEntrega(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-amber-600"
+              />
+              <span className="text-xs md:text-sm font-black text-amber-800 leading-relaxed">
+                Acepto que mi pedido se enviara dentro de las proximas 48hs habiles una vez confirmada la compra. Gracias CeliaShop.
+              </span>
+            </label>
+
             <button
               onClick={confirmarCompra}
-              disabled={cargando || !direccion.trim() || !emailConfirmacion.trim() || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)}
+              disabled={cargando || !direccion.trim() || !emailConfirmacion.trim() || !aceptoPlazoEntrega || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)}
               className={`w-full py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg ${
-                cargando || !direccion.trim() || !emailConfirmacion.trim() || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)
+                cargando || !direccion.trim() || !emailConfirmacion.trim() || !aceptoPlazoEntrega || (metodoPago === 'transferencia' && !comprobanteArchivo && !comprobanteUrl)
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
                   : 'bg-green-600 text-white hover:bg-green-700 active:scale-[0.98]'
               }`}
