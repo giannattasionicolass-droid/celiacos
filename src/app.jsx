@@ -5523,7 +5523,7 @@ export default function App() {
                   </div>
 
                   <p className="mt-5 text-sm md:text-base font-semibold text-emerald-100/90 max-w-2xl leading-relaxed">
-                    Tienda premium 100% enfocada en productos libres de gluten, con atención humana, stock real y una experiencia de compra que se siente cuidada de principio a fin.
+                    Tienda premium 100% enfocada en productos libres de gluten, stock real y una experiencia de compra que se siente cuidada de principio a fin.
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-2.5">
