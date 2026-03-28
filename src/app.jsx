@@ -2854,8 +2854,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     if (!confirmarPaso1) return;
 
     const confirmarPaso2 = window.prompt('Confirmación final: escribí RESET TOTAL para continuar.');
-    if (confirmarPaso2 !== 'RESET TOTAL') {
-      alert('Reset cancelado.');
+    const confirmacionNormalizada = String(confirmarPaso2 || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, ' ');
+
+    if (confirmacionNormalizada !== 'RESET TOTAL' && confirmacionNormalizada !== 'RESETTOTAL') {
+      alert('Reset cancelado. Debes escribir RESET TOTAL para continuar.');
       return;
     }
 
