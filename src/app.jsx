@@ -5080,6 +5080,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
 
 export default function App() {
+  // Marca técnica para pruebas de actualización APK (sin impacto visual).
   const [pagina, setPagina] = useState('inicio');
   const [session, setSession] = useState(null);
   const [esLogin, setEsLogin] = useState(true);
