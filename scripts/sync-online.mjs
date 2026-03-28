@@ -60,6 +60,14 @@ if (process.platform === 'win32') {
   run('npm', ['run', 'build:pages']);
 }
 
+// Build sin prefijo /celiacos/ para Capacitor Android (base: '/').
+// El build:pages usa base='/celiacos/' que rompe los paths dentro del APK.
+if (process.platform === 'win32') {
+  run('cmd.exe', ['/c', 'npm', 'run', 'build']);
+} else {
+  run('npm', ['run', 'build']);
+}
+
 // Sincronizar assets al proyecto Android (para que la APK quede al dia).
 if (process.platform === 'win32') {
   run('cmd.exe', ['/c', 'npx', 'cap', 'copy', 'android'], true);
