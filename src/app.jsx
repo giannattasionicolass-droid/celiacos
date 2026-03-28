@@ -2763,6 +2763,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [filtroInventarioCategoria, setFiltroInventarioCategoria] = useState('');
   const [filtroStockProducto, setFiltroStockProducto] = useState('');
   const [reseteandoBase, setReseteandoBase] = useState(false);
+  const [corrigiendoStockDuplicado, setCorrigiendoStockDuplicado] = useState(false);
   const [ofertaColumnaFaltante, setOfertaColumnaFaltante] = useState(false);
 
   const esErrorColumna = (error) => {
@@ -3687,6 +3688,142 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     })
   ), [inventarioMovimientos, desdePeriodo]);
 
+  const diagnosticoDescuentoDuplicado = useMemo(() => {
+    const esperadoPorPedidoProducto = new Map();
+
+    pedidos.forEach((pedido) => {
+      const pedidoId = String(pedido?.id || '');
+      if (!pedidoId) return;
+
+      obtenerProductosPedido(pedido).forEach((linea) => {
+        const productoId = String(linea?.id || '');
+        if (!productoId) return;
+
+        const cantidad = Math.max(0, Number(
+          linea?.cantidad
+          ?? linea?.quantity
+          ?? linea?.qty
+          ?? linea?.cant
+          ?? 0
+        ) || 0);
+        if (cantidad <= 0) return;
+
+        const key = `${pedidoId}:${productoId}`;
+        esperadoPorPedidoProducto.set(key, (esperadoPorPedidoProducto.get(key) || 0) + cantidad);
+      });
+    });
+
+    const salidaPorPedidoProducto = new Map();
+    inventarioMovimientos.forEach((mov) => {
+      const tipo = String(mov?.tipo || '').toLowerCase();
+      const referenciaPedidoId = String(mov?.referencia_pedido_id || '');
+      const productoId = String(mov?.producto_id || '');
+
+      if (tipo !== 'salida' || !referenciaPedidoId || !productoId) return;
+
+      const key = `${referenciaPedidoId}:${productoId}`;
+      const cantidad = Math.max(0, Number(mov?.cantidad) || 0);
+      if (cantidad <= 0) return;
+
+      salidaPorPedidoProducto.set(key, (salidaPorPedidoProducto.get(key) || 0) + cantidad);
+    });
+
+    const excesoPorProducto = new Map();
+    let casosAfectados = 0;
+    let unidadesExceso = 0;
+
+    esperadoPorPedidoProducto.forEach((cantidadEsperada, key) => {
+      const cantidadSalida = salidaPorPedidoProducto.get(key) || 0;
+      const exceso = Math.max(0, cantidadSalida - cantidadEsperada);
+      if (exceso <= 0) return;
+
+      const [, productoId = ''] = key.split(':');
+      if (!productoId) return;
+
+      casosAfectados += 1;
+      unidadesExceso += exceso;
+      excesoPorProducto.set(productoId, (excesoPorProducto.get(productoId) || 0) + exceso);
+    });
+
+    return {
+      casosAfectados,
+      unidadesExceso,
+      excesoPorProducto,
+      productosAfectados: excesoPorProducto.size,
+    };
+  }, [pedidos, inventarioMovimientos]);
+
+  const corregirDescuentoDuplicadoStock = async () => {
+    if (corrigiendoStockDuplicado) return;
+
+    const { unidadesExceso, productosAfectados, excesoPorProducto } = diagnosticoDescuentoDuplicado;
+
+    if (unidadesExceso <= 0 || productosAfectados <= 0) {
+      alert('No se detectaron descuentos duplicados para corregir.');
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Se detectaron ${unidadesExceso} unidad${unidadesExceso === 1 ? '' : 'es'} descontada${unidadesExceso === 1 ? '' : 's'} de más en ${productosAfectados} producto${productosAfectados === 1 ? '' : 's'}. ¿Aplicar corrección automática?`
+    );
+    if (!confirmar) return;
+
+    setCorrigiendoStockDuplicado(true);
+    try {
+      let productosCorregidos = 0;
+      let unidadesDevueltas = 0;
+
+      for (const [productoId, exceso] of excesoPorProducto.entries()) {
+        const cantidadExceso = Math.max(0, Number(exceso) || 0);
+        if (cantidadExceso <= 0) continue;
+
+        const producto = productos.find((p) => String(p?.id) === String(productoId));
+        if (!producto) continue;
+
+        const stockActual = Math.max(0, Number(producto?.stock) || 0);
+        const stockNuevo = stockActual + cantidadExceso;
+
+        const { error: errorStock } = await supabase
+          .from('productos')
+          .update({ stock: stockNuevo })
+          .eq('id', productoId);
+
+        if (errorStock) throw errorStock;
+
+        productosCorregidos += 1;
+        unidadesDevueltas += cantidadExceso;
+
+        const { error: errorMov } = await supabase
+          .from('inventario_movimientos')
+          .insert([{
+            producto_id: productoId,
+            tipo: 'ajuste',
+            cantidad: cantidadExceso,
+            costo_unitario: Math.max(0, Number(producto?.costo_fabrica) || 0),
+            precio_venta_unitario: Math.max(0, Number(producto?.precio) || 0),
+            detalle: 'Correccion automatica por descuento duplicado detectado en pedidos.',
+            origen: 'correccion_admin_descuento_duplicado',
+          }]);
+
+        if (errorMov && !esTablaInventarioNoDisponible(errorMov)) {
+          console.error('No se pudo registrar movimiento de ajuste:', errorMov);
+        }
+      }
+
+      await Promise.all([
+        traerProductos?.(),
+        traerPedidos(),
+        traerMovimientosInventario(),
+      ]);
+
+      alert(`Corrección aplicada. Se devolvieron ${unidadesDevueltas} unidad${unidadesDevueltas === 1 ? '' : 'es'} al stock en ${productosCorregidos} producto${productosCorregidos === 1 ? '' : 's'}.`);
+    } catch (error) {
+      alert('No se pudo aplicar la corrección de stock: ' + (error?.message || 'Error desconocido'));
+    } finally {
+      setCorrigiendoStockDuplicado(false);
+    }
+  };
+
   const faltantesPorProducto = useMemo(() => {
     const mapa = new Map();
     pedidosPeriodoInventario.forEach((ped) => {
@@ -4226,6 +4363,39 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               <p className="text-[11px] font-black uppercase tracking-widest text-gray-700">Diagnóstico de descuento automático</p>
               <p className="text-sm font-black mt-1 text-gray-900">{diagnosticoTriggerStock.titulo}</p>
               <p className="text-xs font-semibold mt-1 text-gray-700">{diagnosticoTriggerStock.detalle}</p>
+            </div>
+            <div className={`mt-3 rounded-2xl border px-4 py-3 ${
+              diagnosticoDescuentoDuplicado.unidadesExceso > 0
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-700">Control de descuadre por pedido</p>
+              {diagnosticoDescuentoDuplicado.unidadesExceso > 0 ? (
+                <>
+                  <p className="text-sm font-black mt-1 text-gray-900">
+                    Detectamos {diagnosticoDescuentoDuplicado.unidadesExceso} unidad{diagnosticoDescuentoDuplicado.unidadesExceso === 1 ? '' : 'es'} descontada{diagnosticoDescuentoDuplicado.unidadesExceso === 1 ? '' : 's'} de más.
+                  </p>
+                  <p className="text-xs font-semibold mt-1 text-gray-700">
+                    Afecta {diagnosticoDescuentoDuplicado.productosAfectados} producto{diagnosticoDescuentoDuplicado.productosAfectados === 1 ? '' : 's'} en {diagnosticoDescuentoDuplicado.casosAfectados} pedido{diagnosticoDescuentoDuplicado.casosAfectados === 1 ? '' : 's'}.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={corregirDescuentoDuplicadoStock}
+                    disabled={corrigiendoStockDuplicado}
+                    className={`mt-3 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide ${
+                      corrigiendoStockDuplicado
+                        ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                        : 'bg-amber-600 hover:bg-amber-700 text-white'
+                    }`}
+                  >
+                    {corrigiendoStockDuplicado ? 'Corrigiendo...' : 'Corregir descuadre ahora'}
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm font-black mt-1 text-emerald-700">
+                  No se detectan descuentos duplicados de stock en pedidos.
+                </p>
+              )}
             </div>
             {inventarioSinHistorial && (
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
