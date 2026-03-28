@@ -3368,6 +3368,17 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     alert(`Producto ${producto.activo ? 'deshabilitado' : 'habilitado'} con éxito.`);
   };
 
+  const eliminarProducto = async (producto) => {
+    if (!window.confirm(`¿Eliminar "${producto.nombre}"? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from('productos').delete().eq('id', producto.id);
+    if (error) {
+      alert('Error al eliminar: ' + error.message);
+      return;
+    }
+    if (productoEditando?.id === producto.id) setProductoEditando(null);
+    traerProductos();
+  };
+
   const escaparCsv = (valor) => {
     const s = String(valor ?? '');
     if (s.includes('"') || s.includes(';') || s.includes('\n')) {
@@ -4299,6 +4310,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 <div className="flex gap-2">
                   <button onClick={() => iniciarEdicion(p)} className="px-3 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase">Editar</button>
                   <button onClick={() => toggleActivo(p)} className={`px-3 py-2 rounded-xl text-white text-[10px] font-black uppercase ${p.activo ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'}`}>{p.activo ? 'Deshabilitar' : 'Habilitar'}</button>
+                  <button onClick={() => eliminarProducto(p)} className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase">Eliminar</button>
                 </div>
               </div>
             ))}
