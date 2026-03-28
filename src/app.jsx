@@ -2238,6 +2238,11 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
 
+  const esErrorColumnaPerfil = (err) => {
+    const mensaje = String(err?.message || '').toLowerCase();
+    return mensaje.includes('schema cache') || mensaje.includes('column');
+  };
+
   useEffect(() => {
     if (usuarioLogueado && !editando) {
       setDatosEditados({
@@ -2246,6 +2251,7 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
         email: usuarioLogueado.email || '',
         cuit: usuarioLogueado.cuit || '',
         telefono: usuarioLogueado.telefono || '',
+        nombre_fantasia: usuarioLogueado.nombre_fantasia || '',
         direccion_envio: usuarioLogueado.direccion_envio || ''
       });
     }
@@ -2263,13 +2269,32 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
         email: datosEditados.email || usuarioLogueado.email || '',
         cuit: datosEditados.cuit || '',
         telefono: datosEditados.telefono || '',
+        nombre_fantasia: datosEditados.nombre_fantasia || '',
         direccion_envio: datosEditados.direccion_envio || ''
       };
 
       const { error } = await supabase
         .from('perfiles')
         .upsert(payloadPerfil, { onConflict: 'id' });
-      if (error) throw error;
+
+      if (error && !esErrorColumnaPerfil(error)) throw error;
+
+      if (error && esErrorColumnaPerfil(error)) {
+        const payloadCompat = {
+          id: usuarioLogueado.id,
+          nombre: datosEditados.nombre || '',
+          apellido: datosEditados.apellido || '',
+          email: datosEditados.email || usuarioLogueado.email || '',
+          cuit: datosEditados.cuit || '',
+          telefono: datosEditados.telefono || '',
+          direccion_envio: datosEditados.direccion_envio || ''
+        };
+        const { error: errorCompat } = await supabase
+          .from('perfiles')
+          .upsert(payloadCompat, { onConflict: 'id' });
+        if (errorCompat) throw errorCompat;
+      }
+
       await onRefrescar();
       setEditando(false);
       setExito('Perfil actualizado exitosamente');
@@ -2288,6 +2313,7 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
       email: usuarioLogueado.email || '',
       cuit: usuarioLogueado.cuit || '',
       telefono: usuarioLogueado.telefono || '',
+      nombre_fantasia: usuarioLogueado.nombre_fantasia || '',
       direccion_envio: usuarioLogueado.direccion_envio || ''
     });
     setEditando(false);
@@ -2401,6 +2427,19 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
               />
             ) : (
               <p className="font-bold text-lg">{usuarioLogueado.telefono || 'No registrado'}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Nombre de fantasía (Negocio/Local)</p>
+            {editando ? (
+              <input
+                type="text"
+                value={datosEditados.nombre_fantasia}
+                onChange={(e) => setDatosEditados({...datosEditados, nombre_fantasia: e.target.value})}
+                className="w-full p-3 border border-gray-300 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+              />
+            ) : (
+              <p className="font-bold text-lg">{usuarioLogueado.nombre_fantasia || 'No registrado'}</p>
             )}
           </div>
           <div>
@@ -4484,7 +4523,7 @@ export default function App() {
   const [pedidosVersion, setPedidosVersion] = useState(0);
   const [perfilVersion, setPerfilVersion] = useState(0);
   const [datos, setDatos] = useState({ 
-    email: '', password: '', nombre: '', apellido: '', cuit: '', telefono: '', direccion: '' 
+    email: '', password: '', nombre: '', apellido: '', cuit: '', telefono: '', nombre_fantasia: '', direccion: '' 
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
 
@@ -4725,10 +4764,25 @@ export default function App() {
         const { data, error } = await supabase.auth.signUp({ email: datos.email, password: datos.password });
         if (error) throw error;
         if (data.user) {
-          await supabase.from('perfiles').insert([{
+          const perfilNuevo = {
             id: data.user.id, nombre: datos.nombre, apellido: datos.apellido,
-            cuit: datos.cuit, email: datos.email, telefono: datos.telefono, direccion_envio: datos.direccion
-          }]);
+            cuit: datos.cuit, email: datos.email, telefono: datos.telefono, nombre_fantasia: datos.nombre_fantasia, direccion_envio: datos.direccion
+          };
+
+          const { error: errorPerfil } = await supabase.from('perfiles').insert([perfilNuevo]);
+          if (errorPerfil) {
+            const esErrorColumna = String(errorPerfil?.message || '').toLowerCase().includes('schema cache')
+              || String(errorPerfil?.message || '').toLowerCase().includes('column');
+
+            if (!esErrorColumna) throw errorPerfil;
+
+            const perfilCompat = {
+              id: data.user.id, nombre: datos.nombre, apellido: datos.apellido,
+              cuit: datos.cuit, email: datos.email, telefono: datos.telefono, direccion_envio: datos.direccion
+            };
+            const { error: errorPerfilCompat } = await supabase.from('perfiles').insert([perfilCompat]);
+            if (errorPerfilCompat) throw errorPerfilCompat;
+          }
         }
         setEsLogin(true);
       }
@@ -5125,6 +5179,7 @@ export default function App() {
                   <input type="text" placeholder="APELLIDO" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.apellido} onChange={e => setDatos({...datos, apellido: e.target.value})} required />
                   <input type="text" placeholder="CUIT" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.cuit} onChange={e => setDatos({...datos, cuit: e.target.value})} required />
                   <input type="text" placeholder="TELÉFONO" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.telefono} onChange={e => setDatos({...datos, telefono: e.target.value})} required />
+                  <input type="text" placeholder="NOMBRE DE FANTASÍA (NEGOCIO/LOCAL)" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.nombre_fantasia} onChange={e => setDatos({...datos, nombre_fantasia: e.target.value})} />
                   <input type="text" placeholder="DIRECCIÓN" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.direccion} onChange={e => setDatos({...datos, direccion: e.target.value})} required />
                 </>
               )}
