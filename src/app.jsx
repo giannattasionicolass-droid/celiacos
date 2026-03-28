@@ -1521,6 +1521,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   };
 
   const confirmarCompra = async () => {
+    console.log('[DEBUG] confirmarCompra iniciada', { direccion, emailConfirmacion, carrito: carrito.length, usuarioLogueado: usuarioLogueado?.id, sessionUser: session?.user?.id });
     if (!direccion.trim()) {
       setMensajeToast('Ingresá la dirección de entrega');
       setMostrarToast(true);
@@ -1640,7 +1641,10 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       let pedidoId = null;
       let lastError = null;
 
+      console.log('[DEBUG] Intentando crear pedido. Total: ' + total + ', Perfilid: ' + perfilId + ', Productos: ' + productosPedido.length);
+
       // Intento 1: RPC crear_pedido (firma extendida)
+      console.log('[DEBUG] Intento 1 - RPC crear_pedido V3 (firma extendida)');
       const { data: rpcIdV3, error: rpcErrV3 } = await supabase.rpc('crear_pedido', {
         p_perfil_id: perfilId,
         p_productos: productosPedido,
@@ -1652,11 +1656,13 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         p_metodo_pago: metodoPago,
         p_comprobante_url: comprobanteFinalUrl || null,
       });
+      console.log('[DEBUG] Intento 1 resultado:', { success: !rpcErrV3, pedidoId: rpcIdV3, error: rpcErrV3?.message });
       if (!rpcErrV3) pedidoId = rpcIdV3;
       if (rpcErrV3) lastError = rpcErrV3;
 
       // Intento 2: compatibilidad con firma nueva (sin metadatos extra)
       if (!pedidoId) {
+        console.log('[DEBUG] Intento 2 - RPC crear_pedido V2 (sin comprobante_url)');
         const { data: rpcIdV2, error: rpcErrV2 } = await supabase.rpc('crear_pedido', {
           p_perfil_id: perfilId,
           p_productos: productosPedido,
@@ -1665,18 +1671,21 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           p_email: emailCliente || null,
           p_telefono: telefonoCliente || null,
         });
+        console.log('[DEBUG] Intento 2 resultado:', { success: !rpcErrV2, pedidoId: rpcIdV2, error: rpcErrV2?.message });
         if (!rpcErrV2) pedidoId = rpcIdV2;
         if (rpcErrV2) lastError = rpcErrV2;
       }
 
       // Intento 3: compatibilidad con firma vieja (sin email/telefono)
       if (!pedidoId) {
+        console.log('[DEBUG] Intento 3 - RPC crear_pedido V1 (firma minima)');
         const { data: rpcIdV1, error: rpcErrV1 } = await supabase.rpc('crear_pedido', {
           p_perfil_id: perfilId,
           p_productos: productosPedido,
           p_total: total,
           p_direccion: direccion.trim(),
         });
+        console.log('[DEBUG] Intento 3 resultado:', { success: !rpcErrV1, pedidoId: rpcIdV1, error: rpcErrV1?.message });
         if (!rpcErrV1) pedidoId = rpcIdV1;
         if (rpcErrV1) lastError = rpcErrV1;
       }
@@ -1701,6 +1710,8 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         setCargando(false);
         return;
       }
+
+      console.log('[DEBUG] Pedido creado exitosamente. PedidoID: ' + pedidoId + ', Persistiendo metadatos...');
 
       // Persistir metadatos de pago en variantes de esquema
       const pagoDetalle = {
@@ -1783,6 +1794,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           direccion_envio: direccion.trim(),
         },
       };
+      console.log('[DEBUG] Guardando snapshot y confirmación del pedido. NumPedido: ' + numPedido);
       guardarSnapshotPedido(pedidoGenerado);
       setPedidoConfirmado({
         numero: numPedido,
@@ -1796,6 +1808,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       await descontarStockPorPedido(productosPedido);
       setCarrito([]);
       setConfirmandoCarrito(false);
+      console.log('[DEBUG] Cambiando a paso 3 (confirmación)');
       setPaso(3);
 
       void enviarEmailPedido({
