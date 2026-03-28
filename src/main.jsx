@@ -4,7 +4,8 @@ import './index.css'
 import App from './app.jsx'
 
 const APP_BUILD_ID = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : 'unknown'
-const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/celiashop-actualizada-debug.apk'
+const REMOTE_VERSION_URL = 'https://giannattasionicolass-droid.github.io/celiacos/app-version.json'
+const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/celiashop-android.apk'
 
 const esCapacitorNativo = () => {
   try {
@@ -22,6 +23,7 @@ const esCapacitorNativo = () => {
 const buildVersionCandidates = () => {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const urls = [
+    REMOTE_VERSION_URL,
     `${origin}/celiacos/app-version.json`,
     `${origin}/app-version.json`,
     `${import.meta.env.BASE_URL || '/'}app-version.json`,
