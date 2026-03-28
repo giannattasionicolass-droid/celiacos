@@ -170,35 +170,50 @@ const obtenerEstadoPedido = (pedido) => normalizarEstadoPedido(pedido?.estado, p
 const obtenerTotalPedido = (pedido) => Number(pedido?.total ?? pedido?.monto ?? pedido?.importe ?? pedido?.precio_total ?? 0);
 const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.direccion || pedido?.direccion_envio || pedido?.domicilio || 'Sin dirección cargada';
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || null;
+const obtenerPagoDetallePedido = (pedido = {}) => {
+  const detalle = pedido?.pago_detalle;
+  if (detalle && typeof detalle === 'object') return detalle;
+  if (typeof detalle === 'string') {
+    try {
+      const parsed = JSON.parse(detalle);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
 const obtenerMetodoPagoPedido = (pedido = {}) => String(
   pedido?.metodo_pago
   || pedido?.forma_pago
   || pedido?.tipo_pago
   || pedido?.pago_metodo
   || pedido?.payment_method
-  || pedido?.pago_detalle?.metodo
+  || obtenerPagoDetallePedido(pedido)?.metodo
   || pedido?.cliente?.metodo_pago
   || ''
 ).trim();
 const obtenerEmailConfirmacionPedido = (pedido = {}) => String(
-  pedido?.email_confirmacion || pedido?.pago_detalle?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
+  pedido?.email_confirmacion || obtenerPagoDetallePedido(pedido)?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
 ).trim();
 const obtenerComprobantePagoPedido = (pedido = {}) => String(
   pedido?.comprobante_pago_url
   || pedido?.comprobante_url
   || pedido?.payment_receipt_url
-  || pedido?.pago_detalle?.comprobante_url
-  || pedido?.pago_detalle?.comprobante_pago_url
-  || pedido?.pago_detalle?.factura?.comprobante_url
+  || obtenerPagoDetallePedido(pedido)?.comprobante_url
+  || obtenerPagoDetallePedido(pedido)?.comprobante_pago_url
+  || obtenerPagoDetallePedido(pedido)?.comprobante?.url
+  || obtenerPagoDetallePedido(pedido)?.factura?.comprobante_url
   || ''
 ).trim();
 const obtenerComprobanteNombrePedido = (pedido = {}) => String(
   pedido?.comprobante_pago_nombre
   || pedido?.comprobante_nombre
   || pedido?.payment_receipt_name
-  || pedido?.pago_detalle?.comprobante_nombre
-  || pedido?.pago_detalle?.comprobante_pago_nombre
-  || pedido?.pago_detalle?.factura?.comprobante_nombre
+  || obtenerPagoDetallePedido(pedido)?.comprobante_nombre
+  || obtenerPagoDetallePedido(pedido)?.comprobante_pago_nombre
+  || obtenerPagoDetallePedido(pedido)?.comprobante?.nombre
+  || obtenerPagoDetallePedido(pedido)?.factura?.comprobante_nombre
   || ''
 ).trim();
 const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
@@ -209,21 +224,21 @@ const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
 };
 const obtenerMetodoPagoOriginalPedido = (pedido = {}) => String(
   pedido?.metodo_pago_original
-  || pedido?.pago_detalle?.metodo_original
-  || pedido?.pago_detalle?.metodo_inicial
+  || obtenerPagoDetallePedido(pedido)?.metodo_original
+  || obtenerPagoDetallePedido(pedido)?.metodo_inicial
   || obtenerMetodoPagoPedido(pedido)
   || ''
 ).trim();
 const fueMetodoPagoActualizadoPorAdmin = (pedido = {}) => {
-  const bandera = pedido?.pago_detalle?.metodo_actualizado_por_admin;
+  const bandera = obtenerPagoDetallePedido(pedido)?.metodo_actualizado_por_admin;
   if (typeof bandera === 'boolean') return bandera;
   const actual = obtenerMetodoPagoPedido(pedido);
   const original = obtenerMetodoPagoOriginalPedido(pedido);
   return Boolean(actual && original && actual !== original);
 };
 const obtenerFechaActualizacionMetodoPago = (pedido = {}) => String(
-  pedido?.pago_detalle?.fecha_actualizacion_metodo
-  || pedido?.pago_detalle?.metodo_actualizado_at
+  obtenerPagoDetallePedido(pedido)?.fecha_actualizacion_metodo
+  || obtenerPagoDetallePedido(pedido)?.metodo_actualizado_at
   || ''
 ).trim();
 const normalizarDescuentoAdminPct = (valor) => {
@@ -946,7 +961,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             {metodoPagoRaw === 'contra_entrega' && (
               <p className="md:col-span-2 text-amber-700 font-black">Recordatorio: el cliente debe tener el dinero listo para entregar al vendedor al recibir los productos.</p>
             )}
-            {metodoPagoRaw === 'transferencia' && (
+            {(metodoPagoRaw === 'transferencia' || comprobantePagoUrl) && (
               <>
                 <p><span className="font-black text-gray-900">Banco:</span> {DATOS_BANCARIOS.banco || '(pendiente)'}</p>
                 <p><span className="font-black text-gray-900">Titular:</span> {DATOS_BANCARIOS.titular || '(pendiente)'}</p>
@@ -1481,37 +1496,6 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
     }
   };
 
-  const descontarStockPorPedido = async (productosPedido) => {
-    try {
-      if (!Array.isArray(productosPedido) || !productosPedido.length) return;
-      const ids = productosPedido.map((p) => p.id).filter(Boolean);
-      if (!ids.length) return;
-
-      const { data: productosActuales, error: errSel } = await supabase
-        .from('productos')
-        .select('id, stock')
-        .in('id', ids);
-      if (errSel) return;
-
-      const stockMap = new Map((productosActuales || []).map((p) => [String(p.id), Number(p.stock) || 0]));
-      const updates = productosPedido
-        .map((linea) => {
-          const actual = stockMap.get(String(linea.id));
-          if (typeof actual !== 'number') return null;
-          const qty = Math.max(0, Number(linea.cantidad) || 0);
-          const nuevoStock = Math.max(0, actual - qty);
-          return { id: linea.id, stock: nuevoStock };
-        })
-        .filter(Boolean);
-
-      await Promise.all(
-        updates.map((u) => supabase.from('productos').update({ stock: u.stock }).eq('id', u.id))
-      );
-    } catch (_) {
-      // Si falla el fallback frontend, el trigger SQL puede hacer el descuento.
-    }
-  };
-
   const total = carrito.reduce((acc, p) => acc + (Number(p.precio) || 0) * (Number(p.cantidad) || 1), 0);
   const totalItems = carrito.reduce((acc, p) => acc + (Number(p.cantidad) || 1), 0);
 
@@ -1791,16 +1775,26 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         },
       ];
 
+      let metadatosPersistidos = false;
       for (const payloadExtra of variantesMetadatos) {
         const { error } = await supabase
           .from('pedidos')
           .update(payloadExtra)
           .eq('id', pedidoId);
 
-        if (!error) break;
+        if (!error) {
+          metadatosPersistidos = true;
+          break;
+        }
         const msg = String(error?.message || '').toLowerCase();
         const esColumna = msg.includes('schema cache') || msg.includes('column');
         if (!esColumna) break;
+      }
+
+      if (!metadatosPersistidos && (metodoPago === 'transferencia' || comprobanteFinalUrl)) {
+        setMensajeToast('Pedido creado, pero no se pudieron guardar datos de pago/comprobante en la base. Ejecutá setup_checkout.sql en Supabase.');
+        setMostrarToast(true);
+        setTimeout(() => setMostrarToast(false), 7000);
       }
 
       const numPedido = (pedidoId || '').toString().replace(/-/g, '').slice(0, 8).toUpperCase()
@@ -1844,7 +1838,6 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         emailConfirmacion: emailCliente,
         comprobanteUrl: comprobanteFinalUrl,
       });
-      await descontarStockPorPedido(productosPedido);
       setCarrito([]);
       setConfirmandoCarrito(false);
       console.log('[DEBUG] Cambiando a paso 3 (confirmación)');
