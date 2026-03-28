@@ -2795,21 +2795,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       insertado = dataV1;
     }
 
-    // Intentar registrar movimiento en historial (opcional — si falla no afecta el stock).
-    if (insertado?.id && stockObjetivo > 0 && !inventarioSinHistorial) {
-      const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
-        producto_id: insertado.id,
-        tipo: 'entrada',
-        cantidad: stockObjetivo,
-        costo_unitario: Number(payloadExtendido.costo_fabrica) || 0,
-        detalle: 'Stock inicial por alta de producto',
-        origen: 'alta_producto',
-      }]);
-      if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
-        activarAvisoInventario('Se creó el producto con el stock indicado, pero el historial de movimientos no está activo en la base.');
-      }
-    }
-
     setNuevoP({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas', costo_fabrica: '', margen_ganancia: MARGEN_GANANCIA_OBJETIVO, en_oferta: false, precio_oferta: '', activo: true });
     traerProductos();
     if (tab === 'inventario') traerMovimientosInventario();
@@ -2859,23 +2844,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     if (errorFinal) {
       alert('Error al actualizar: ' + errorFinal.message);
       return;
-    }
-
-    // Intentar registrar movimiento en historial (opcional — si falla no afecta el stock).
-    const variacionStock = stockNuevo - stockAnterior;
-    if (variacionStock !== 0 && !inventarioSinHistorial) {
-      const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
-        producto_id: productoEditando.id,
-        tipo: variacionStock > 0 ? 'entrada' : 'salida',
-        cantidad: Math.abs(variacionStock),
-        costo_unitario: Number(productoEditando.costo_fabrica) || 0,
-        precio_venta_unitario: Number(productoEditando.precio) || 0,
-        detalle: variacionStock > 0 ? 'Ajuste manual: ingreso de stock' : 'Ajuste manual: salida de stock',
-        origen: 'ajuste_manual',
-      }]);
-      if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
-        activarAvisoInventario('Stock actualizado correctamente. El historial de movimientos no está activo en la base.');
-      }
     }
 
     setProductoEditando(null);
