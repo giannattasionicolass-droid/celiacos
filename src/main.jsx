@@ -4,6 +4,7 @@ import './index.css'
 import App from './app.jsx'
 
 const APP_BUILD_ID = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : 'unknown'
+const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/celiashop-actualizada-debug.apk'
 
 const esCapacitorNativo = () => {
   try {
@@ -67,19 +68,17 @@ const iniciarChequeoActualizacionNativa = () => {
       const remoteBuildId = await fetchRemoteBuildId()
       if (!remoteBuildId || remoteBuildId === APP_BUILD_ID) return
 
-      const dismissedBuild = String(localStorage.getItem('otaDismissedBuild') || '')
+      const dismissedBuild = String(localStorage.getItem('apkUpdateDismissedBuild') || '')
       if (dismissedBuild === remoteBuildId) return
 
-      const aceptar = window.confirm('Hay una actualización disponible de CeliaShop. ¿Querés aplicarla ahora?')
+      const aceptar = window.confirm('Hay una nueva versión de la APK disponible. ¿Querés descargarla ahora?')
       if (!aceptar) {
-        localStorage.setItem('otaDismissedBuild', remoteBuildId)
+        localStorage.setItem('apkUpdateDismissedBuild', remoteBuildId)
         return
       }
 
-      localStorage.removeItem('otaDismissedBuild')
-      const current = window.location.href
-      const separator = current.includes('?') ? '&' : '?'
-      window.location.replace(`${current}${separator}update=${encodeURIComponent(remoteBuildId)}&ts=${Date.now()}`)
+      localStorage.removeItem('apkUpdateDismissedBuild')
+      window.location.href = `${APK_UPDATE_URL}?build=${encodeURIComponent(remoteBuildId)}&ts=${Date.now()}`
     } finally {
       checkInProgress = false
     }
