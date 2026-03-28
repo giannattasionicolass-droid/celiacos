@@ -205,6 +205,13 @@ const obtenerDescuentoAdminFacturaPct = (pedido = {}) => normalizarDescuentoAdmi
   ?? pedido?.pago_detalle?.descuento_admin_pct
   ?? 0
 );
+const obtenerDescuentoAdminFacturaMonto = (pedido = {}) => Math.max(0, Number(
+  pedido?.descuento_admin_monto
+  ?? pedido?.factura_descuento_monto
+  ?? pedido?.pago_detalle?.factura?.descuento_admin_monto
+  ?? pedido?.pago_detalle?.descuento_admin_monto
+  ?? 0
+) || 0);
 const calcularDescuentoAdminMonto = (base, porcentaje) => {
   const baseNormalizada = Math.max(0, Number(base) || 0);
   const porcentajeNormalizado = normalizarDescuentoAdminPct(porcentaje);
@@ -4224,6 +4231,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               const productos = obtenerProductosPedido(ped);
               const estadoActual = obtenerEstadoPedido(ped);
               const metodoPagoLabel = obtenerLabelMetodoPagoPedido(ped);
+              const descuentoAdminPctResumen = obtenerDescuentoAdminFacturaPct(ped);
+              const descuentoAdminMontoResumen = obtenerDescuentoAdminFacturaMonto(ped);
               const emailConfirmacionPedido = obtenerEmailConfirmacionPedido(ped) || ped?.email || '';
               const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || ped.cliente_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
@@ -4247,6 +4256,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         <p className="text-sm font-semibold text-red-100 mt-1">Email confirmación: {emailConfirmacionPedido || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Teléfono: {clienteFactura.telefono || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Pago: {metodoPagoLabel}</p>
+                        {descuentoAdminPctResumen > 0 && (
+                          <p className="text-sm font-black text-sky-100 mt-1">Descuento admin: {descuentoAdminPctResumen.toFixed(2)}%</p>
+                        )}
                         <p className="text-xs font-semibold text-red-100 mt-1 opacity-75 break-all">ID: {clienteId}</p>
                       </div>
                       <div className="flex flex-col gap-3 min-w-[240px]">
@@ -4326,6 +4338,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Total</p>
                         <p className="text-2xl font-black text-green-600 tracking-tighter">{formatearMoneda(obtenerTotalPedido(ped))}</p>
+                        {descuentoAdminPctResumen > 0 && (
+                          <p className="text-[11px] font-black text-sky-700 mt-2">
+                            Incluye descuento admin de {descuentoAdminPctResumen.toFixed(2)}%
+                            {descuentoAdminMontoResumen > 0 ? ` (-${formatearMoneda(descuentoAdminMontoResumen)})` : ''}
+                          </p>
+                        )}
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Items</p>
