@@ -4897,6 +4897,7 @@ export default function App() {
   const [mensaje, setMensaje] = useState('');
   const [productosBD, setProductosBD] = useState([]);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
+  const [cargandoApp, setCargandoApp] = useState(true);
   const [confirmandoCarrito, setConfirmandoCarrito] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
   const [carrito, setCarrito] = useState([]);
@@ -5073,7 +5074,17 @@ export default function App() {
     });
 
     fetchProductos();
-    return () => subscription?.unsubscribe();
+
+    // Actualizar productos cuando la app vuelve a primer plano (Capacitor / pestaña)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchProductos();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      subscription?.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -5130,6 +5141,7 @@ export default function App() {
   const fetchProductos = async () => {
     const { data } = await supabase.from('productos').select('*').order('nombre');
     setProductosBD(data || []);
+    setCargandoApp(false);
   };
 
   const manejarAccion = async (e) => {
@@ -5180,6 +5192,17 @@ export default function App() {
 
   return (
     <div className="premium-shell min-h-screen flex flex-col">
+      {cargandoApp && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white gap-5">
+          <img src={URL_LOGO} alt="CeliaShop" className="h-20 w-20 rounded-2xl object-contain shadow-lg" />
+          <div className="flex gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-3 h-3 rounded-full bg-green-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-3 h-3 rounded-full bg-green-600 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-400">Cargando CeliaShop…</p>
+        </div>
+      )}
       <nav className="sticky top-3 z-50 mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
           <div onClick={() => setPagina('inicio')} className="cursor-pointer flex items-center justify-center gap-4 text-center">

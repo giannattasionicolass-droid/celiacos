@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './app.jsx'
 
+// Registrar Service Worker solo en web/PWA, NO en Capacitor nativo
+if ('serviceWorker' in navigator && !window.Capacitor) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
+  })
+}
+
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
