@@ -169,7 +169,14 @@ const obtenerTotalPedido = (pedido) => Number(pedido?.total ?? pedido?.monto ?? 
 const obtenerDireccionPedido = (pedido) => pedido?.direccion_entrega || pedido?.direccion || pedido?.direccion_envio || pedido?.domicilio || 'Sin dirección cargada';
 const obtenerFechaPedido = (pedido) => pedido?.created_at || pedido?.fecha || null;
 const obtenerMetodoPagoPedido = (pedido = {}) => String(
-  pedido?.metodo_pago || pedido?.forma_pago || pedido?.tipo_pago || pedido?.pago_metodo || pedido?.payment_method || ''
+  pedido?.metodo_pago
+  || pedido?.forma_pago
+  || pedido?.tipo_pago
+  || pedido?.pago_metodo
+  || pedido?.payment_method
+  || pedido?.pago_detalle?.metodo
+  || pedido?.cliente?.metodo_pago
+  || ''
 ).trim();
 const obtenerEmailConfirmacionPedido = (pedido = {}) => String(
   pedido?.email_confirmacion || pedido?.email || pedido?.customer_email || ''
@@ -186,6 +193,33 @@ const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
   if (metodo === 'contra_entrega') return 'Contra entrega';
   return metodo ? metodo.replace(/_/g, ' ') : 'No informado';
 };
+const obtenerNombreClienteFactura = (pedido = {}, cliente = {}) => {
+  const nombreFantasia = String(
+    cliente?.nombre_fantasia || pedido?.cliente?.nombre_fantasia || pedido?.nombre_fantasia || ''
+  ).trim();
+  if (nombreFantasia) return nombreFantasia;
+
+  const nombreCompletoCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim();
+  if (nombreCompletoCliente) return nombreCompletoCliente;
+
+  const nombreCompletoPedido = [pedido?.cliente?.nombre, pedido?.cliente?.apellido].filter(Boolean).join(' ').trim();
+  if (nombreCompletoPedido) return nombreCompletoPedido;
+
+  const nombrePlanoPedido = String(pedido?.nombre || '').trim();
+  if (nombrePlanoPedido) return nombrePlanoPedido;
+
+  const emailCliente = String(pedido?.email || cliente?.email || '').trim();
+  if (emailCliente.includes('@')) return emailCliente.split('@')[0];
+
+  return 'Cliente no informado';
+};
+const obtenerCuitClienteFactura = (pedido = {}, cliente = {}) => String(
+  cliente?.cuit
+  || pedido?.cuit
+  || pedido?.cliente?.cuit
+  || pedido?.pago_detalle?.cuit_cliente
+  || ''
+).trim() || 'No informado';
 const obtenerNumeroPedido = (pedido) => String(pedido?.id || 'sin-id').replace(/-/g, '').slice(0, 8).toUpperCase();
 const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).reduce((acc, prod) => (
   acc + (Number(prod?.cantidad ?? prod?.quantity ?? prod?.qty) || 0)
@@ -354,10 +388,10 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
   const productos = obtenerProductosPedido(pedido);
   const lineas = construirLineasFactura(productos);
   const clienteId = String(cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id');
-  const nombreCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim() || 'Cliente CeliaShop';
+  const nombreCliente = obtenerNombreClienteFactura(pedido, cliente);
   const emailCliente = pedido?.email || cliente?.email || 'No informado';
   const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
-  const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
+  const cuitCliente = obtenerCuitClienteFactura(pedido, cliente);
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
   const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
@@ -600,11 +634,12 @@ const obtenerClienteDePedido = (pedido, clientes = []) => {
 
 const construirClienteFallbackDesdePedido = (pedido) => ({
   id: obtenerIdClientePedido(pedido) || null,
-  nombre: '',
-  apellido: '',
+  nombre: String(pedido?.cliente?.nombre || pedido?.nombre || '').trim(),
+  apellido: String(pedido?.cliente?.apellido || '').trim(),
+  nombre_fantasia: String(pedido?.cliente?.nombre_fantasia || pedido?.nombre_fantasia || '').trim(),
   email: pedido?.email || '',
   telefono: pedido?.telefono || '',
-  cuit: pedido?.cuit || '',
+  cuit: String(pedido?.cuit || pedido?.cliente?.cuit || '').trim(),
   direccion_envio: obtenerDireccionPedido(pedido) || '',
 });
 
@@ -664,10 +699,10 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
   const clienteId = String(
     cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id'
   );
-  const nombreCliente = [cliente?.nombre, cliente?.apellido].filter(Boolean).join(' ').trim() || 'Cliente CeliaShop';
+  const nombreCliente = obtenerNombreClienteFactura(pedido, cliente);
   const emailCliente = pedido?.email || cliente?.email || 'No informado';
   const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
-  const cuitCliente = cliente?.cuit || pedido?.cuit || 'No informado';
+  const cuitCliente = obtenerCuitClienteFactura(pedido, cliente);
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
   const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
