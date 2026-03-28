@@ -3387,6 +3387,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     });
   }, [resumenInventario, filtroInventarioNombre, filtroInventarioCategoria]);
 
+  const productosTopVendidos = useMemo(() => {
+    return [...resumenInventario]
+      .filter((item) => item.vendidos > 0)
+      .sort((a, b) => b.vendidos - a.vendidos);
+  }, [resumenInventario]);
+
   const registrarIngresoStock = async (e) => {
     e.preventDefault();
     const productoId = movimientoEntrada.producto_id;
@@ -3826,6 +3832,69 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Utilidad bruta período</p>
               <p className="text-lg font-black text-emerald-700 mt-2">{formatearMoneda(resumenBalance.ingresosVentas - resumenBalance.costoVentas)}</p>
             </div>
+          </div>
+
+          <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <p className="text-xs font-black uppercase tracking-widest text-gray-500">Período {periodoSeleccionado.label.toLowerCase()}</p>
+              <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mt-1">Productos vendidos</h4>
+            </div>
+            {productosTopVendidos.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm font-semibold text-gray-400">
+                Sin ventas registradas en el período. Asegurate de tener activo el historial de inventario.
+              </div>
+            ) : (
+              <div className="p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                  {productosTopVendidos.slice(0, 3).map((item, idx) => {
+                    const medallas = ['🥇', '🥈', '🥉'];
+                    const colores = [
+                      'border-yellow-300 bg-yellow-50',
+                      'border-gray-300 bg-gray-50',
+                      'border-orange-300 bg-orange-50',
+                    ];
+                    return (
+                      <div key={item.producto.id} className={`rounded-2xl border-2 p-4 flex flex-col gap-1 ${colores[idx]}`}>
+                        <p className="text-xl">{medallas[idx]}</p>
+                        <p className="font-black uppercase text-xs text-gray-900 leading-tight">{item.producto.nombre}</p>
+                        <p className="text-[11px] font-semibold text-gray-500">{item.producto.categoria || 'Sin categoría'}</p>
+                        <p className="text-2xl font-black text-gray-900 mt-1">{item.vendidos} <span className="text-xs font-semibold text-gray-500">vendidos</span></p>
+                        <p className="text-[11px] font-semibold text-emerald-700">{formatearMoneda(item.ingresosVentas)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {productosTopVendidos.length > 3 && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600 uppercase text-[10px] tracking-widest">
+                        <tr>
+                          <th className="text-left px-4 py-3">#</th>
+                          <th className="text-left px-4 py-3">Producto</th>
+                          <th className="text-left px-4 py-3">Vendidos</th>
+                          <th className="text-left px-4 py-3">Ingresos</th>
+                          <th className="text-left px-4 py-3">Stock actual</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {productosTopVendidos.map((item, idx) => (
+                          <tr key={item.producto.id} className="border-t border-gray-100 align-middle">
+                            <td className="px-4 py-3 font-black text-gray-400 text-xs">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-black text-gray-900 uppercase text-xs">{item.producto.nombre}</p>
+                              <p className="text-[11px] font-semibold text-gray-500">{item.producto.categoria || 'Sin categoría'}</p>
+                            </td>
+                            <td className="px-4 py-3 font-black text-gray-900">{item.vendidos}</td>
+                            <td className="px-4 py-3 font-semibold text-emerald-700">{formatearMoneda(item.ingresosVentas)}</td>
+                            <td className={`px-4 py-3 font-black text-xs ${item.stockActual <= 0 ? 'text-rose-600' : 'text-gray-800'}`}>{item.stockActual}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-6">
