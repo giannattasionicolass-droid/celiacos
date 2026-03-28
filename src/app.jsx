@@ -193,6 +193,25 @@ const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
   if (metodo === 'contra_entrega') return 'Efectivo';
   return metodo ? metodo.replace(/_/g, ' ') : 'No informado';
 };
+const obtenerMetodoPagoOriginalPedido = (pedido = {}) => String(
+  pedido?.metodo_pago_original
+  || pedido?.pago_detalle?.metodo_original
+  || pedido?.pago_detalle?.metodo_inicial
+  || obtenerMetodoPagoPedido(pedido)
+  || ''
+).trim();
+const fueMetodoPagoActualizadoPorAdmin = (pedido = {}) => {
+  const bandera = pedido?.pago_detalle?.metodo_actualizado_por_admin;
+  if (typeof bandera === 'boolean') return bandera;
+  const actual = obtenerMetodoPagoPedido(pedido);
+  const original = obtenerMetodoPagoOriginalPedido(pedido);
+  return Boolean(actual && original && actual !== original);
+};
+const obtenerFechaActualizacionMetodoPago = (pedido = {}) => String(
+  pedido?.pago_detalle?.fecha_actualizacion_metodo
+  || pedido?.pago_detalle?.metodo_actualizado_at
+  || ''
+).trim();
 const normalizarDescuentoAdminPct = (valor) => {
   const numero = Number(valor);
   if (!Number.isFinite(numero)) return 0;
@@ -419,6 +438,8 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
   const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
+  const metodoPagoOriginalLabel = obtenerLabelMetodoPagoPedido({ metodo_pago: obtenerMetodoPagoOriginalPedido(pedido) });
+  const metodoPagoCambiado = fueMetodoPagoActualizadoPorAdmin(pedido);
   const emailConfirmacion = obtenerEmailConfirmacionPedido(pedido) || emailCliente;
   const comprobantePagoUrl = obtenerComprobantePagoPedido(pedido);
   const comprobantePagoNombre = obtenerComprobanteNombrePedido(pedido);
@@ -498,6 +519,7 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
       CUIT: ${escaparHtml(cuitCliente)}<br/>
       Dirección: ${escaparHtml(direccionCliente)}<br/>
       Método de pago: ${escaparHtml(metodoPagoLabel)}<br/>
+      ${metodoPagoCambiado ? `Método original: ${escaparHtml(metodoPagoOriginalLabel)}<br/>` : ''}
       Email confirmación: ${escaparHtml(emailConfirmacion)}
     </div>
   </div>
@@ -506,6 +528,7 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     <div style="font-size:11px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Pago y validación</div>
     <div style="font-size:12px;line-height:1.6;">
       Método: ${escaparHtml(metodoPagoLabel)}<br/>
+      ${metodoPagoCambiado ? `Aviso: administración modificó la forma de pago originalmente informada (${escaparHtml(metodoPagoOriginalLabel)}).<br/>` : ''}
       ${metodoPagoRaw === 'contra_entrega' ? 'Recordatorio: entregar dinero al vendedor al recibir el pedido.<br/>' : ''}
       ${metodoPagoRaw === 'transferencia' ? `Banco: ${escaparHtml(DATOS_BANCARIOS.banco || '(pendiente)')} · Titular: ${escaparHtml(DATOS_BANCARIOS.titular || '(pendiente)')}<br/>CBU: ${escaparHtml(DATOS_BANCARIOS.cbu || '(pendiente)')} · Alias: ${escaparHtml(DATOS_BANCARIOS.alias || '(pendiente)')} · CUIT: ${escaparHtml(DATOS_BANCARIOS.cuit || '(pendiente)')}<br/>` : ''}
       ${comprobantePagoUrl ? `Comprobante: <a href="${escaparHtml(comprobantePagoUrl)}" target="_blank" rel="noreferrer">${escaparHtml(comprobantePagoNombre || 'Ver comprobante')}</a>` : ''}
@@ -680,6 +703,8 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
   const total = obtenerTotalPedido(pedido);
   const estado = obtenerEstadoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
+  const metodoPagoOriginalLabel = obtenerLabelMetodoPagoPedido({ metodo_pago: obtenerMetodoPagoOriginalPedido(pedido) });
+  const metodoPagoCambiado = fueMetodoPagoActualizadoPorAdmin(pedido);
 
   return (
     <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden">
@@ -696,6 +721,11 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${obtenerClaseEstadoPedido(estado)}`}>{estado}</span>
             <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-sky-100 text-sky-700 ring-1 ring-sky-200">{metodoPagoLabel}</span>
+            {metodoPagoCambiado && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 ring-1 ring-amber-300">
+                Pago cambiado por admin
+              </span>
+            )}
             <span className="text-sm font-black text-emerald-700">{formatearMoneda(total)}</span>
             <span className="text-xs font-semibold text-gray-500">{obtenerCantidadItemsPedido(pedido) || productos.length} items</span>
             <span className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest">
@@ -707,6 +737,12 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
 
       {expandido && (
         <div className="border-t border-gray-100 p-4 md:p-5 bg-gray-50/60">
+          {metodoPagoCambiado && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-[11px] font-black uppercase tracking-widest text-amber-700">Forma de pago actualizada por admin</p>
+              <p className="text-sm font-semibold text-amber-800 mt-1">Original: {metodoPagoOriginalLabel} · Actual: {metodoPagoLabel}</p>
+            </div>
+          )}
           <FacturaPedido pedido={pedido} cliente={usuarioLogueado} mostrarImagenesEnLineas resaltarEstadoActual />
         </div>
       )}
@@ -742,6 +778,8 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
   const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
   const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
+  const metodoPagoOriginalLabel = obtenerLabelMetodoPagoPedido({ metodo_pago: obtenerMetodoPagoOriginalPedido(pedido) });
+  const metodoPagoCambiado = fueMetodoPagoActualizadoPorAdmin(pedido);
   const emailConfirmacion = obtenerEmailConfirmacionPedido(pedido) || emailCliente;
   const comprobantePagoUrl = obtenerComprobantePagoPedido(pedido);
   const comprobantePagoNombre = obtenerComprobanteNombrePedido(pedido);
@@ -766,6 +804,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             <p className="text-xs font-semibold text-gray-200 mt-2">Pedido #{obtenerNumeroPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200">Fecha: {formatearFechaPedido(pedido)}</p>
             <p className="text-xs font-semibold text-gray-200">Pago: {metodoPagoLabel}</p>
+            {metodoPagoCambiado ? <p className="text-xs font-black text-amber-300">Admin cambió el pago desde {metodoPagoOriginalLabel}</p> : null}
             <p className="text-xs font-semibold text-gray-200 break-all">Confirmación: {emailConfirmacion}</p>
             {resaltarEstadoActual ? (
               <div className="mt-3">
@@ -882,7 +921,9 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
           <p className="text-[10px] font-black uppercase tracking-widest text-sky-700 mb-3">Pago y confirmación</p>
           <div className="grid gap-2 md:grid-cols-2 text-sm font-semibold text-gray-700">
             <p><span className="font-black text-gray-900">Método:</span> {metodoPagoLabel}</p>
+            {metodoPagoCambiado ? <p><span className="font-black text-gray-900">Método original:</span> {metodoPagoOriginalLabel}</p> : null}
             <p className="break-all"><span className="font-black text-gray-900">Email confirmación:</span> {emailConfirmacion}</p>
+            {metodoPagoCambiado ? <p className="md:col-span-2 text-amber-700 font-black">La forma de pago fue modificada por administración.</p> : null}
             {metodoPagoRaw === 'contra_entrega' && (
               <p className="md:col-span-2 text-amber-700 font-black">Recordatorio: el cliente debe tener el dinero listo para entregar al vendedor al recibir los productos.</p>
             )}
@@ -1663,6 +1704,8 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       // Persistir metadatos de pago en variantes de esquema
       const pagoDetalle = {
         metodo: metodoPago,
+        metodo_original: metodoPago,
+        metodo_actualizado_por_admin: false,
         email_confirmacion: emailCliente,
         comprobante_url: comprobanteFinalUrl || null,
         comprobante_nombre: comprobanteFinalNombre || null,
@@ -3172,9 +3215,16 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     let errorFinal = null;
 
     const pagoDetalleBase = pedido?.pago_detalle && typeof pedido.pago_detalle === 'object' ? pedido.pago_detalle : {};
+    const metodoActual = obtenerMetodoPagoPedido(pedido);
+    const metodoOriginal = String(pagoDetalleBase?.metodo_original || metodoActual || nuevoMetodoPago).trim();
+    const fueActualizado = nuevoMetodoPago !== metodoOriginal;
     const pagoDetalleActualizado = {
       ...pagoDetalleBase,
       metodo: nuevoMetodoPago,
+      metodo_original: metodoOriginal,
+      metodo_anterior: metodoActual,
+      metodo_actualizado_por_admin: fueActualizado,
+      fecha_actualizacion_metodo: new Date().toISOString(),
       aviso_contra_entrega: nuevoMetodoPago === 'contra_entrega',
     };
 
@@ -4323,6 +4373,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               const productos = obtenerProductosPedido(ped);
               const estadoActual = obtenerEstadoPedido(ped);
               const metodoPagoLabel = obtenerLabelMetodoPagoPedido(ped);
+              const metodoPagoOriginalLabel = obtenerLabelMetodoPagoPedido({ metodo_pago: obtenerMetodoPagoOriginalPedido(ped) });
+              const metodoPagoCambiado = fueMetodoPagoActualizadoPorAdmin(ped);
               const descuentoAdminPctResumen = obtenerDescuentoAdminFacturaPct(ped);
               const descuentoAdminMontoResumen = obtenerDescuentoAdminFacturaMonto(ped);
               const emailConfirmacionPedido = obtenerEmailConfirmacionPedido(ped) || ped?.email || '';
@@ -4348,6 +4400,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         <p className="text-sm font-semibold text-red-100 mt-1">Email confirmación: {emailConfirmacionPedido || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Teléfono: {clienteFactura.telefono || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Pago: {metodoPagoLabel}</p>
+                        {metodoPagoCambiado && (
+                          <p className="text-sm font-black text-amber-100 mt-1">Pago actualizado por admin: antes {metodoPagoOriginalLabel}</p>
+                        )}
                         {descuentoAdminPctResumen > 0 && (
                           <p className="text-sm font-black text-sky-100 mt-1">Descuento admin: {descuentoAdminPctResumen.toFixed(2)}%</p>
                         )}
@@ -4365,6 +4420,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         <span className="self-start px-4 py-2 rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200 text-xs font-black uppercase tracking-wider">
                           {metodoPagoLabel}
                         </span>
+                        {metodoPagoCambiado && (
+                          <span className="self-start px-4 py-2 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 text-xs font-black uppercase tracking-wider">
+                            Cambio de pago por admin
+                          </span>
+                        )}
                         <label className="block">
                           <span className="text-xs font-black uppercase tracking-widest text-red-100">Cambiar estado</span>
                           <select
