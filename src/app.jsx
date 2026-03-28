@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { resetearDatosPrueba } from './adminReset';
 import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
@@ -5106,6 +5106,7 @@ export default function App() {
     email: '', password: '', nombre: '', apellido: '', cuit: '', telefono: '', nombre_fantasia: '', direccion: '' 
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
+  const ultimoSyncProductosRef = useRef(0);
 
   const categoriasProductos = useMemo(() => (
     [...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map((p) => p.categoria).filter(Boolean)])].sort()
@@ -5324,6 +5325,32 @@ export default function App() {
   }, [session?.user?.id]);
 
   useEffect(() => {
+    const sincronizarProductosConThrottle = () => {
+      const ahora = Date.now();
+      if ((ahora - ultimoSyncProductosRef.current) < 900) return;
+      ultimoSyncProductosRef.current = ahora;
+      void fetchProductos();
+    };
+
+    const productosChannel = supabase
+      .channel('productos-sync-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
+        sincronizarProductosConThrottle();
+      })
+      .subscribe();
+
+    // Fallback de seguridad si Realtime se cae temporalmente.
+    const intervaloProductos = window.setInterval(() => {
+      sincronizarProductosConThrottle();
+    }, 20000);
+
+    return () => {
+      window.clearInterval(intervaloProductos);
+      supabase.removeChannel(productosChannel);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!session?.user) return;
     refrescarPerfil();
   }, [perfilVersion, session?.user?.id]);
@@ -5352,6 +5379,51 @@ export default function App() {
       setCargandoApp(false);
     }
   };
+
+  useEffect(() => {
+    // Mantiene el carrito consistente si el stock cambia por compras/ediciones externas.
+    setCarrito((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+
+      const stockMap = new Map(
+        (Array.isArray(productosBD) ? productosBD : []).map((p) => [String(p?.id), {
+          stock: Math.max(0, Number(p?.stock) || 0),
+          activo: Boolean(p?.activo),
+          precio: Number(p?.precio) || 0,
+          en_oferta: Boolean(p?.en_oferta),
+          precio_oferta: Number(p?.precio_oferta) || 0,
+        }]),
+      );
+
+      let huboCambios = false;
+      const actualizado = prev
+        .map((item) => {
+          const meta = stockMap.get(String(item?.id));
+          if (!meta || !meta.activo || meta.stock <= 0) {
+            if (Number(item?.cantidad) > 0) huboCambios = true;
+            return { ...item, cantidad: 0, stock: 0 };
+          }
+
+          const cantidadActual = Math.max(0, Number(item?.cantidad) || 0);
+          const cantidadAjustada = Math.min(cantidadActual, meta.stock);
+          const precioAjustado = (meta.en_oferta && meta.precio_oferta > 0) ? meta.precio_oferta : meta.precio;
+
+          if (cantidadAjustada !== cantidadActual || Number(item?.stock) !== meta.stock || Number(item?.precio) !== precioAjustado) {
+            huboCambios = true;
+          }
+
+          return {
+            ...item,
+            cantidad: cantidadAjustada,
+            stock: meta.stock,
+            precio: precioAjustado,
+          };
+        })
+        .filter((item) => Number(item?.cantidad) > 0);
+
+      return huboCambios ? actualizado : prev;
+    });
+  }, [productosBD]);
 
   const manejarAccion = async (e) => {
     e.preventDefault();
