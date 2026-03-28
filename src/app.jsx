@@ -193,6 +193,23 @@ const obtenerLabelMetodoPagoPedido = (pedido = {}) => {
   if (metodo === 'contra_entrega') return 'Contra entrega';
   return metodo ? metodo.replace(/_/g, ' ') : 'No informado';
 };
+const normalizarDescuentoAdminPct = (valor) => {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return 0;
+  return Math.min(100, Math.max(0, numero));
+};
+const obtenerDescuentoAdminFacturaPct = (pedido = {}) => normalizarDescuentoAdminPct(
+  pedido?.descuento_admin_pct
+  ?? pedido?.factura_descuento_pct
+  ?? pedido?.pago_detalle?.factura?.descuento_admin_pct
+  ?? pedido?.pago_detalle?.descuento_admin_pct
+  ?? 0
+);
+const calcularDescuentoAdminMonto = (base, porcentaje) => {
+  const baseNormalizada = Math.max(0, Number(base) || 0);
+  const porcentajeNormalizado = normalizarDescuentoAdminPct(porcentaje);
+  return baseNormalizada * (porcentajeNormalizado / 100);
+};
 const obtenerNombreClienteFactura = (pedido = {}, cliente = {}) => {
   const nombreFantasia = String(
     cliente?.nombre_fantasia || pedido?.cliente?.nombre_fantasia || pedido?.nombre_fantasia || ''
@@ -430,7 +447,10 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
 
   const subtotalFactura = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuento = obtenerDescuentosFaltantesDesdeLineas(lineas);
-  const total = Math.max(0, subtotalFactura);
+  const subtotalTrasFaltantes = Math.max(0, subtotalFactura - descuento);
+  const descuentoAdminPctAplicado = obtenerDescuentoAdminFacturaPct(pedido);
+  const descuentoAdminMonto = calcularDescuentoAdminMonto(subtotalTrasFaltantes, descuentoAdminPctAplicado);
+  const total = Math.max(0, subtotalTrasFaltantes - descuentoAdminMonto);
   const html = `<!doctype html>
 <html lang="es">
 <head>
@@ -524,6 +544,10 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     ${descuento > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #e5e7eb;">
       <span style="font-size:12px;font-weight:800;text-transform:uppercase;color:#991b1b;">Descuento (faltantes)</span>
       <span style="font-size:16px;font-weight:900;color:#991b1b;">-${escaparHtml(formatearMoneda(descuento))}</span>
+    </div>` : ''}
+    ${descuentoAdminPctAplicado > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #e5e7eb;">
+      <span style="font-size:12px;font-weight:800;text-transform:uppercase;color:#0369a1;">Descuento admin (${escaparHtml(descuentoAdminPctAplicado.toFixed(2))}%)</span>
+      <span style="font-size:16px;font-weight:900;color:#0369a1;">-${escaparHtml(formatearMoneda(descuentoAdminMonto))}</span>
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid #e5e7eb;">
       <span style="font-size:14px;font-weight:900;text-transform:uppercase;">Total a abonar</span>
@@ -683,7 +707,7 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
   );
 }
 
-function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false, editable = false, productosOverride = null, onCambiarLinea = null, onToggleLineaFaltante = null, onGuardarCambios = null, onCancelarEdicion = null, guardandoCambios = false }) {
+function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false, editable = false, productosOverride = null, onCambiarLinea = null, onToggleLineaFaltante = null, onGuardarCambios = null, onCancelarEdicion = null, guardandoCambios = false, descuentoAdminPct = null, onCambiarDescuentoAdmin = null }) {
   const productos = Array.isArray(productosOverride)
     ? productosOverride.map((item) => normalizarProductoPedido(item))
     : obtenerProductosPedido(pedido);
@@ -691,7 +715,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
 
   const subtotalFactura = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuentoAplicado = obtenerDescuentosFaltantesDesdeLineas(lineas);
-  const totalPedido = Math.max(0, subtotalFactura - descuentoAplicado);
+  const subtotalTrasFaltantes = Math.max(0, subtotalFactura - descuentoAplicado);
+  const descuentoAdminPctAplicado = descuentoAdminPct === null
+    ? obtenerDescuentoAdminFacturaPct(pedido)
+    : normalizarDescuentoAdminPct(descuentoAdminPct);
+  const descuentoAdminMonto = calcularDescuentoAdminMonto(subtotalTrasFaltantes, descuentoAdminPctAplicado);
+  const totalPedido = Math.max(0, subtotalTrasFaltantes - descuentoAdminMonto);
   const lineasFaltantes = lineas.filter((item) => Number(item?.faltanteCantidad) > 0);
   const itemsTotales = lineas.reduce((acc, item) => acc + (Number(item?.cantidadOriginal) || Number(item?.cantidad) || 0), 0);
   const itemsFacturables = obtenerItemsFacturablesDesdeLineas(lineas);
@@ -784,6 +813,26 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                 <div className="flex items-center justify-between text-rose-600 py-1">
                   <span>Descuento (faltantes)</span>
                   <span className="font-black">-{formatearMoneda(descuentoAplicado)}</span>
+                </div>
+              )}
+              {editable ? (
+                <div className="flex items-center justify-between gap-3 py-1">
+                  <span>Descuento admin (%)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={descuentoAdminPct ?? 0}
+                    onChange={(e) => onCambiarDescuentoAdmin?.(e.target.value)}
+                    className="w-28 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-right text-sm font-black text-sky-900"
+                  />
+                </div>
+              ) : null}
+              {descuentoAdminPctAplicado > 0 && (
+                <div className="flex items-center justify-between text-sky-700 py-1">
+                  <span>Descuento admin ({descuentoAdminPctAplicado.toFixed(2)}%)</span>
+                  <span className="font-black">-{formatearMoneda(descuentoAdminMonto)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-gray-200 pt-2">
@@ -932,7 +981,7 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
               </div>
               <div className="px-4 py-4 bg-rose-50/70 border-t border-rose-200">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-black uppercase tracking-widest text-rose-700">Faltantes y descuentos</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-rose-700">Faltantes y descuentos por faltantes</p>
                   <p className="text-sm font-black text-rose-700">-{formatearMoneda(descuentoAplicado)}</p>
                 </div>
                 {lineasFaltantes.length === 0 ? (
@@ -974,6 +1023,12 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
                       {guardandoCambios ? 'Guardando...' : 'Guardar factura'}
                     </button>
                   </div>
+                </div>
+              )}
+              {descuentoAdminPctAplicado > 0 && (
+                <div className="px-4 py-4 bg-sky-50 border-t border-sky-200 flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-widest text-sky-700">Descuento admin ({descuentoAdminPctAplicado.toFixed(2)}%)</p>
+                  <p className="text-lg font-black text-sky-700">-{formatearMoneda(descuentoAdminMonto)}</p>
                 </div>
               )}
               <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
@@ -2532,6 +2587,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [productoEditando, setProductoEditando] = useState(null);
   const [pedidoEditandoId, setPedidoEditandoId] = useState(null);
   const [productosFacturaEditados, setProductosFacturaEditados] = useState([]);
+  const [descuentoAdminFacturaPct, setDescuentoAdminFacturaPct] = useState(0);
   const [guardandoFacturaId, setGuardandoFacturaId] = useState(null);
   const [inventarioMovimientos, setInventarioMovimientos] = useState([]);
   const [cargandoInventario, setCargandoInventario] = useState(false);
@@ -3120,11 +3176,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setPedidoEditandoId(pedido.id);
     setPedidosExpandido((prev) => ({ ...prev, [pedido.id]: true }));
     setProductosFacturaEditados(serializarProductosFactura(obtenerProductosPedido(pedido)));
+    setDescuentoAdminFacturaPct(obtenerDescuentoAdminFacturaPct(pedido));
   };
 
   const cancelarEdicionFactura = () => {
     setPedidoEditandoId(null);
     setProductosFacturaEditados([]);
+    setDescuentoAdminFacturaPct(0);
     setGuardandoFacturaId(null);
   };
 
@@ -3187,25 +3245,68 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setGuardandoFacturaId(pedido.id);
     try {
       const productosActualizados = serializarProductosFactura(productosFacturaEditados);
-      const totalActualizado = obtenerTotalFacturaDesdeLineas(construirLineasFactura(productosActualizados));
+      const lineasActualizadas = construirLineasFactura(productosActualizados);
+      const subtotalFacturado = obtenerTotalFacturaDesdeLineas(lineasActualizadas);
+      const descuentoFaltantes = obtenerDescuentosFaltantesDesdeLineas(lineasActualizadas);
+      const subtotalTrasFaltantes = Math.max(0, subtotalFacturado - descuentoFaltantes);
+      const descuentoAdminPctAplicado = normalizarDescuentoAdminPct(descuentoAdminFacturaPct);
+      const descuentoAdminMonto = calcularDescuentoAdminMonto(subtotalTrasFaltantes, descuentoAdminPctAplicado);
+      const totalActualizado = Math.max(0, subtotalTrasFaltantes - descuentoAdminMonto);
 
-      const { data, error } = await supabase
-        .from('pedidos')
-        .update({
-          productos: productosActualizados,
-          total: totalActualizado,
-        })
-        .eq('id', pedido.id)
-        .select('*')
-        .maybeSingle();
+      const pagoDetalleBase = pedido?.pago_detalle && typeof pedido.pago_detalle === 'object' ? pedido.pago_detalle : {};
+      const pagoDetalleActualizado = {
+        ...pagoDetalleBase,
+        factura: {
+          ...(pagoDetalleBase?.factura || {}),
+          descuento_admin_pct: descuentoAdminPctAplicado,
+          descuento_admin_monto: descuentoAdminMonto,
+          subtotal_facturado: subtotalFacturado,
+          descuento_faltantes: descuentoFaltantes,
+          total_final: totalActualizado,
+          actualizado_por_admin: true,
+          fecha_ajuste: new Date().toISOString(),
+        },
+      };
 
-      if (error) throw error;
+      const payloadBase = {
+        productos: productosActualizados,
+        total: totalActualizado,
+      };
+      const variantesUpdate = [
+        { ...payloadBase, pago_detalle: pagoDetalleActualizado },
+        { ...payloadBase, descuento_admin_pct: descuentoAdminPctAplicado, pago_detalle: pagoDetalleActualizado },
+        payloadBase,
+      ];
+
+      let data = null;
+      let errorFinal = null;
+      for (const payload of variantesUpdate) {
+        const { data: dataIntento, error } = await supabase
+          .from('pedidos')
+          .update(payload)
+          .eq('id', pedido.id)
+          .select('*')
+          .maybeSingle();
+
+        if (!error) {
+          data = dataIntento;
+          errorFinal = null;
+          break;
+        }
+
+        errorFinal = error;
+        if (!esErrorColumna(error)) break;
+      }
+
+      if (errorFinal) throw errorFinal;
 
       const pedidoActualizado = enriquecerPedidoConSnapshot({
         ...pedido,
         ...(data || {}),
         productos: productosActualizados,
         total: totalActualizado,
+        pago_detalle: pagoDetalleActualizado,
+        descuento_admin_pct: descuentoAdminPctAplicado,
       });
 
       guardarSnapshotPedido(pedidoActualizado);
@@ -3213,7 +3314,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       recalcularTotalesPedidos(siguientesPedidos);
       cancelarEdicionFactura();
       onPedidosSync?.();
-      alert('Factura actualizada. Los faltantes quedaron tachados y descontados del total.');
+      alert('Factura actualizada. Se guardaron faltantes y descuento admin en el total final.');
     } catch (error) {
       alert('No se pudo guardar la factura: ' + (error?.message || 'Error desconocido'));
     } finally {
@@ -4259,7 +4360,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         mostrarImagenesEnLineas
                         editable={editandoFactura}
                         productosOverride={editandoFactura ? productosFacturaEditados : null}
+                        descuentoAdminPct={editandoFactura ? descuentoAdminFacturaPct : null}
                         onCambiarLinea={cambiarLineaFactura}
+                        onCambiarDescuentoAdmin={setDescuentoAdminFacturaPct}
                         onToggleLineaFaltante={toggleLineaFacturaFaltante}
                         onGuardarCambios={() => guardarFacturaEditada(ped)}
                         onCancelarEdicion={cancelarEdicionFactura}
