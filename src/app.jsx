@@ -2754,13 +2754,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const agregarProducto = async (e) => {
     e.preventDefault();
     const stockObjetivo = Number(nuevoP.stock) || 0;
-    const usarHistorialInventario = !inventarioSinHistorial;
 
+    // Siempre escribimos stock directo — no dependemos del trigger de Supabase.
     const payloadBase = {
       nombre: nuevoP.nombre,
       precio: Number(nuevoP.precio) || 0,
       imagen_url: nuevoP.imagen_url,
-      stock: usarHistorialInventario ? 0 : stockObjetivo,
+      stock: stockObjetivo,
       categoria: nuevoP.categoria,
       activo: Boolean(nuevoP.activo),
     };
@@ -2795,7 +2795,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       insertado = dataV1;
     }
 
-    if (insertado?.id && stockObjetivo > 0 && usarHistorialInventario) {
+    // Intentar registrar movimiento en historial (opcional — si falla no afecta el stock).
+    if (insertado?.id && stockObjetivo > 0 && !inventarioSinHistorial) {
       const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
         producto_id: insertado.id,
         tipo: 'entrada',
@@ -2804,25 +2805,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         detalle: 'Stock inicial por alta de producto',
         origen: 'alta_producto',
       }]);
-      if (errorMov && !esTablaInventarioNoDisponible(errorMov)) {
-        console.warn('No se pudo guardar movimiento de stock inicial:', errorMov);
-        const { error: errorStockDirecto } = await supabase
-          .from('productos')
-          .update({ stock: stockObjetivo })
-          .eq('id', insertado.id);
-        if (errorStockDirecto) {
-          console.warn('No se pudo aplicar fallback de stock directo tras error de movimiento:', errorStockDirecto);
-        }
-      }
       if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
-        const { error: errorStockDirecto } = await supabase
-          .from('productos')
-          .update({ stock: stockObjetivo })
-          .eq('id', insertado.id);
-        if (errorStockDirecto) {
-          console.warn('No se pudo aplicar fallback de stock directo con inventario no disponible:', errorStockDirecto);
-        }
-        activarAvisoInventario('Se creó el producto y el stock inicial, pero no se pudo guardar el movimiento en historial.');
+        activarAvisoInventario('Se creó el producto con el stock indicado, pero el historial de movimientos no está activo en la base.');
       }
     }
 
@@ -2836,17 +2820,17 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     e.preventDefault();
     if (!productoEditando) return;
 
-    const usarHistorialInventario = !inventarioSinHistorial;
     const stockAnterior = Number(productos.find((p) => String(p.id) === String(productoEditando.id))?.stock) || 0;
     const stockNuevo = Number(productoEditando.stock) || 0;
 
+    // Siempre incluimos stock en el payload — no dependemos del trigger de Supabase.
     const payloadBase = {
       nombre: productoEditando.nombre,
       precio: Number(productoEditando.precio),
       imagen_url: productoEditando.imagen_url,
+      stock: stockNuevo,
       categoria: productoEditando.categoria,
       activo: Boolean(productoEditando.activo),
-      ...(usarHistorialInventario ? {} : { stock: stockNuevo }),
     };
     const payloadExtendido = {
       ...payloadBase,
@@ -2877,8 +2861,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       return;
     }
 
+    // Intentar registrar movimiento en historial (opcional — si falla no afecta el stock).
     const variacionStock = stockNuevo - stockAnterior;
-    if (variacionStock !== 0 && usarHistorialInventario) {
+    if (variacionStock !== 0 && !inventarioSinHistorial) {
       const { error: errorMov } = await supabase.from('inventario_movimientos').insert([{
         producto_id: productoEditando.id,
         tipo: variacionStock > 0 ? 'entrada' : 'salida',
@@ -2888,25 +2873,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         detalle: variacionStock > 0 ? 'Ajuste manual: ingreso de stock' : 'Ajuste manual: salida de stock',
         origen: 'ajuste_manual',
       }]);
-      if (errorMov && !esTablaInventarioNoDisponible(errorMov)) {
-        console.warn('No se pudo guardar movimiento por ajuste manual:', errorMov);
-        const { error: errorStockDirecto } = await supabase
-          .from('productos')
-          .update({ stock: stockNuevo })
-          .eq('id', productoEditando.id);
-        if (errorStockDirecto) {
-          console.warn('No se pudo aplicar fallback de stock directo en ajuste manual:', errorStockDirecto);
-        }
-      }
       if (errorMov && esTablaInventarioNoDisponible(errorMov)) {
-        const { error: errorStockDirecto } = await supabase
-          .from('productos')
-          .update({ stock: stockNuevo })
-          .eq('id', productoEditando.id);
-        if (errorStockDirecto) {
-          console.warn('No se pudo aplicar fallback de stock directo con inventario no disponible:', errorStockDirecto);
-        }
-        activarAvisoInventario('Se actualizó el stock, pero el historial de movimientos no está activo en la base.');
+        activarAvisoInventario('Stock actualizado correctamente. El historial de movimientos no está activo en la base.');
       }
     }
 
