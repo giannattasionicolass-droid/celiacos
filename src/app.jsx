@@ -5156,9 +5156,28 @@ export default function App() {
   }, [perfilVersion, session?.user?.id]);
 
   const fetchProductos = async () => {
-    const { data } = await supabase.from('productos').select('*').order('nombre');
-    setProductosBD(data || []);
-    setCargandoApp(false);
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => abortController.abort(), 12000);
+
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .order('nombre')
+        .abortSignal(abortController.signal);
+
+      if (error) throw error;
+      setProductosBD(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error cargando productos:', error);
+      setProductosBD((prev) => (Array.isArray(prev) ? prev : []));
+      setMensajeToast('No pudimos actualizar el catálogo ahora. Reintentá en unos segundos.');
+      setMostrarToast(true);
+      window.setTimeout(() => setMostrarToast(false), 3200);
+    } finally {
+      window.clearTimeout(timeoutId);
+      setCargandoApp(false);
+    }
   };
 
   const manejarAccion = async (e) => {
@@ -5630,6 +5649,22 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <footer className="mx-auto w-[min(98%,1700px)] px-5 pb-8 md:px-10 md:pb-10">
+        <div className="premium-panel rounded-[30px] p-5 md:p-6 border border-emerald-100 bg-white/90">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">CeliaShop</p>
+              <p className="text-sm font-semibold text-gray-700 mt-1">Productos libres de gluten</p>
+              <p className="text-xs text-gray-500 mt-1">Canales de venta activos: web online y APK Android.</p>
+            </div>
+            <div className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">
+              <p>Email: celiashopazul@gmail.com</p>
+              <p className="mt-1">Tel: 2281-537168</p>
+            </div>
+          </div>
+        </div>
+      </footer>
 
       {pagina === 'inicio' && (
         <a
