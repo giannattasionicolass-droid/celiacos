@@ -3230,9 +3230,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
     const variantes = [
       { metodo_pago: nuevoMetodoPago, forma_pago: nuevoMetodoPago, pago_detalle: pagoDetalleActualizado },
-      { metodo_pago: nuevoMetodoPago, forma_pago: nuevoMetodoPago },
+      { metodo_pago: nuevoMetodoPago, pago_detalle: pagoDetalleActualizado },
       { forma_pago: nuevoMetodoPago, pago_detalle: pagoDetalleActualizado },
+      { metodo_pago: nuevoMetodoPago, forma_pago: nuevoMetodoPago },
+      { metodo_pago: nuevoMetodoPago },
       { forma_pago: nuevoMetodoPago },
+      { pago_detalle: pagoDetalleActualizado },
     ];
 
     for (const payload of variantes) {
