@@ -1369,7 +1369,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                   <img
                     src={p.imagen_url}
                     alt={p.nombre}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-contain bg-white transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-zinc-900/10 to-transparent opacity-70"></div>
                   <div className="premium-shimmer absolute inset-0"></div>
@@ -1389,7 +1389,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
                   </div>
-                  <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 line-clamp-2 min-h-[2.8rem] leading-snug">{p.nombre}</h3>
+                  <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 leading-snug">{p.nombre}</h3>
                   {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                     <div className="mb-1">
                       <p className="text-xl md:text-2xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
