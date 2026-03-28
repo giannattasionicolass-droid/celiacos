@@ -1027,7 +1027,7 @@ function InstallAppBanner() {
       className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
     >
       <Download size={15} />
-      <span>{esAndroid ? 'Descargar APK' : 'Descargar App'}</span>
+      <span>Instalar APK para Android</span>
     </button>
   );
 }
