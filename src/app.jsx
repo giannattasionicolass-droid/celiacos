@@ -37,6 +37,20 @@ const DATOS_BANCARIOS = {
   alias: '',
 };
 const MARGEN_GANANCIA_OBJETIVO = 60;
+const normalizarMargenObjetivo = (valor) => {
+  if (valor === '' || valor === null || valor === undefined) return MARGEN_GANANCIA_OBJETIVO;
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero < 0) return MARGEN_GANANCIA_OBJETIVO;
+  return numero;
+};
+
+const obtenerClaseSemaforoMargen = (margenReal, margenObjetivo) => {
+  const real = Number(margenReal) || 0;
+  const objetivo = Math.max(0, Number(margenObjetivo) || MARGEN_GANANCIA_OBJETIVO);
+  if (real >= objetivo) return 'text-emerald-700';
+  if (real >= (objetivo * 0.8)) return 'text-amber-700';
+  return 'text-rose-700';
+};
 const PERIODOS_BALANCE = [
   { id: 'diario', label: 'Diario', dias: 1 },
   { id: 'mensual', label: 'Mensual', dias: 30 },
@@ -2432,9 +2446,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const actualizarNuevoProductoCampo = (campo, valor) => {
     setNuevoP((prev) => {
       const next = { ...prev, [campo]: valor };
+      const margenObjetivo = normalizarMargenObjetivo(next.margen_ganancia);
 
       if (campo === 'costo_fabrica' || campo === 'margen_ganancia') {
-        next.precio = calcularPrecioVenta(next.costo_fabrica, next.margen_ganancia);
+        next.margen_ganancia = margenObjetivo;
+        next.precio = calcularPrecioVenta(next.costo_fabrica, margenObjetivo);
       }
 
       if (campo === 'precio') {
@@ -2449,9 +2465,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setProductoEditando((prev) => {
       if (!prev) return prev;
       const next = { ...prev, [campo]: valor };
+      const margenObjetivo = normalizarMargenObjetivo(next.margen_ganancia);
 
       if (campo === 'costo_fabrica' || campo === 'margen_ganancia') {
-        next.precio = calcularPrecioVenta(next.costo_fabrica, next.margen_ganancia);
+        next.margen_ganancia = margenObjetivo;
+        next.precio = calcularPrecioVenta(next.costo_fabrica, margenObjetivo);
       }
 
       if (campo === 'precio') {
@@ -3496,14 +3514,14 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
   const costoNuevoProducto = Math.max(0, Number(nuevoP?.costo_fabrica) || 0);
   const precioNuevoProducto = Math.max(0, Number(nuevoP?.precio) || 0);
-  const margenObjetivoNuevoProducto = Math.max(0, Number(nuevoP?.margen_ganancia) || 0);
+  const margenObjetivoNuevoProducto = normalizarMargenObjetivo(nuevoP?.margen_ganancia);
   const precioSugeridoNuevoProducto = calcularPrecioVenta(costoNuevoProducto, margenObjetivoNuevoProducto);
   const margenRealNuevoProducto = calcularMargenDesdePrecio(costoNuevoProducto, precioNuevoProducto);
   const gananciaUnitariaNuevoProducto = redondear2(precioNuevoProducto - costoNuevoProducto);
 
   const costoEditadoProducto = Math.max(0, Number(productoEditando?.costo_fabrica) || 0);
   const precioEditadoProducto = Math.max(0, Number(productoEditando?.precio) || 0);
-  const margenObjetivoEditadoProducto = Math.max(0, Number(productoEditando?.margen_ganancia) || 0);
+  const margenObjetivoEditadoProducto = normalizarMargenObjetivo(productoEditando?.margen_ganancia);
   const precioSugeridoEditadoProducto = calcularPrecioVenta(costoEditadoProducto, margenObjetivoEditadoProducto);
   const margenRealEditadoProducto = calcularMargenDesdePrecio(costoEditadoProducto, precioEditadoProducto);
   const gananciaUnitariaEditadoProducto = redondear2(precioEditadoProducto - costoEditadoProducto);
@@ -3547,7 +3565,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   <p className="text-[11px] font-semibold text-emerald-800">Si cambiás costo o margen objetivo, se recalcula el precio. Si cambiás precio, se recalcula el margen real.</p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-gray-700">
                     <p>Precio sugerido: <span className="text-emerald-700">{formatearMoneda(precioSugeridoEditadoProducto)}</span></p>
-                    <p>Margen real: <span className="text-emerald-700">{margenRealEditadoProducto.toFixed(2)}%</span></p>
+                    <p>Margen real: <span className={obtenerClaseSemaforoMargen(margenRealEditadoProducto, margenObjetivoEditadoProducto)}>{margenRealEditadoProducto.toFixed(2)}%</span></p>
                     <p>Ganancia unitaria: <span className="text-emerald-700">{formatearMoneda(gananciaUnitariaEditadoProducto)}</span></p>
                     <p>Margen objetivo: <span className="text-emerald-700">{margenObjetivoEditadoProducto.toFixed(2)}%</span></p>
                   </div>
@@ -3583,7 +3601,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   <p className="text-[11px] font-semibold text-emerald-800">Definí costo + margen objetivo para sugerir precio, o escribí precio manual y revisá margen real.</p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-gray-700">
                     <p>Precio sugerido: <span className="text-emerald-700">{formatearMoneda(precioSugeridoNuevoProducto)}</span></p>
-                    <p>Margen real: <span className="text-emerald-700">{margenRealNuevoProducto.toFixed(2)}%</span></p>
+                    <p>Margen real: <span className={obtenerClaseSemaforoMargen(margenRealNuevoProducto, margenObjetivoNuevoProducto)}>{margenRealNuevoProducto.toFixed(2)}%</span></p>
                     <p>Ganancia unitaria: <span className="text-emerald-700">{formatearMoneda(gananciaUnitariaNuevoProducto)}</span></p>
                     <p>Margen objetivo: <span className="text-emerald-700">{margenObjetivoNuevoProducto.toFixed(2)}%</span></p>
                   </div>
@@ -3614,7 +3632,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                     <p className="text-green-600 font-black text-lg">${p.precio}</p>
                     <p className={`text-[9px] font-bold ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}`}>STOCK: {p.stock} UNIDADES</p>
                     <p className="text-[9px] font-bold text-gray-500">COSTO: ${Number(p.costo_fabrica || 0).toFixed(2)} | MARGEN OBJ: {Number(p.margen_ganancia || MARGEN_GANANCIA_OBJETIVO).toFixed(1)}%</p>
-                    <p className="text-[9px] font-bold text-emerald-700">MARGEN REAL: {calcularMargenDesdePrecio(Number(p.costo_fabrica || 0), Number(p.precio || 0)).toFixed(1)}% | GANANCIA: {formatearMoneda((Number(p.precio || 0) - Number(p.costo_fabrica || 0)))}</p>
+                    <p className={`text-[9px] font-bold ${obtenerClaseSemaforoMargen(calcularMargenDesdePrecio(Number(p.costo_fabrica || 0), Number(p.precio || 0)), Number(p.margen_ganancia || MARGEN_GANANCIA_OBJETIVO))}`}>MARGEN REAL: {calcularMargenDesdePrecio(Number(p.costo_fabrica || 0), Number(p.precio || 0)).toFixed(1)}% | GANANCIA: {formatearMoneda((Number(p.precio || 0) - Number(p.costo_fabrica || 0)))}</p>
                     <p className={`text-[9px] font-black ${p.activo ? 'text-green-500' : 'text-red-500'}`}>{p.activo ? 'Activo' : 'Inactivo'}</p>
                     {p.en_oferta && <p className="text-[9px] font-black text-orange-500">EN OFERTA: ${Number(p.precio_oferta || 0).toFixed(2)}</p>}
                   </div>
