@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, rmSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const userMessage = process.argv.slice(2).join(' ').trim();
@@ -31,6 +31,22 @@ const limpiarTemporalesBuild = () => {
       rmSync(ruta, { recursive: true, force: true });
       console.log(`Temporal eliminado: ${ruta}`);
     }
+  }
+
+  // Eliminar APKs que cap copy android copia por error a los assets de Android.
+  // Si quedan dentro, se empaquetan dentro del APK y lo inflan de ~4 MB a ~12 MB.
+  const androidAssets = resolve(process.cwd(), 'android', 'app', 'src', 'main', 'assets', 'public');
+  if (existsSync(androidAssets)) {
+    try {
+      const files = readdirSync(androidAssets);
+      for (const f of files) {
+        if (f.endsWith('.apk')) {
+          const apkPath = resolve(androidAssets, f);
+          rmSync(apkPath, { force: true });
+          console.log(`APK eliminado de assets Android: ${f}`);
+        }
+      }
+    } catch { /* no-op */ }
   }
 };
 
