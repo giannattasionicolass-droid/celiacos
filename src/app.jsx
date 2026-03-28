@@ -1600,6 +1600,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
     setCargando(true);
     try {
       const telefonoCliente = telefono.trim() || usuarioLogueado?.telefono || '';
+      const cuitCliente = String(usuarioLogueado?.cuit || '').trim();
       const emailCliente = emailConfirmacion.trim();
       let comprobanteFinalUrl = comprobanteUrl;
       let comprobanteFinalNombre = comprobanteNombre;
@@ -1706,6 +1707,10 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         metodo: metodoPago,
         metodo_original: metodoPago,
         metodo_actualizado_por_admin: false,
+        cuit_cliente: cuitCliente || null,
+        cliente_nombre: String(usuarioLogueado?.nombre || '').trim() || null,
+        cliente_apellido: String(usuarioLogueado?.apellido || '').trim() || null,
+        cliente_nombre_fantasia: String(usuarioLogueado?.nombre_fantasia || '').trim() || null,
         email_confirmacion: emailCliente,
         comprobante_url: comprobanteFinalUrl || null,
         comprobante_nombre: comprobanteFinalNombre || null,
@@ -1759,12 +1764,24 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         estado: 'Pendiente',
         fecha: new Date().toISOString(),
         telefono: telefonoCliente,
+        cuit: cuitCliente,
         email: emailCliente,
         email_confirmacion: emailCliente,
         metodo_pago: metodoPago,
         forma_pago: metodoPago,
         comprobante_pago_url: comprobanteFinalUrl || '',
         comprobante_pago_nombre: comprobanteFinalNombre || '',
+        pago_detalle: pagoDetalle,
+        cliente: {
+          id: perfilId,
+          nombre: String(usuarioLogueado?.nombre || '').trim(),
+          apellido: String(usuarioLogueado?.apellido || '').trim(),
+          nombre_fantasia: String(usuarioLogueado?.nombre_fantasia || '').trim(),
+          email: emailCliente,
+          telefono: telefonoCliente,
+          cuit: cuitCliente,
+          direccion_envio: direccion.trim(),
+        },
       };
       guardarSnapshotPedido(pedidoGenerado);
       setPedidoConfirmado({
@@ -1789,6 +1806,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
           id: perfilId,
           email: emailCliente,
           telefono: telefonoCliente,
+          cuit: cuitCliente,
           direccion_envio: direccion.trim()
         }
       }).then((resultado) => {
@@ -3010,7 +3028,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === 'ventas' || tab === 'clientes' || tab === 'inventario') traerPedidos();
-    if (tab === 'clientes') traerClientes();
+    if (tab === 'ventas' || tab === 'clientes') traerClientes();
     if (tab === 'inventario') {
       traerMovimientosInventario();
       diagnosticarTriggerDescuentoStock();
@@ -4384,12 +4402,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || ped.cliente_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
               const editandoFactura = pedidoEditandoId === ped.id;
-              const clienteFactura = clientesPorId[clienteId] || {
-                id: clienteId,
-                email: ped?.email || '',
-                telefono: ped?.telefono || '',
-                direccion_envio: obtenerDireccionPedido(ped),
-              };
+              const clienteFactura = clientesPorId[clienteId] || construirClienteFallbackDesdePedido(ped);
 
               return (
                 <div key={ped.id} className="bg-white rounded-[34px] border border-gray-100 shadow-sm overflow-hidden">
