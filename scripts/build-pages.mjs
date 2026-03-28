@@ -48,6 +48,12 @@ child.on('exit', (code) => {
   mkdirSync(docsDir, { recursive: true });
   cpSync(distDir, docsDir, { recursive: true, force: true });
 
+  const distCnamePath = resolve(distDir, 'CNAME');
+  const backupCnamePath = resolve(docsBackupDir, 'CNAME');
+  if (existsSync(backupCnamePath)) {
+    cpSync(backupCnamePath, distCnamePath, { force: true });
+  }
+
   for (const nombre of preservar) {
     const respaldo = resolve(docsBackupDir, nombre);
     if (existsSync(respaldo)) {
