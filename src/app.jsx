@@ -5595,9 +5595,12 @@ export default function App() {
           target="_blank"
           rel="noreferrer"
           aria-label="Contactar por WhatsApp"
-          className="fixed bottom-24 right-4 md:bottom-8 md:right-10 z-40 rounded-full bg-green-600 text-white shadow-2xl hover:bg-green-700 transition-colors px-5 py-4 font-black uppercase text-xs tracking-widest"
+          className="fixed bottom-24 right-4 md:bottom-8 md:right-10 z-40 h-14 w-14 md:h-16 md:w-16 rounded-full bg-[#25D366] text-white shadow-2xl hover:bg-[#1ebe5d] transition-all duration-200 flex items-center justify-center hover:scale-105 active:scale-95"
+          title="WhatsApp"
         >
-          WhatsApp
+          <svg viewBox="0 0 24 24" className="h-7 w-7 md:h-8 md:w-8" fill="currentColor" aria-hidden="true">
+            <path d="M20.52 3.48A11.85 11.85 0 0012.09 0C5.53 0 .2 5.33.2 11.9c0 2.1.55 4.16 1.59 5.97L0 24l6.34-1.66a11.84 11.84 0 005.75 1.46h.01c6.56 0 11.9-5.33 11.9-11.9 0-3.18-1.24-6.17-3.48-8.42zm-8.43 18.3h-.01a9.9 9.9 0 01-5.05-1.39l-.36-.21-3.76.99 1-3.66-.24-.38A9.9 9.9 0 012.2 11.9c0-5.45 4.43-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.82 9.82 0 012.9 6.99c0 5.45-4.44 9.88-9.9 9.88zm5.43-7.42c-.3-.15-1.79-.88-2.06-.98-.28-.1-.48-.15-.69.15-.2.3-.79.98-.96 1.18-.18.2-.35.23-.65.08-.3-.15-1.25-.46-2.38-1.47a8.88 8.88 0 01-1.65-2.05c-.18-.3-.02-.46.13-.6.13-.13.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.03-.53-.08-.15-.69-1.67-.94-2.28-.25-.6-.5-.52-.69-.53h-.58c-.2 0-.53.08-.8.38-.28.3-1.06 1.03-1.06 2.5 0 1.48 1.09 2.9 1.24 3.1.15.2 2.14 3.27 5.18 4.58.72.31 1.29.49 1.73.62.73.23 1.39.2 1.92.12.59-.09 1.79-.73 2.04-1.43.25-.71.25-1.32.18-1.44-.08-.12-.28-.2-.58-.35z"/>
+          </svg>
         </a>
       )}
 
