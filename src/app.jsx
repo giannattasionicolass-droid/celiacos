@@ -953,8 +953,31 @@ function InstallAppBanner() {
     if (yaInstalado) setInstalado(true);
   }, []);
 
-  const descargarAPK = () => {
-    window.location.href = APK_DOWNLOAD_URL;
+  const descargarAPK = async () => {
+    try {
+      const response = await fetch(APK_DOWNLOAD_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('No se pudo descargar la APK');
+      const blob = await response.blob();
+      const apkBlob = new Blob([blob], { type: 'application/vnd.android.package-archive' });
+      const enlaceTemporal = document.createElement('a');
+      const objectUrl = URL.createObjectURL(apkBlob);
+      enlaceTemporal.href = objectUrl;
+      enlaceTemporal.download = 'celiashop.apk';
+      enlaceTemporal.rel = 'noopener';
+      document.body.appendChild(enlaceTemporal);
+      enlaceTemporal.click();
+      document.body.removeChild(enlaceTemporal);
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback por compatibilidad si el navegador bloquea blob URLs.
+      const enlaceDirecto = document.createElement('a');
+      enlaceDirecto.href = APK_DOWNLOAD_URL;
+      enlaceDirecto.download = 'celiashop.apk';
+      enlaceDirecto.rel = 'noopener';
+      document.body.appendChild(enlaceDirecto);
+      enlaceDirecto.click();
+      document.body.removeChild(enlaceDirecto);
+    }
   };
 
   if (instalado) return null;
