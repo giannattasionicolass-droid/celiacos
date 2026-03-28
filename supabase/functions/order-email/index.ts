@@ -295,6 +295,13 @@ Deno.serve(async (req) => {
     const invoiceHtml = renderInvoice(order, customer, shopEmail);
 
     if (eventType === 'pedido_creado') {
+      console.log('[DEBUG EDGE] Pedido en email:', {
+        numero: order?.numero,
+        metodoPago: order?.metodoPago,
+        comprobanteUrl: order?.comprobanteUrl,
+        comprobanteNombre: order?.comprobanteNombre,
+        tieneImg: invoiceHtml?.includes('<img') || false,
+      });
       const introTienda = `Se registró un nuevo pedido en CeliaShop y esta copia incluye el detalle completo de la factura para seguimiento interno.`;
       const customerEmail = String(order.emailConfirmacion || customer.email || '').trim();
 
