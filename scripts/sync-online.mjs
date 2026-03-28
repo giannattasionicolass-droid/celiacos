@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const userMessage = process.argv.slice(2).join(' ').trim();
 const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -19,6 +21,19 @@ const run = (cmd, args, allowFailure = false) => {
   return result.status || 0;
 };
 
+const limpiarTemporalesBuild = () => {
+  const temporales = [
+    resolve(process.cwd(), 'tmp_apk_extract'),
+  ];
+
+  for (const ruta of temporales) {
+    if (existsSync(ruta)) {
+      rmSync(ruta, { recursive: true, force: true });
+      console.log(`Temporal eliminado: ${ruta}`);
+    }
+  }
+};
+
 // Validar que estamos en un repo git.
 run('git', ['rev-parse', '--is-inside-work-tree']);
 
@@ -35,6 +50,9 @@ if (process.platform === 'win32') {
 } else {
   run('npx', ['cap', 'copy', 'android'], true);
 }
+
+// Evitar commits masivos con archivos temporales de analisis de APK.
+limpiarTemporalesBuild();
 
 run('git', ['add', '-A']);
 
