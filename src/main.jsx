@@ -4,7 +4,7 @@ import './index.css'
 import App from './app.jsx'
 
 const APP_BUILD_ID = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : 'unknown'
-const REMOTE_VERSION_URL = 'https://giannattasionicolass-droid.github.io/celiacos/app-version.json'
+const REMOTE_APK_VERSION_URL = 'https://giannattasionicolass-droid.github.io/celiacos/apk-version.json'
 const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/celiashop-android.apk'
 
 const esCapacitorNativo = () => {
@@ -23,10 +23,10 @@ const esCapacitorNativo = () => {
 const buildVersionCandidates = () => {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const urls = [
-    REMOTE_VERSION_URL,
-    `${origin}/celiacos/app-version.json`,
-    `${origin}/app-version.json`,
-    `${import.meta.env.BASE_URL || '/'}app-version.json`,
+    REMOTE_APK_VERSION_URL,
+    `${origin}/celiacos/apk-version.json`,
+    `${origin}/apk-version.json`,
+    `${import.meta.env.BASE_URL || '/'}apk-version.json`,
   ]
 
   return Array.from(new Set(
@@ -47,7 +47,7 @@ const fetchRemoteBuildId = async () => {
       const response = await fetch(url, { cache: 'no-store' })
       if (!response.ok) continue
       const json = await response.json().catch(() => null)
-      const buildId = String(json?.buildId || '').trim()
+      const buildId = String(json?.apkBuildId || json?.buildId || '').trim()
       if (buildId) return buildId
     } catch {
       // Intentamos el siguiente candidate.
@@ -58,7 +58,7 @@ const fetchRemoteBuildId = async () => {
 }
 
 const abrirDescargaApkExterna = (buildId) => {
-  const urlFinal = APK_UPDATE_URL
+  const urlFinal = `${APK_UPDATE_URL}?build=${encodeURIComponent(buildId)}&ts=${Date.now()}`
 
   try {
     const enlace = document.createElement('a')
@@ -86,6 +86,10 @@ const iniciarChequeoActualizacionNativa = () => {
       const remoteBuildId = await fetchRemoteBuildId()
       if (!remoteBuildId || remoteBuildId === APP_BUILD_ID) return
 
+      // Si el usuario ya aceptó esta versión para descargarla, no volver a insistir.
+      const pendingBuild = String(localStorage.getItem('apkUpdatePendingBuild') || '')
+      if (pendingBuild === remoteBuildId) return
+
       const dismissedBuild = String(localStorage.getItem('apkUpdateDismissedBuild') || '')
       if (dismissedBuild === remoteBuildId) return
 
@@ -96,6 +100,7 @@ const iniciarChequeoActualizacionNativa = () => {
       }
 
       localStorage.removeItem('apkUpdateDismissedBuild')
+      localStorage.setItem('apkUpdatePendingBuild', remoteBuildId)
       abrirDescargaApkExterna(remoteBuildId)
     } finally {
       checkInProgress = false
