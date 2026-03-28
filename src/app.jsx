@@ -2368,7 +2368,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     direccion_envio: '',
   });
   const [guardandoClienteId, setGuardandoClienteId] = useState(null);
-  const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas', costo_fabrica: '', margen_ganancia: MARGEN_GANANCIA_OBJETIVO, en_oferta: false, precio_oferta: '' });
+  const [nuevoP, setNuevoP] = useState({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas', costo_fabrica: '', margen_ganancia: MARGEN_GANANCIA_OBJETIVO, en_oferta: false, precio_oferta: '', activo: true });
   const [productoEditando, setProductoEditando] = useState(null);
   const [pedidoEditandoId, setPedidoEditandoId] = useState(null);
   const [productosFacturaEditados, setProductosFacturaEditados] = useState([]);
@@ -2683,7 +2683,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       imagen_url: nuevoP.imagen_url,
       stock: Number(nuevoP.stock) || 0,
       categoria: nuevoP.categoria,
-      activo: true,
+      activo: Boolean(nuevoP.activo),
     };
     const payloadExtendido = {
       ...payloadBase,
@@ -2733,7 +2733,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       }
     }
 
-    setNuevoP({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas', costo_fabrica: '', margen_ganancia: MARGEN_GANANCIA_OBJETIVO, en_oferta: false, precio_oferta: '' });
+    setNuevoP({ nombre: '', precio: '', imagen_url: '', stock: 0, categoria: 'Harinas', costo_fabrica: '', margen_ganancia: MARGEN_GANANCIA_OBJETIVO, en_oferta: false, precio_oferta: '', activo: true });
     traerProductos();
     if (tab === 'inventario') traerMovimientosInventario();
     alert('¡Producto cargado!');
@@ -3494,6 +3494,20 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     }
   };
 
+  const costoNuevoProducto = Math.max(0, Number(nuevoP?.costo_fabrica) || 0);
+  const precioNuevoProducto = Math.max(0, Number(nuevoP?.precio) || 0);
+  const margenObjetivoNuevoProducto = Math.max(0, Number(nuevoP?.margen_ganancia) || 0);
+  const precioSugeridoNuevoProducto = calcularPrecioVenta(costoNuevoProducto, margenObjetivoNuevoProducto);
+  const margenRealNuevoProducto = calcularMargenDesdePrecio(costoNuevoProducto, precioNuevoProducto);
+  const gananciaUnitariaNuevoProducto = redondear2(precioNuevoProducto - costoNuevoProducto);
+
+  const costoEditadoProducto = Math.max(0, Number(productoEditando?.costo_fabrica) || 0);
+  const precioEditadoProducto = Math.max(0, Number(productoEditando?.precio) || 0);
+  const margenObjetivoEditadoProducto = Math.max(0, Number(productoEditando?.margen_ganancia) || 0);
+  const precioSugeridoEditadoProducto = calcularPrecioVenta(costoEditadoProducto, margenObjetivoEditadoProducto);
+  const margenRealEditadoProducto = calcularMargenDesdePrecio(costoEditadoProducto, precioEditadoProducto);
+  const gananciaUnitariaEditadoProducto = redondear2(precioEditadoProducto - costoEditadoProducto);
+
   return (
     <div className="max-w-6xl mx-auto animate-fadeIn pb-20">
       <div className="flex justify-between items-center mb-10">
@@ -3528,6 +3542,16 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 <input type="number" placeholder="STOCK" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={productoEditando.stock} onChange={e => actualizarProductoEditandoCampo('stock', e.target.value)} required />
                 <input type="number" step="0.01" min="0" placeholder="COSTO FÁBRICA" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={productoEditando.costo_fabrica ?? ''} onChange={e => actualizarProductoEditandoCampo('costo_fabrica', e.target.value)} />
                 <input type="number" step="0.1" min="0" placeholder="MARGEN GANANCIA %" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={productoEditando.margen_ganancia ?? MARGEN_GANANCIA_OBJETIVO} onChange={e => actualizarProductoEditandoCampo('margen_ganancia', e.target.value)} />
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Calculadora de margen</p>
+                  <p className="text-[11px] font-semibold text-emerald-800">Si cambiás costo o margen objetivo, se recalcula el precio. Si cambiás precio, se recalcula el margen real.</p>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-gray-700">
+                    <p>Precio sugerido: <span className="text-emerald-700">{formatearMoneda(precioSugeridoEditadoProducto)}</span></p>
+                    <p>Margen real: <span className="text-emerald-700">{margenRealEditadoProducto.toFixed(2)}%</span></p>
+                    <p>Ganancia unitaria: <span className="text-emerald-700">{formatearMoneda(gananciaUnitariaEditadoProducto)}</span></p>
+                    <p>Margen objetivo: <span className="text-emerald-700">{margenObjetivoEditadoProducto.toFixed(2)}%</span></p>
+                  </div>
+                </div>
                 <input type="text" placeholder="URL IMAGEN" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={productoEditando.imagen_url} onChange={e => setProductoEditando({...productoEditando, imagen_url: e.target.value})} />
                 <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs uppercase border border-gray-300" value={productoEditando.categoria} onChange={e => setProductoEditando({...productoEditando, categoria: e.target.value})} required>
                   {CATEGORIAS_PREDEFINIDAS.map(cat => (
@@ -3554,12 +3578,23 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                 <input type="number" placeholder="STOCK INICIAL" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={nuevoP.stock} onChange={e => actualizarNuevoProductoCampo('stock', e.target.value)} required />
                 <input type="number" step="0.01" min="0" placeholder="COSTO FÁBRICA" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={nuevoP.costo_fabrica} onChange={e => actualizarNuevoProductoCampo('costo_fabrica', e.target.value)} />
                 <input type="number" step="0.1" min="0" placeholder="MARGEN GANANCIA %" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={nuevoP.margen_ganancia} onChange={e => actualizarNuevoProductoCampo('margen_ganancia', e.target.value)} />
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Calculadora de margen</p>
+                  <p className="text-[11px] font-semibold text-emerald-800">Definí costo + margen objetivo para sugerir precio, o escribí precio manual y revisá margen real.</p>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-gray-700">
+                    <p>Precio sugerido: <span className="text-emerald-700">{formatearMoneda(precioSugeridoNuevoProducto)}</span></p>
+                    <p>Margen real: <span className="text-emerald-700">{margenRealNuevoProducto.toFixed(2)}%</span></p>
+                    <p>Ganancia unitaria: <span className="text-emerald-700">{formatearMoneda(gananciaUnitariaNuevoProducto)}</span></p>
+                    <p>Margen objetivo: <span className="text-emerald-700">{margenObjetivoNuevoProducto.toFixed(2)}%</span></p>
+                  </div>
+                </div>
                 <input type="text" placeholder="URL IMAGEN" className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs" value={nuevoP.imagen_url} onChange={e => setNuevoP({...nuevoP, imagen_url: e.target.value})} />
                 <select className="w-full p-4 bg-gray-50 rounded-2xl font-bold text-xs uppercase border border-gray-300" value={nuevoP.categoria} onChange={e => setNuevoP({...nuevoP, categoria: e.target.value})} required>
                   {CATEGORIAS_PREDEFINIDAS.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+                <label className="flex items-center gap-2 text-xs font-bold uppercase"><input type="checkbox" checked={Boolean(nuevoP.activo)} onChange={e => setNuevoP({...nuevoP, activo: e.target.checked})} /> Activo al publicar</label>
                 <label className="flex items-center gap-2 text-xs font-bold uppercase"><input type="checkbox" checked={Boolean(nuevoP.en_oferta)} onChange={e => setNuevoP({...nuevoP, en_oferta: e.target.checked})} /> En oferta</label>
                 {nuevoP.en_oferta && (
                   <input type="number" step="0.01" min="0" placeholder="PRECIO OFERTA" className="w-full p-4 bg-orange-50 border border-orange-200 rounded-2xl font-bold text-xs" value={nuevoP.precio_oferta} onChange={e => setNuevoP({...nuevoP, precio_oferta: e.target.value})} />
@@ -3578,7 +3613,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                     <p className="font-black text-xs uppercase text-gray-800">{p.nombre}</p>
                     <p className="text-green-600 font-black text-lg">${p.precio}</p>
                     <p className={`text-[9px] font-bold ${p.stock <= 0 ? 'text-red-500' : 'text-gray-400'}`}>STOCK: {p.stock} UNIDADES</p>
-                    <p className="text-[9px] font-bold text-gray-500">COSTO: ${Number(p.costo_fabrica || 0).toFixed(2)} | MARGEN: {Number(p.margen_ganancia || MARGEN_GANANCIA_OBJETIVO).toFixed(1)}%</p>
+                    <p className="text-[9px] font-bold text-gray-500">COSTO: ${Number(p.costo_fabrica || 0).toFixed(2)} | MARGEN OBJ: {Number(p.margen_ganancia || MARGEN_GANANCIA_OBJETIVO).toFixed(1)}%</p>
+                    <p className="text-[9px] font-bold text-emerald-700">MARGEN REAL: {calcularMargenDesdePrecio(Number(p.costo_fabrica || 0), Number(p.precio || 0)).toFixed(1)}% | GANANCIA: {formatearMoneda((Number(p.precio || 0) - Number(p.costo_fabrica || 0)))}</p>
                     <p className={`text-[9px] font-black ${p.activo ? 'text-green-500' : 'text-red-500'}`}>{p.activo ? 'Activo' : 'Inactivo'}</p>
                     {p.en_oferta && <p className="text-[9px] font-black text-orange-500">EN OFERTA: ${Number(p.precio_oferta || 0).toFixed(2)}</p>}
                   </div>
