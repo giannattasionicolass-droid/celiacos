@@ -5337,15 +5337,26 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
         sincronizarProductosConThrottle();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          sincronizarProductosConThrottle();
+        }
+      });
+
+    const onFocus = () => sincronizarProductosConThrottle();
+    const onOnline = () => sincronizarProductosConThrottle();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
 
     // Fallback de seguridad si Realtime se cae temporalmente.
     const intervaloProductos = window.setInterval(() => {
       sincronizarProductosConThrottle();
-    }, 20000);
+    }, 5000);
 
     return () => {
       window.clearInterval(intervaloProductos);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
       supabase.removeChannel(productosChannel);
     };
   }, []);
@@ -5355,7 +5366,7 @@ export default function App() {
     refrescarPerfil();
   }, [perfilVersion, session?.user?.id]);
 
-  const fetchProductos = async () => {
+  async function fetchProductos() {
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => abortController.abort(), 12000);
 
@@ -5378,7 +5389,7 @@ export default function App() {
       window.clearTimeout(timeoutId);
       setCargandoApp(false);
     }
-  };
+  }
 
   useEffect(() => {
     // Mantiene el carrito consistente si el stock cambia por compras/ediciones externas.
