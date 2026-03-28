@@ -57,6 +57,31 @@ const fetchRemoteBuildId = async () => {
   return null
 }
 
+const abrirDescargaApkExterna = (buildId) => {
+  const urlFinal = `${APK_UPDATE_URL}?build=${encodeURIComponent(buildId)}&ts=${Date.now()}`
+
+  try {
+    const sinProtocolo = urlFinal.replace(/^https?:\/\//i, '')
+    const intentUrl = `intent://${sinProtocolo}#Intent;scheme=https;action=android.intent.action.VIEW;end`
+    const intentWindow = window.open(intentUrl, '_blank')
+    if (intentWindow) return
+  } catch {
+    // Fallback a apertura externa estándar.
+  }
+
+  try {
+    const enlace = document.createElement('a')
+    enlace.href = urlFinal
+    enlace.target = '_blank'
+    enlace.rel = 'noopener noreferrer'
+    document.body.appendChild(enlace)
+    enlace.click()
+    document.body.removeChild(enlace)
+  } catch {
+    window.open(urlFinal, '_blank', 'noopener,noreferrer')
+  }
+}
+
 const iniciarChequeoActualizacionNativa = () => {
   if (!esCapacitorNativo()) return
 
@@ -80,7 +105,7 @@ const iniciarChequeoActualizacionNativa = () => {
       }
 
       localStorage.removeItem('apkUpdateDismissedBuild')
-      window.location.href = `${APK_UPDATE_URL}?build=${encodeURIComponent(remoteBuildId)}&ts=${Date.now()}`
+      abrirDescargaApkExterna(remoteBuildId)
     } finally {
       checkInProgress = false
     }
