@@ -4334,16 +4334,22 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         </div>
                       </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-5">
+                    <div className="grid gap-4 md:grid-cols-6">
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Total</p>
                         <p className="text-2xl font-black text-green-600 tracking-tighter">{formatearMoneda(obtenerTotalPedido(ped))}</p>
                         {descuentoAdminPctResumen > 0 && (
                           <p className="text-[11px] font-black text-sky-700 mt-2">
-                            Incluye descuento admin de {descuentoAdminPctResumen.toFixed(2)}%
-                            {descuentoAdminMontoResumen > 0 ? ` (-${formatearMoneda(descuentoAdminMontoResumen)})` : ''}
+                            Total con descuento admin aplicado
                           </p>
                         )}
+                      </div>
+                      <div className="bg-sky-50 rounded-2xl p-4 border border-sky-200">
+                        <p className="text-xs font-black uppercase tracking-widest text-sky-700 mb-2">Descuento admin</p>
+                        <p className="text-2xl font-black text-sky-700 tracking-tighter">{descuentoAdminPctResumen.toFixed(2)}%</p>
+                        <p className="text-[11px] font-black text-sky-700 mt-2">
+                          {descuentoAdminMontoResumen > 0 ? `Monto descontado: -${formatearMoneda(descuentoAdminMontoResumen)}` : 'Sin descuento aplicado'}
+                        </p>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Items</p>
