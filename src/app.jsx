@@ -939,11 +939,9 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
 }
 
 function InstallAppBanner() {
-  const [promptEvento, setPromptEvento] = useState(null);
   const [instalado, setInstalado] = useState(false);
   const [esIOS, setEsIOS] = useState(false);
   const [esAndroid, setEsAndroid] = useState(false);
-  const [mostrarGuiaGeneral, setMostrarGuiaGeneral] = useState(false);
   const [mostrarIOSGuia, setMostrarIOSGuia] = useState(false);
 
   useEffect(() => {
@@ -953,33 +951,13 @@ function InstallAppBanner() {
     setEsIOS(esDispositivoIOS);
     setEsAndroid(esDispositivoAndroid);
     if (yaInstalado) setInstalado(true);
-    const handler = (e) => { e.preventDefault(); setPromptEvento(e); };
-    window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', () => setInstalado(true));
-    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const instalarAndroid = async () => {
-    if (!promptEvento) return;
-    promptEvento.prompt();
-    const { outcome } = await promptEvento.userChoice;
-    if (outcome === 'accepted') setInstalado(true);
-    setPromptEvento(null);
-  };
-
   const descargarAPK = () => {
-    const enlace = document.createElement('a');
-    enlace.href = APK_DOWNLOAD_URL;
-    enlace.setAttribute('download', 'celiashop.apk');
-    enlace.setAttribute('rel', 'noopener');
-    document.body.appendChild(enlace);
-    enlace.click();
-    document.body.removeChild(enlace);
+    window.location.href = APK_DOWNLOAD_URL;
   };
 
   if (instalado) return null;
-
-  const abrirGuiaGeneral = () => setMostrarGuiaGeneral(true);
 
   if (esIOS) {
     return (
@@ -1020,61 +998,13 @@ function InstallAppBanner() {
       </>
     );
   }
-
-  if (esAndroid) {
-    return (
-      <button
-        onClick={descargarAPK}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
-      >
-        <Download size={15} />
-        <span>Descargar APK</span>
-      </button>
-    );
-  }
-
-  if (!promptEvento) {
-    return (
-      <>
-        <button
-          onClick={abrirGuiaGeneral}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
-        >
-          <Download size={15} />
-          <span>Instalar App</span>
-        </button>
-
-        {mostrarGuiaGeneral && (
-          <div className="fixed inset-0 z-[99] flex items-end justify-center bg-black/50 px-4 pb-8" onClick={() => setMostrarGuiaGeneral(false)}>
-            <div className="w-full max-w-sm bg-white rounded-[28px] p-7 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-base font-black uppercase tracking-wide text-gray-900">Instalar CeliaShop</p>
-                <button onClick={() => setMostrarGuiaGeneral(false)} className="p-1 rounded-full hover:bg-gray-100"><X size={18} /></button>
-              </div>
-              <div className="space-y-3">
-                <p className="text-xs font-black uppercase tracking-wider text-gray-500">La instalación no descarga un APK: agrega CeliaShop como app en la pantalla de inicio.</p>
-                <p className="text-sm font-semibold text-gray-700">
-                  {esAndroid
-                    ? 'Abrí esta web desde Chrome en Android y tocá "Instalar App" para iniciar la instalación.'
-                    : 'Abrí esta web desde tu celular para instalar CeliaShop como app en pantalla de inicio.'}
-                </p>
-                <p className="text-sm font-semibold text-gray-700">Si no aparece el instalador: usá HTTPS, navegador actualizado y abrí el sitio en Chrome/Safari (no dentro de Instagram/Facebook).</p>
-              </div>
-              <button onClick={() => setMostrarGuiaGeneral(false)} className="mt-6 w-full bg-green-600 text-white py-3 rounded-2xl font-black uppercase text-sm">Entendido</button>
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
-
   return (
     <button
-      onClick={instalarAndroid}
+      onClick={descargarAPK}
       className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
     >
       <Download size={15} />
-      <span>Instalar App</span>
+      <span>{esAndroid ? 'Descargar APK' : 'Descargar App'}</span>
     </button>
   );
 }
