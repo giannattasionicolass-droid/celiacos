@@ -1437,12 +1437,25 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
         .storage
         .from('assets')
         .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
-      if (error) throw error;
+      if (error) {
+        console.error('[DEBUG] Error subiendo comprobante:', error);
+        throw new Error(`No pudimos subir el comprobante: ${error.message}`);
+      }
       const { data } = supabase.storage.from('assets').getPublicUrl(path);
+      if (!data?.publicUrl) {
+        throw new Error('No se obtuvo URL pública del comprobante');
+      }
+      console.log('[DEBUG] Comprobante subido exitosamente:', data.publicUrl);
       return {
-        url: data?.publicUrl || '',
+        url: data.publicUrl,
         nombre: safeName,
       };
+    } catch (err) {
+      console.error('[DEBUG] Excepción subiendo comprobante:', err);
+      setMensajeToast(`Error al subir comprobante: ${err?.message || 'Error desconocido'}`);
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 3200);
+      return { url: '', nombre: '' };
     } finally {
       setSubiendoComprobante(false);
     }
