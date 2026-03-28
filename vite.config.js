@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const pagesMode = process.env.PAGES_DIST === 'true'
+const pagesBasePath = process.env.PAGES_BASE_PATH || '/'
 const appBuildId = new Date().toISOString()
 
 const appVersionPlugin = {
@@ -22,7 +23,7 @@ const appVersionPlugin = {
 
 export default defineConfig({
   base: pagesMode
-    ? '/celiacos/'
+    ? pagesBasePath
     : (process.env.GITHUB_ACTIONS ? '/celiacos/' : '/'),
   define: {
     __APP_BUILD_ID__: JSON.stringify(appBuildId),

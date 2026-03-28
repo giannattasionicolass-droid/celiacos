@@ -11,6 +11,7 @@ const child = spawn(command, args, {
   env: {
     ...process.env,
     PAGES_DIST: 'true',
+    PAGES_BASE_PATH: process.env.PAGES_BASE_PATH || '/',
   },
 });
 
@@ -32,7 +33,7 @@ child.on('exit', (code) => {
 
   // Preservar artefactos de APK/versión para no romper el flujo de actualización
   // cuando se publica solo web (sync:online).
-  const preservar = ['celiashop-android.apk', 'celiashop.apk', 'apk-version.json'];
+  const preservar = ['celiashop-android.apk', 'celiashop.apk', 'apk-version.json', 'CNAME'];
   rmSync(docsBackupDir, { recursive: true, force: true });
   mkdirSync(docsBackupDir, { recursive: true });
 
