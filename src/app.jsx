@@ -1384,7 +1384,8 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     </span>
                   )}
                 </div>
-                <div className="p-4 flex-1 flex flex-col">
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
@@ -1401,10 +1402,11 @@ function Carrusel({ productos, agregarAlCarrito }) {
                   <p className={`text-xs md:text-sm font-black mb-3 ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
                   </p>
+                  </div>
                   <button
                     onClick={() => agregarAlCarrito(p)}
                     disabled={!p.activo || p.stock <= 0}
-                    className={`w-full mt-auto py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 ${
+                    className={`w-full mt-auto py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 flex items-center justify-center ${
                       !p.activo || p.stock <= 0
                         ? 'bg-zinc-300 text-zinc-600 cursor-not-allowed'
                         : 'bg-gradient-to-r from-zinc-900 to-zinc-800 text-white hover:from-zinc-800 hover:to-zinc-700 shadow-md hover:shadow-lg'
@@ -5783,7 +5785,8 @@ export default function App() {
                         )}
                       </div>
 
-                      <div className="flex-1 flex flex-col">
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
                           {!p.activo || Number(p.stock || 0) <= 0 ? (
@@ -5802,6 +5805,7 @@ export default function App() {
                         ) : (
                           <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-2.5">{formatearMoneda(p.precio)}</p>
                         )}
+                        </div>
                       </div>
 
                       <button
@@ -5810,7 +5814,7 @@ export default function App() {
                           agregarAlCarrito(p);
                         }}
                         disabled={!p.activo || p.stock <= 0}
-                        className={`w-full mt-auto py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
+                        className={`w-full mt-auto py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 flex items-center justify-center ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
                         {p.activo && p.stock > 0 ? 'Agregar' : 'No disponible'}
                       </button>
                     </div>
