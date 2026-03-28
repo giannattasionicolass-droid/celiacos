@@ -69,6 +69,20 @@ const borrarPedidosNoAdmin = async (adminClient: ReturnType<typeof createClient>
   return idsABorrar.length;
 };
 
+const borrarTablaSiExiste = async (adminClient: ReturnType<typeof createClient>, tableName: string) => {
+  const { error } = await adminClient
+    .from(tableName)
+    .delete()
+    .not('id', 'is', null);
+
+  if (!error) return;
+
+  const msg = String(error?.message || '').toLowerCase();
+  if (msg.includes('relation') && msg.includes('does not exist')) return;
+
+  throw error;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -110,7 +124,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: `No se encontro el admin ${preserveAdminEmail} en auth.users.` }, 404);
     }
 
+    await borrarTablaSiExiste(adminClient, 'inventario_movimientos');
     const pedidosEliminados = await borrarPedidosNoAdmin(adminClient, adminUser.id);
+    await borrarTablaSiExiste(adminClient, 'productos');
 
     const { error: perfilesError } = await adminClient
       .from('perfiles')

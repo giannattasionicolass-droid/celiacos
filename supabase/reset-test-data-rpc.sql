@@ -15,6 +15,8 @@ declare
   v_admin_email text := lower(trim(coalesce(preserve_admin_email, 'giannattasio.nicolas@hotmail.com')));
   v_calling_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
   v_admin_id uuid;
+  v_deleted_inventario integer := 0;
+  v_deleted_productos integer := 0;
   v_deleted_pedidos integer := 0;
   v_deleted_perfiles integer := 0;
   v_deleted_users integer := 0;
@@ -37,6 +39,14 @@ begin
 
   if v_admin_id is null then
     raise exception 'No se encontro el usuario admin % en auth.users.', v_admin_email;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'inventario_movimientos'
+  ) then
+    delete from public.inventario_movimientos;
+    get diagnostics v_deleted_inventario = row_count;
   end if;
 
   if exists (
@@ -90,6 +100,14 @@ begin
 
   if exists (
     select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'productos'
+  ) then
+    delete from public.productos;
+    get diagnostics v_deleted_productos = row_count;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables
     where table_schema = 'public' and table_name = 'perfiles'
   ) then
     delete from public.perfiles
@@ -106,6 +124,8 @@ begin
     'ok', true,
     'preserved_admin_email', v_admin_email,
     'preserved_admin_id', v_admin_id,
+    'inventario_eliminado', v_deleted_inventario,
+    'productos_eliminados', v_deleted_productos,
     'pedidos_eliminados', v_deleted_pedidos,
     'perfiles_eliminados', v_deleted_perfiles,
     'usuarios_eliminados', v_deleted_users
