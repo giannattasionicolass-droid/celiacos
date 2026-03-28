@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:pages": "node scripts/build-pages.mjs",
     "sync:online": "node scripts/sync-online.mjs",
+    "sync:apk": "node scripts/sync-apk-online.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
