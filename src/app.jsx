@@ -1432,16 +1432,16 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
     setSubiendoComprobante(true);
     try {
       const safeName = String(file.name || 'comprobante').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `comprobantes/${perfilId}/${Date.now()}-${safeName}`;
+      const path = `${perfilId}/${Date.now()}-${safeName}`;
       const { error } = await supabase
         .storage
-        .from('assets')
+        .from('comprobantes_pago')
         .upload(path, file, { upsert: false, contentType: file.type || 'application/octet-stream' });
       if (error) {
         console.error('[DEBUG] Error subiendo comprobante:', error);
         throw new Error(`No pudimos subir el comprobante: ${error.message}`);
       }
-      const { data } = supabase.storage.from('assets').getPublicUrl(path);
+      const { data } = supabase.storage.from('comprobantes_pago').getPublicUrl(path);
       if (!data?.publicUrl) {
         throw new Error('No se obtuvo URL pública del comprobante');
       }
