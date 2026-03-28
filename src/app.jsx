@@ -1337,14 +1337,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
 
       <div className="mb-4 md:mb-5 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="inline-flex items-center gap-2 text-[11px] md:text-xs font-black uppercase tracking-[0.22em] text-emerald-700">
-            <Sparkles size={14} className="text-emerald-600" />
-            NUEVOS PRODUCTOS GLUTEN FREE
-          </p>
           <h2 className="text-2xl md:text-4xl text-gray-900 uppercase tracking-tight leading-tight mt-1">NUEVOS PRODUCTOS GLUTEN FREE</h2>
-          <p className="text-sm md:text-base text-gray-700 font-semibold mt-1.5 max-w-2xl leading-relaxed">
-            NUEVOS PRODUCTOS GLUTEN FREE
-          </p>
         </div>
         <div className="shrink-0 flex items-center gap-2">
           <button
