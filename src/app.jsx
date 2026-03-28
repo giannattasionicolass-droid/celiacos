@@ -5589,6 +5589,18 @@ export default function App() {
         )}
       </main>
 
+      {pagina === 'inicio' && (
+        <a
+          href="https://wa.me/5492281537168?text=Hola%20CeliaShop%2C%20quiero%20hacer%20una%20consulta"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Contactar por WhatsApp"
+          className="fixed bottom-24 right-4 md:bottom-8 md:right-10 z-40 rounded-full bg-green-600 text-white shadow-2xl hover:bg-green-700 transition-colors px-5 py-4 font-black uppercase text-xs tracking-widest"
+        >
+          WhatsApp
+        </a>
+      )}
+
       {mostrarToast && (
         <div className="premium-toast fixed bottom-8 right-4 md:right-10 text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] z-50">
           {mensajeToast}
