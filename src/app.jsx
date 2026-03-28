@@ -1364,7 +1364,7 @@ function Carrusel({ productos, agregarAlCarrito }) {
         >
           {productosOrdenados.map((p, i) => (
             <div key={p.id} className="px-2" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md overflow-hidden group" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
+              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
                 <div className="relative h-36 md:h-40">
                   <img
                     src={p.imagen_url}
