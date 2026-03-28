@@ -1369,6 +1369,62 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       return;
     }
 
+    // Validación final de stock contra base: evita compras por encima del disponible.
+    try {
+      const idsCarrito = carrito.map((item) => item.id).filter(Boolean);
+      if (idsCarrito.length) {
+        const { data: stockActual, error: stockErr } = await supabase
+          .from('productos')
+          .select('id, nombre, stock, activo')
+          .in('id', idsCarrito);
+
+        if (!stockErr && Array.isArray(stockActual)) {
+          const stockMap = new Map(stockActual.map((p) => [String(p.id), {
+            nombre: String(p?.nombre || ''),
+            stock: Math.max(0, Number(p?.stock) || 0),
+            activo: Boolean(p?.activo),
+          }]));
+
+          const primeraInvalida = carrito
+            .map((item) => {
+              const actual = stockMap.get(String(item.id));
+              if (!actual) return null;
+              const cantidad = Math.max(0, Number(item?.cantidad) || 0);
+              if (!actual.activo || cantidad > actual.stock) {
+                return {
+                  id: item.id,
+                  nombre: actual.nombre || String(item?.nombre || 'este producto'),
+                  stock: actual.stock,
+                  cantidad,
+                };
+              }
+              return null;
+            })
+            .find(Boolean);
+
+          if (primeraInvalida) {
+            setCarrito((prev) => prev
+              .map((item) => {
+                const actual = stockMap.get(String(item.id));
+                if (!actual || !actual.activo) return { ...item, cantidad: 0 };
+                const cantidadPermitida = Math.min(Math.max(0, Number(item?.cantidad) || 0), actual.stock);
+                return { ...item, cantidad: cantidadPermitida };
+              })
+              .filter((item) => Number(item?.cantidad) > 0)
+            );
+
+            alert(`Stock máximo alcanzado. Solo hay ${primeraInvalida.stock} unidad${primeraInvalida.stock === 1 ? '' : 'es'} disponible${primeraInvalida.stock === 1 ? '' : 's'} de "${primeraInvalida.nombre}".`);
+            setMensajeToast('Actualizamos el carrito con el stock disponible. Revisá las cantidades.');
+            setMostrarToast(true);
+            setTimeout(() => setMostrarToast(false), 3200);
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // Si falla la validación online, se mantiene el flujo previo.
+    }
+
     setCargando(true);
     try {
       const telefonoCliente = telefono.trim() || usuarioLogueado?.telefono || '';
