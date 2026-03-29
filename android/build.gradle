@@ -17,7 +17,12 @@ buildscript {
 
 apply from: "variables.gradle"
 
+def externalBuildRoot = new File(System.getenv('LOCALAPPDATA') ?: System.getProperty('java.io.tmpdir'), 'celiashop-gradle-build')
+
+rootProject.layout.buildDirectory.set(new File(externalBuildRoot, 'root'))
+
 allprojects {
+    layout.buildDirectory.set(new File(externalBuildRoot, project.name))
     repositories {
         google()
         mavenCentral()

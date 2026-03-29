@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const pagesMode = process.env.PAGES_DIST === 'true'
 const pagesBasePath = process.env.PAGES_BASE_PATH || '/'
-const appBuildId = new Date().toISOString()
+const appBuildId = (process.env.APP_BUILD_ID || '').trim() || new Date().toISOString()
 
 const appVersionPlugin = {
   name: 'app-version-file',
