@@ -64,8 +64,8 @@ const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
-const APK_DOWNLOAD_URL = `${import.meta.env.BASE_URL}celiashop-android.apk`;
-const APK_VERSION_URL = `${import.meta.env.BASE_URL}apk-version.json`;
+const APK_DOWNLOAD_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
+const APK_VERSION_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/apk-version.json';
 
 const esProductoNuevo = (producto = {}) => {
   const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
