@@ -4459,7 +4459,8 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         <p className="font-black uppercase text-xs text-gray-900 leading-tight">{item.producto.nombre}</p>
                         <p className="text-[11px] font-semibold text-gray-500">{item.producto.categoria || 'Sin categoría'}</p>
                         <p className="text-2xl font-black text-gray-900 mt-1">{item.vendidos} <span className="text-xs font-semibold text-gray-500">vendidos</span></p>
-                        <p className="text-[11px] font-semibold text-emerald-700">{formatearMoneda(item.ingresosVentas)}</p>
+                        <p className="text-[11px] font-semibold text-emerald-700">{formatearMoneda(item.gananciaUnitaria * item.vendidos)}</p>
+                        <p className="text-[10px] font-semibold text-gray-400">ganancia neta</p>
                       </div>
                     );
                   })}
@@ -4472,7 +4473,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                           <th className="text-left px-4 py-3">#</th>
                           <th className="text-left px-4 py-3">Producto</th>
                           <th className="text-left px-4 py-3">Vendidos</th>
-                          <th className="text-left px-4 py-3">Ingresos</th>
+                          <th className="text-left px-4 py-3">Ganancia neta</th>
                           <th className="text-left px-4 py-3">Stock actual</th>
                         </tr>
                       </thead>
@@ -4485,7 +4486,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                               <p className="text-[11px] font-semibold text-gray-500">{item.producto.categoria || 'Sin categoría'}</p>
                             </td>
                             <td className="px-4 py-3 font-black text-gray-900">{item.vendidos}</td>
-                            <td className="px-4 py-3 font-semibold text-emerald-700">{formatearMoneda(item.ingresosVentas)}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-emerald-700">{formatearMoneda(item.gananciaUnitaria * item.vendidos)}</p>
+                              <p className="text-[10px] text-gray-400">(${item.gananciaUnitaria.toFixed(2)} × {item.vendidos})</p>
+                            </td>
                             <td className={`px-4 py-3 font-black text-xs ${item.stockActual <= 0 ? 'text-rose-600' : 'text-gray-800'}`}>{item.stockActual}</td>
                           </tr>
                         ))}
