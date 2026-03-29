@@ -278,6 +278,15 @@ button, input, select, textarea {
   animation: premiumShimmer 0.95s ease;
 }
 
+html:not(.native-app) .product-detail-image {
+  width: auto;
+  max-width: min(100%, 420px);
+  height: auto;
+  display: block;
+  margin-inline: auto;
+  object-fit: contain;
+}
+
 /* Native app keeps the same premium typography as web. */
 html.native-app body,
 html.native-app button,

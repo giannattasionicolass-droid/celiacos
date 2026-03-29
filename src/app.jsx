@@ -1508,7 +1508,7 @@ function ModalProductoDetalle({ producto, onClose, onAgregarCarrito }) {
             <img
               src={producto.imagen_url}
               alt={producto.nombre}
-              className="max-h-[320px] md:max-h-[420px] w-full object-contain"
+              className="product-detail-image max-h-[320px] md:max-h-[420px] w-full object-contain"
             />
           </div>
 
