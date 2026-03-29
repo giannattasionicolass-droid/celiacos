@@ -1363,8 +1363,8 @@ function Carrusel({ productos, agregarAlCarrito }) {
           style={{ transform: `translateX(-${actual * (100 / slidesPorVista)}%)` }}
         >
           {productosOrdenados.map((p, i) => (
-            <div key={p.id} className="px-2 h-full" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="premium-carousel-card h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
+            <div key={p.id} className="px-2 flex" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
+              <div className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
                 <div className="relative h-36 md:h-40">
                   <img
                     src={p.imagen_url}
@@ -1390,7 +1390,9 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
                   </div>
-                  <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 leading-snug">{p.nombre}</h3>
+                  <div className="min-h-[6.2rem] md:min-h-[6.8rem] mb-2">
+                    <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 leading-snug">{p.nombre}</h3>
+                  </div>
                   <div className="mt-2 mb-3 min-h-[72px] md:min-h-[78px] flex flex-col items-center justify-center text-center">
                     {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                       <div className="mb-1">
@@ -5797,7 +5799,9 @@ export default function App() {
                           <span className="text-[9px] font-black uppercase tracking-[0.1em] text-transparent select-none">Stock</span>
                         </div>
 
-                        <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
+                        <div className="min-h-[5.2rem] md:min-h-[5.8rem]">
+                          <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
+                        </div>
                         <div className="mt-2 mb-2.5 min-h-[68px] md:min-h-[74px] flex flex-col items-center justify-center text-center">
                           {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                             <div className="mb-1">
