@@ -20,6 +20,11 @@ const esCapacitorNativo = () => {
   }
 }
 
+const aplicarClasePlataforma = () => {
+  if (typeof document === 'undefined') return
+  document.documentElement.classList.toggle('native-app', esCapacitorNativo())
+}
+
 const buildVersionCandidates = () => {
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const urls = [
@@ -128,6 +133,7 @@ if ('serviceWorker' in navigator && !window.Capacitor) {
   })
 }
 
+aplicarClasePlataforma()
 iniciarChequeoActualizacionNativa()
 
 class ErrorBoundary extends Component {

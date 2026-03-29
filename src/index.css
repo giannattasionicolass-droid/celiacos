@@ -261,3 +261,51 @@ button, input, select, textarea {
   opacity: 1;
   animation: premiumShimmer 0.95s ease;
 }
+
+/* APK native WebView fallback styles for devices with aggressive font scaling/rendering differences. */
+html.native-app {
+  font-size: 15px;
+}
+
+html.native-app body,
+html.native-app button,
+html.native-app input,
+html.native-app select,
+html.native-app textarea {
+  font-family: 'Roboto', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  text-rendering: geometricPrecision;
+}
+
+html.native-app h1,
+html.native-app h2,
+html.native-app h3,
+html.native-app h4,
+html.native-app h5,
+html.native-app h6 {
+  font-family: 'Roboto', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+html.native-app .store-card-badge {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+html.native-app .store-card-cat {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+html.native-app .store-card-name {
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+html.native-app .store-card-stock,
+html.native-app .store-card-btn {
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
