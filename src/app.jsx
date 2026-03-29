@@ -65,6 +65,7 @@ const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 const APK_DOWNLOAD_URL = `${import.meta.env.BASE_URL}celiashop-android.apk`;
+const APK_VERSION_URL = `${import.meta.env.BASE_URL}apk-version.json`;
 
 const esProductoNuevo = (producto = {}) => {
   const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
@@ -1169,8 +1170,23 @@ function InstallAppBanner() {
   }, []);
 
   const descargarAPK = async () => {
+    let apkUrlFinal = APK_DOWNLOAD_URL;
+
     try {
-      const response = await fetch(APK_DOWNLOAD_URL, { cache: 'no-store' });
+      const versionResp = await fetch(`${APK_VERSION_URL}?ts=${Date.now()}`, { cache: 'no-store' });
+      if (versionResp.ok) {
+        const versionData = await versionResp.json().catch(() => null);
+        const buildId = String(versionData?.apkBuildId || versionData?.buildId || '').trim();
+        if (buildId) {
+          apkUrlFinal = `${APK_DOWNLOAD_URL}?build=${encodeURIComponent(buildId)}&ts=${Date.now()}`;
+        }
+      }
+    } catch {
+      apkUrlFinal = `${APK_DOWNLOAD_URL}?ts=${Date.now()}`;
+    }
+
+    try {
+      const response = await fetch(apkUrlFinal, { cache: 'reload' });
       if (!response.ok) throw new Error('No se pudo descargar la APK');
       const blob = await response.blob();
       const apkBlob = new Blob([blob], { type: 'application/vnd.android.package-archive' });
@@ -1186,7 +1202,7 @@ function InstallAppBanner() {
     } catch {
       // Fallback por compatibilidad si el navegador bloquea blob URLs.
       const enlaceDirecto = document.createElement('a');
-      enlaceDirecto.href = APK_DOWNLOAD_URL;
+      enlaceDirecto.href = apkUrlFinal;
       enlaceDirecto.download = 'celiashop.apk';
       enlaceDirecto.rel = 'noopener';
       document.body.appendChild(enlaceDirecto);
@@ -5520,7 +5536,10 @@ export default function App() {
           <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-400">Cargando CeliaShop…</p>
         </div>
       )}
-      <header className="premium-nav-wrap fixed top-0 left-0 right-0 z-[80] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:px-3">
+      <header
+        className="premium-nav-wrap fixed top-0 left-0 right-0 z-[80] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:px-3"
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 80, transform: 'translateZ(0)' }}
+      >
       <nav className="mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
           <div onClick={() => setPagina('inicio')} className="cursor-pointer flex items-center justify-center gap-4 text-center">

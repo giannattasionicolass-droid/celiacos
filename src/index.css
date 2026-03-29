@@ -99,6 +99,9 @@ button, input, select, textarea {
   top: 0;
   z-index: 80;
   pointer-events: none;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .premium-nav-wrap .premium-nav {
@@ -296,6 +299,10 @@ html.native-app h6 {
 
 .store-grid-force-3 {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+html.native-app .store-grid-force-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
 }
 
