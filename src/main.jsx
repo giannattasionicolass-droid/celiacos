@@ -11,8 +11,23 @@ const APK_UPDATE_STYLE_ID = 'apk-update-required-style'
 const APK_FORCE_PROMPT_STORAGE_KEY = 'apkForcePromptTokenSeen'
 const APK_FORCE_NOTIFICATION_STORAGE_KEY = 'apkForceNotificationTokenSeen'
 const APK_UPDATE_NOTIFICATION_ID = 88001
+const APK_DEBUG_PANEL_ID = 'apk-update-debug-panel'
 
 let localNotificationBindingsReady = false
+let lastRemoteBuildInfo = null
+
+const apkDebugState = {
+  isNative: false,
+  localBuildId: APP_BUILD_ID,
+  lastCheckAt: '',
+  remoteBuildId: '',
+  forcePromptToken: '',
+  seenForcePromptToken: '',
+  seenNotificationToken: '',
+  notificationPermission: 'unknown',
+  scheduleStatus: 'idle',
+  scheduleMessage: '',
+}
 
 const esCapacitorNativo = () => {
   try {
@@ -41,9 +56,69 @@ const esCapacitorNativo = () => {
   }
 }
 
+const leerStorageSeguro = (key) => {
+  try {
+    return String(localStorage.getItem(key) || '')
+  } catch {
+    return ''
+  }
+}
+
+const renderApkDebugPanel = () => {
+  if (typeof document === 'undefined') return
+  if (!apkDebugState.isNative) return
+
+  let panel = document.getElementById(APK_DEBUG_PANEL_ID)
+  if (!panel) {
+    panel = document.createElement('div')
+    panel.id = APK_DEBUG_PANEL_ID
+    panel.style.position = 'fixed'
+    panel.style.left = '10px'
+    panel.style.right = '10px'
+    panel.style.bottom = '10px'
+    panel.style.zIndex = '2147483647'
+    panel.style.background = 'rgba(15, 23, 42, 0.95)'
+    panel.style.color = '#e2e8f0'
+    panel.style.border = '1px solid rgba(148, 163, 184, 0.4)'
+    panel.style.borderRadius = '12px'
+    panel.style.padding = '10px 12px'
+    panel.style.fontFamily = 'monospace'
+    panel.style.fontSize = '11px'
+    panel.style.lineHeight = '1.35'
+    panel.style.whiteSpace = 'pre-wrap'
+    panel.style.wordBreak = 'break-word'
+    panel.style.maxHeight = '42vh'
+    panel.style.overflow = 'auto'
+    document.body.appendChild(panel)
+  }
+
+  panel.textContent = [
+    'APK DIAGNOSTICO',
+    `native=${apkDebugState.isNative}`,
+    `localBuild=${apkDebugState.localBuildId}`,
+    `remoteBuild=${apkDebugState.remoteBuildId || '-'}`,
+    `lastCheck=${apkDebugState.lastCheckAt || '-'}`,
+    `forcePromptToken=${apkDebugState.forcePromptToken || '-'}`,
+    `seenPromptToken=${apkDebugState.seenForcePromptToken || '-'}`,
+    `seenNotifToken=${apkDebugState.seenNotificationToken || '-'}`,
+    `notifPermission=${apkDebugState.notificationPermission}`,
+    `scheduleStatus=${apkDebugState.scheduleStatus}`,
+    `scheduleMessage=${apkDebugState.scheduleMessage || '-'}`,
+  ].join('\n')
+}
+
+const actualizarApkDebugState = (partial = {}) => {
+  Object.assign(apkDebugState, partial)
+  apkDebugState.seenForcePromptToken = leerStorageSeguro(APK_FORCE_PROMPT_STORAGE_KEY)
+  apkDebugState.seenNotificationToken = leerStorageSeguro(APK_FORCE_NOTIFICATION_STORAGE_KEY)
+  renderApkDebugPanel()
+}
+
 const aplicarClasePlataforma = () => {
   if (typeof document === 'undefined') return
-  document.documentElement.classList.toggle('native-app', esCapacitorNativo())
+  const native = esCapacitorNativo()
+  document.documentElement.classList.toggle('native-app', native)
+  actualizarApkDebugState({ isNative: native })
 }
 
 const buildVersionCandidates = () => {
@@ -64,6 +139,11 @@ const buildVersionCandidates = () => {
 
 const fetchRemoteBuildInfo = async () => {
   const candidates = buildVersionCandidates()
+  actualizarApkDebugState({
+    lastCheckAt: new Date().toISOString(),
+    scheduleStatus: 'checking-remote',
+    scheduleMessage: `candidates=${candidates.length}`,
+  })
 
   for (const rawUrl of candidates) {
     const separator = rawUrl.includes('?') ? '&' : '?'
@@ -79,6 +159,13 @@ const fetchRemoteBuildInfo = async () => {
       const forcePromptAllDevices = Boolean(json?.forcePromptAllDevices)
       const forcePromptToken = String(json?.forcePromptToken || '').trim() || buildId
 
+      actualizarApkDebugState({
+        remoteBuildId: buildId,
+        forcePromptToken,
+        scheduleStatus: 'remote-ok',
+        scheduleMessage: `source=${rawUrl}`,
+      })
+
       return {
         buildId,
         forcePromptAllDevices,
@@ -88,6 +175,11 @@ const fetchRemoteBuildInfo = async () => {
       // Intentamos el siguiente candidate.
     }
   }
+
+  actualizarApkDebugState({
+    scheduleStatus: 'remote-missing',
+    scheduleMessage: 'no-build-id',
+  })
 
   return null
 }
@@ -159,15 +251,19 @@ const pedirPermisoNotificaciones = async (LocalNotifications) => {
 
   try {
     const permisoActual = await LocalNotifications.checkPermissions()
+    actualizarApkDebugState({ notificationPermission: String(permisoActual?.display || 'unknown') })
     if (permisoActual?.display === 'granted') return true
   } catch {
+    actualizarApkDebugState({ notificationPermission: 'check-error' })
     return false
   }
 
   try {
     const permisoNuevo = await LocalNotifications.requestPermissions()
+    actualizarApkDebugState({ notificationPermission: String(permisoNuevo?.display || 'unknown') })
     return permisoNuevo?.display === 'granted'
   } catch {
+    actualizarApkDebugState({ notificationPermission: 'request-error' })
     return false
   }
 }
@@ -175,6 +271,13 @@ const pedirPermisoNotificaciones = async (LocalNotifications) => {
 const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) => {
   const tokenAviso = String(forcePromptToken || buildId || '').trim()
   if (!tokenAviso) return
+
+  actualizarApkDebugState({
+    remoteBuildId: buildId,
+    forcePromptToken: tokenAviso,
+    scheduleStatus: 'preparing',
+    scheduleMessage: '',
+  })
 
   const seenNotificationToken = (() => {
     try {
@@ -184,13 +287,31 @@ const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) =>
     }
   })()
 
-  if (seenNotificationToken === tokenAviso) return
+  if (seenNotificationToken === tokenAviso) {
+    actualizarApkDebugState({
+      scheduleStatus: 'skipped-token-seen',
+      scheduleMessage: tokenAviso,
+    })
+    return
+  }
 
   const LocalNotifications = await obtenerLocalNotificationsApi()
-  if (!LocalNotifications) return
+  if (!LocalNotifications) {
+    actualizarApkDebugState({
+      scheduleStatus: 'plugin-missing',
+      scheduleMessage: '@capacitor/local-notifications unavailable',
+    })
+    return
+  }
 
   const permisoConcedido = await pedirPermisoNotificaciones(LocalNotifications)
-  if (!permisoConcedido) return
+  if (!permisoConcedido) {
+    actualizarApkDebugState({
+      scheduleStatus: 'permission-denied',
+      scheduleMessage: 'display permission not granted',
+    })
+    return
+  }
 
   await prepararNotificacionesActualizacion(LocalNotifications)
 
@@ -239,7 +360,15 @@ const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) =>
     })
 
     localStorage.setItem(APK_FORCE_NOTIFICATION_STORAGE_KEY, tokenAviso)
+    actualizarApkDebugState({
+      scheduleStatus: 'scheduled-ok',
+      scheduleMessage: `at=${triggerAt.toISOString()}`,
+    })
   } catch {
+    actualizarApkDebugState({
+      scheduleStatus: 'schedule-error',
+      scheduleMessage: 'LocalNotifications.schedule failed',
+    })
     // Si falla la notificacion, mantenemos el modal obligatorio como respaldo.
   }
 }
@@ -445,7 +574,14 @@ const iniciarChequeoActualizacionNativa = () => {
 
     try {
       const remoteInfo = await fetchRemoteBuildInfo()
-      if (!remoteInfo?.buildId) return
+      lastRemoteBuildInfo = remoteInfo
+      if (!remoteInfo?.buildId) {
+        actualizarApkDebugState({
+          scheduleStatus: 'no-remote-build',
+          scheduleMessage: 'remoteInfo empty',
+        })
+        return
+      }
 
       const showBecauseBuildChanged = remoteInfo.buildId !== APP_BUILD_ID
       const seenForcePromptToken = (() => {
@@ -459,7 +595,20 @@ const iniciarChequeoActualizacionNativa = () => {
         && remoteInfo.forcePromptToken
         && seenForcePromptToken !== remoteInfo.forcePromptToken
 
-      if (!showBecauseBuildChanged && !showBecauseForcedGlobalPrompt) return
+      actualizarApkDebugState({
+        remoteBuildId: remoteInfo.buildId,
+        forcePromptToken: remoteInfo.forcePromptToken,
+        scheduleStatus: 'decision',
+        scheduleMessage: `buildChanged=${showBecauseBuildChanged} forced=${showBecauseForcedGlobalPrompt}`,
+      })
+
+      if (!showBecauseBuildChanged && !showBecauseForcedGlobalPrompt) {
+        actualizarApkDebugState({
+          scheduleStatus: 'up-to-date-no-force',
+          scheduleMessage: '',
+        })
+        return
+      }
 
       await emitirNotificacionActualizacion({
         buildId: remoteInfo.buildId,
