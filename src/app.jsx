@@ -5789,22 +5789,22 @@ export default function App() {
                       <div className="relative">
                         <img src={p.imagen_url} className="h-24 sm:h-28 xl:h-32 w-full object-contain bg-white rounded-2xl mb-2.5 transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
                         {esNuevo && (
-                          <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Nuevo</span>
+                          <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.1em]">Nuevo</span>
                         )}
                         {p.en_oferta && Number(p.precio_oferta) > 0 && (
-                          <span className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[9px] font-black uppercase tracking-[0.12em]">Oferta</span>
+                          <span className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.1em]">Oferta</span>
                         )}
                       </div>
 
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
-                          <span className="text-[9px] font-black uppercase tracking-[0.1em] text-transparent select-none">Stock</span>
+                          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
+                          <span className="text-[10px] font-black uppercase tracking-[0.08em] text-transparent select-none">Stock</span>
                         </div>
 
-                        <div className="min-h-[5.2rem] md:min-h-[5.8rem]">
-                          <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
+                        <div className="min-h-[5.6rem] md:min-h-[5.8rem]">
+                          <h3 className="font-black text-[14px] md:text-sm text-gray-900 leading-snug">{p.nombre}</h3>
                         </div>
                         <div className="mt-2 mb-2.5 min-h-[68px] md:min-h-[74px] flex flex-col items-center justify-center text-center">
                           {p.en_oferta && Number(p.precio_oferta) > 0 ? (
@@ -5819,9 +5819,9 @@ export default function App() {
                             </div>
                           )}
                           {!p.activo || Number(p.stock || 0) <= 0 ? (
-                            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-rose-500">Sin stock</p>
                           ) : (
-                            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-600">Stock {p.stock}</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-emerald-600">Stock {p.stock}</p>
                           )}
                         </div>
                         </div>
@@ -5833,7 +5833,7 @@ export default function App() {
                           agregarAlCarrito(p);
                         }}
                         disabled={!p.activo || p.stock <= 0}
-                        className={`w-full mt-auto py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-300 flex items-center justify-center ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
+                        className={`w-full mt-auto py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.06em] transition-all duration-300 flex items-center justify-center ${!p.activo || p.stock <= 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg'}`}>
                         {p.activo && p.stock > 0 ? 'Agregar producto' : 'No disponible'}
                       </button>
                     </div>

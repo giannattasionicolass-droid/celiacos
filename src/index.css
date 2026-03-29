@@ -8,17 +8,23 @@
   --bg-surface-strong: rgba(255, 255, 255, 0.92);
   --line-soft: rgba(15, 23, 42, 0.08);
   --shadow-premium: 0 24px 80px rgba(17, 24, 39, 0.08);
+  --font-body-stack: 'Space Grotesk', 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-heading-stack: 'Archivo Black', 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
   font-size: clamp(14px, 0.4vw + 12.5px, 15.5px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-body-stack);
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   background:
     radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), transparent 28%),
     radial-gradient(circle at top right, rgba(249, 115, 22, 0.16), transparent 30%),
@@ -27,7 +33,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: var(--font-heading-stack);
 }
 
 button, input, select, textarea {
