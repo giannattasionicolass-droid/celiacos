@@ -93,10 +93,10 @@ button, input, select, textarea {
 }
 
 .premium-nav-wrap {
-  position: fixed;
+  position: fixed !important;
   left: 0;
   right: 0;
-  top: 0;
+  top: 0 !important;
   z-index: 80;
   pointer-events: none;
   will-change: transform;

@@ -5537,8 +5537,8 @@ export default function App() {
         </div>
       )}
       <header
-        className="premium-nav-wrap fixed top-0 left-0 right-0 z-[80] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:px-3"
-        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 80, transform: 'translateZ(0)' }}
+        className="premium-nav-wrap z-[80] px-2 pt-2 md:px-3"
+        style={{ position: 'fixed', top: '0px', left: 0, right: 0, zIndex: 80, transform: 'translateZ(0)' }}
       >
       <nav className="mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
@@ -5795,7 +5795,10 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="store-grid-force-3 store-grid grid gap-3 md:gap-4 items-stretch">
+                <div
+                  className="store-grid-force-3 store-grid grid gap-3 md:gap-4 items-stretch"
+                  style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+                >
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
