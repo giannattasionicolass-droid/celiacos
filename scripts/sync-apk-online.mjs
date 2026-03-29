@@ -13,6 +13,7 @@ import { resolve } from 'node:path';
 const userMessage = process.argv.slice(2).join(' ').trim();
 const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
 const commitMessage = userMessage || `sync: apk online update ${timestamp}`;
+const buildId = new Date().toISOString();
 
 const rootDir = process.cwd();
 
@@ -21,6 +22,7 @@ const run = (cmd, args, options = {}) => {
     stdio: 'inherit',
     shell: false,
     cwd: options.cwd || rootDir,
+    env: options.env || process.env,
   });
 
   if (result.error) {
@@ -36,18 +38,20 @@ const run = (cmd, args, options = {}) => {
 };
 
 const runNpmScript = (scriptName) => {
+  const env = { ...process.env, APP_BUILD_ID: buildId };
+
   if (process.platform === 'win32') {
-    run('cmd.exe', ['/c', 'npm', 'run', scriptName]);
+    run('cmd.exe', ['/c', 'npm', 'run', scriptName], { env });
   } else {
-    run('npm', ['run', scriptName]);
+    run('npm', ['run', scriptName], { env });
   }
 };
 
-const runCapCopyAndroid = () => {
+const runCapSyncAndroid = () => {
   if (process.platform === 'win32') {
-    run('cmd.exe', ['/c', 'npx', 'cap', 'copy', 'android'], { allowFailure: true });
+    run('cmd.exe', ['/c', 'npx', 'cap', 'sync', 'android'], { allowFailure: true });
   } else {
-    run('npx', ['cap', 'copy', 'android'], { allowFailure: true });
+    run('npx', ['cap', 'sync', 'android'], { allowFailure: true });
   }
 };
 
@@ -55,9 +59,9 @@ const runAssembleDebug = () => {
   const androidDir = resolve(rootDir, 'android');
 
   if (process.platform === 'win32') {
-    run('cmd.exe', ['/c', 'gradlew.bat', 'assembleDebug'], { cwd: androidDir });
+    run('cmd.exe', ['/c', 'gradlew.bat', 'clean', 'assembleDebug'], { cwd: androidDir });
   } else {
-    run('./gradlew', ['assembleDebug'], { cwd: androidDir });
+    run('./gradlew', ['clean', 'assembleDebug'], { cwd: androidDir });
   }
 };
 
@@ -92,7 +96,7 @@ const limpiarTemporalesBuild = () => {
 };
 
 const publicarApkYVersion = () => {
-  const apkOrigen = resolve(rootDir, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+  const apkOrigen = resolve(process.env.LOCALAPPDATA || rootDir, 'celiashop-gradle-build', 'app', 'outputs', 'apk', 'debug', 'app-debug.apk');
   const docsDir = resolve(rootDir, 'docs');
   const apkDestinoPrincipal = resolve(docsDir, 'celiashop-android.apk');
   const apkDestinoAlias = resolve(docsDir, 'celiashop.apk');
@@ -110,7 +114,6 @@ const publicarApkYVersion = () => {
   copyFileSync(apkOrigen, apkDestinoAlias);
 
   const apkStats = statSync(apkOrigen);
-  const buildId = new Date().toISOString();
   const apkVersionPath = resolve(docsDir, 'apk-version.json');
 
   writeFileSync(
@@ -136,7 +139,7 @@ run('git', ['rev-parse', '--is-inside-work-tree']);
 
 runNpmScript('build:pages');
 runNpmScript('build');
-runCapCopyAndroid();
+runCapSyncAndroid();
 runAssembleDebug();
 limpiarTemporalesBuild();
 publicarApkYVersion();
