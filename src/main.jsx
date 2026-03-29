@@ -215,6 +215,8 @@ const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) =>
   }
 
   try {
+    const triggerAt = new Date(Date.now() + 1800)
+
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -223,8 +225,12 @@ const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) =>
           body: 'Toca para descargar la APK mas nueva y seguir usando la app.',
           actionTypeId: 'APK_UPDATE_ACTIONS',
           channelId: 'apk-updates',
-          ongoing: true,
-          autoCancel: false,
+          schedule: {
+            at: triggerAt,
+            allowWhileIdle: true,
+          },
+          ongoing: false,
+          autoCancel: true,
           extra: {
             buildId,
           },
