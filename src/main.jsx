@@ -8,6 +8,7 @@ const REMOTE_APK_VERSION_URL = 'https://giannattasionicolass-droid.github.io/cel
 const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/celiashop-android.apk'
 const APK_UPDATE_MODAL_ID = 'apk-update-required-modal'
 const APK_UPDATE_STYLE_ID = 'apk-update-required-style'
+const APK_FORCE_PROMPT_STORAGE_KEY = 'apkForcePromptTokenSeen'
 
 const esCapacitorNativo = () => {
   try {
@@ -43,7 +44,7 @@ const buildVersionCandidates = () => {
   ))
 }
 
-const fetchRemoteBuildId = async () => {
+const fetchRemoteBuildInfo = async () => {
   const candidates = buildVersionCandidates()
 
   for (const rawUrl of candidates) {
@@ -55,7 +56,16 @@ const fetchRemoteBuildId = async () => {
       if (!response.ok) continue
       const json = await response.json().catch(() => null)
       const buildId = String(json?.apkBuildId || json?.buildId || '').trim()
-      if (buildId) return buildId
+      if (!buildId) continue
+
+      const forcePromptAllDevices = Boolean(json?.forcePromptAllDevices)
+      const forcePromptToken = String(json?.forcePromptToken || '').trim() || buildId
+
+      return {
+        buildId,
+        forcePromptAllDevices,
+        forcePromptToken,
+      }
     } catch {
       // Intentamos el siguiente candidate.
     }
@@ -236,7 +246,7 @@ const bloquearInteraccionApp = (bloquear) => {
   document.body.style.overflow = bloquear ? 'hidden' : ''
 }
 
-const mostrarActualizacionObligatoria = (remoteBuildId) => {
+const mostrarActualizacionObligatoria = ({ remoteBuildId, forcePromptToken, showEvenIfCurrent }) => {
   const modal = crearModalActualizacion()
   if (!modal) return
 
@@ -245,10 +255,15 @@ const mostrarActualizacionObligatoria = (remoteBuildId) => {
   const retryButton = modal.querySelector('[data-apk-update-retry]')
 
   if (meta) {
-    meta.textContent = `Version instalada: ${APP_BUILD_ID}. Version disponible: ${remoteBuildId}.`
+    meta.textContent = showEvenIfCurrent
+      ? `Aviso general activo para todos los dispositivos con APK. Version instalada: ${APP_BUILD_ID}. Build publicado: ${remoteBuildId}.`
+      : `Version instalada: ${APP_BUILD_ID}. Version disponible: ${remoteBuildId}.`
   }
 
   const iniciarDescarga = () => {
+    if (forcePromptToken) {
+      localStorage.setItem(APK_FORCE_PROMPT_STORAGE_KEY, forcePromptToken)
+    }
     abrirDescargaApkExterna(remoteBuildId)
     if (meta) {
       meta.textContent = `Descarga iniciada para la version ${remoteBuildId}. Si no se abre automaticamente, toca "Volver a intentar".`
@@ -276,9 +291,22 @@ const iniciarChequeoActualizacionNativa = () => {
     checkInProgress = true
 
     try {
-      const remoteBuildId = await fetchRemoteBuildId()
-      if (!remoteBuildId || remoteBuildId === APP_BUILD_ID) return
-      mostrarActualizacionObligatoria(remoteBuildId)
+      const remoteInfo = await fetchRemoteBuildInfo()
+      if (!remoteInfo?.buildId) return
+
+      const showBecauseBuildChanged = remoteInfo.buildId !== APP_BUILD_ID
+      const seenForcePromptToken = String(localStorage.getItem(APK_FORCE_PROMPT_STORAGE_KEY) || '')
+      const showBecauseForcedGlobalPrompt = remoteInfo.forcePromptAllDevices
+        && remoteInfo.forcePromptToken
+        && seenForcePromptToken !== remoteInfo.forcePromptToken
+
+      if (!showBecauseBuildChanged && !showBecauseForcedGlobalPrompt) return
+
+      mostrarActualizacionObligatoria({
+        remoteBuildId: remoteInfo.buildId,
+        forcePromptToken: remoteInfo.forcePromptToken,
+        showEvenIfCurrent: showBecauseForcedGlobalPrompt && !showBecauseBuildChanged,
+      })
     } finally {
       checkInProgress = false
     }

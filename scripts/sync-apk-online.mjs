@@ -124,6 +124,8 @@ const publicarApkYVersion = () => {
         generatedAt: buildId,
         apkFile: 'celiashop-android.apk',
         apkSizeBytes: apkStats.size,
+        forcePromptAllDevices: true,
+        forcePromptToken: buildId,
       },
       null,
       2,
