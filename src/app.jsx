@@ -5916,7 +5916,10 @@ export default function App() {
               <>
                 <div
                   className="store-grid-force-3 store-grid grid gap-3 md:gap-4 items-stretch"
-                  style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+                  style={{
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateRows: 'repeat(4, minmax(0, 1fr))',
+                  }}
                 >
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
@@ -5987,7 +5990,7 @@ export default function App() {
                   <div className="mt-7 rounded-[28px] border border-gray-200 bg-white/90 p-4 shadow-sm flex flex-col items-center gap-3">
                     <p className="text-sm font-black uppercase tracking-[0.12em] text-gray-700">Pagina {paginaProductosSegura} de {totalPaginasProductos}</p>
                     <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">12 productos por página</p>
-                    <div className="flex flex-wrap items-center justify-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 overflow-x-auto max-w-full pb-1">
                       <button
                         onClick={() => setPaginaProductos((prev) => Math.max(1, prev - 1))}
                         disabled={paginaProductosSegura <= 1}
@@ -5995,10 +5998,8 @@ export default function App() {
                       >
                         Anterior
                       </button>
-                      {Array.from({ length: Math.min(totalPaginasProductos, 5) }, (_, i) => {
-                        const base = Math.max(1, Math.min(paginaProductosSegura - 2, totalPaginasProductos - 4));
-                        const pagina = base + i;
-                        if (pagina > totalPaginasProductos) return null;
+                      {Array.from({ length: totalPaginasProductos }, (_, i) => {
+                        const pagina = i + 1;
                         return (
                           <button
                             key={pagina}
