@@ -5520,7 +5520,7 @@ export default function App() {
           <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-400">Cargando CeliaShop…</p>
         </div>
       )}
-      <nav className="sticky top-3 z-50 mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
+      <nav className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
           <div onClick={() => setPagina('inicio')} className="cursor-pointer flex items-center justify-center gap-4 text-center">
             <div className="w-16 h-16 md:w-18 md:h-18 rounded-2xl bg-white/80 border border-white shadow-lg flex items-center justify-center">
@@ -5564,7 +5564,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="premium-main max-w-7xl mx-auto px-4 py-8 md:py-10 flex-grow w-full">
+      <main className="premium-main max-w-7xl mx-auto px-4 pt-[17.5rem] pb-8 md:pt-[14.5rem] md:pb-10 flex-grow w-full">
         {pagina === 'inicio' && (
           <div className="space-y-12">
             <div className="premium-hero text-center py-12 px-6 md:px-12 md:py-24 rounded-[42px] text-white">

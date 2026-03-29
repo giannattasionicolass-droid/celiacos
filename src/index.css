@@ -262,18 +262,14 @@ button, input, select, textarea {
   animation: premiumShimmer 0.95s ease;
 }
 
-/* APK native WebView fallback styles for devices with aggressive font scaling/rendering differences. */
-html.native-app {
-  font-size: 15px;
-}
-
+/* Native app keeps the same premium typography as web. */
 html.native-app body,
 html.native-app button,
 html.native-app input,
 html.native-app select,
 html.native-app textarea {
-  font-family: 'Roboto', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-  text-rendering: geometricPrecision;
+  font-family: var(--font-body-stack);
+  text-rendering: optimizeLegibility;
 }
 
 html.native-app h1,
@@ -282,35 +278,32 @@ html.native-app h3,
 html.native-app h4,
 html.native-app h5,
 html.native-app h6 {
-  font-family: 'Roboto', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-}
-
-html.native-app .store-card-badge {
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-
-html.native-app .store-card-cat {
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  font-weight: 700;
-}
-
-html.native-app .store-card-name {
-  font-size: 15px;
-  line-height: 1.25;
-  letter-spacing: 0;
-  font-weight: 700;
-}
-
-html.native-app .store-card-stock,
-html.native-app .store-card-btn {
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  font-weight: 700;
+  font-family: var(--font-heading-stack);
 }
 
 .store-grid-force-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 640px) {
+  .store-grid-force-3 {
+    gap: 0.55rem;
+  }
+
+  .store-grid-force-3 .premium-store-card {
+    padding: 0.5rem;
+    border-radius: 16px;
+  }
+
+  .store-grid-force-3 .store-card-name {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .store-grid-force-3 .store-card-btn,
+  .store-grid-force-3 .store-card-stock,
+  .store-grid-force-3 .store-card-cat {
+    font-size: 10px;
+  }
 }
