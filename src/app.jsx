@@ -1275,7 +1275,7 @@ function InstallAppBanner() {
   );
 }
 
-function Carrusel({ productos, agregarAlCarrito }) {
+function Carrusel({ productos, agregarAlCarrito, onVerDetalleProducto }) {
   const [actual, setActual] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [slidesPorVista, setSlidesPorVista] = useState(5);
@@ -1392,7 +1392,11 @@ function Carrusel({ productos, agregarAlCarrito }) {
         >
           {productosOrdenados.map((p, i) => (
             <div key={p.id} className="px-2 flex" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
+              <div
+                className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col cursor-pointer"
+                style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}
+                onClick={() => onVerDetalleProducto?.(p)}
+              >
                 <div className="relative h-36 md:h-40 flex items-center justify-center bg-white overflow-hidden">
                   <img
                     src={p.imagen_url}
@@ -1439,7 +1443,10 @@ function Carrusel({ productos, agregarAlCarrito }) {
                   </div>
                   </div>
                   <button
-                    onClick={() => agregarAlCarrito(p)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      agregarAlCarrito(p);
+                    }}
                     disabled={!p.activo || p.stock <= 0}
                     className={`w-full mt-auto py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 flex items-center justify-center ${
                       !p.activo || p.stock <= 0
@@ -1467,6 +1474,92 @@ function Carrusel({ productos, agregarAlCarrito }) {
             aria-label={`Ir al bloque ${i + 1}`}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ModalProductoDetalle({ producto, onClose, onAgregarCarrito }) {
+  useEffect(() => {
+    if (!producto) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [producto, onClose]);
+
+  if (!producto) return null;
+
+  const precioMostrar = (producto.en_oferta && Number(producto.precio_oferta) > 0)
+    ? Number(producto.precio_oferta)
+    : Number(producto.precio);
+  const disponible = Boolean(producto.activo) && Number(producto.stock || 0) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl premium-panel rounded-[28px] overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-white/95 border border-gray-200 text-gray-700 flex items-center justify-center hover:bg-white"
+            aria-label="Cerrar detalle"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="bg-white p-4 md:p-6 flex items-center justify-center min-h-[260px] md:min-h-[360px]">
+            <img
+              src={producto.imagen_url}
+              alt={producto.nombre}
+              className="max-h-[320px] md:max-h-[420px] w-full object-contain"
+            />
+          </div>
+
+          <div className="p-5 md:p-7 flex flex-col">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">{producto.categoria || 'Sin categoría'}</p>
+            <h3 className="mt-2 text-2xl md:text-3xl font-black uppercase tracking-tight text-gray-900 leading-tight">{producto.nombre}</h3>
+
+            <div className="mt-4">
+              {producto.en_oferta && Number(producto.precio_oferta) > 0 && (
+                <p className="text-sm font-bold line-through text-gray-400">{formatearMoneda(producto.precio)}</p>
+              )}
+              <p className="text-3xl md:text-4xl font-black text-emerald-700 leading-none">{formatearMoneda(precioMostrar)}</p>
+            </div>
+
+            <p className={`mt-3 text-sm font-black uppercase tracking-[0.08em] ${disponible ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {disponible ? `Stock disponible: ${producto.stock}` : 'Sin stock'}
+            </p>
+
+            <p className="mt-4 text-sm text-gray-600 font-semibold leading-relaxed min-h-[70px]">
+              {String(producto.descripcion || '').trim() || 'Producto sin descripción cargada.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onAgregarCarrito(producto)}
+              disabled={!disponible}
+              className={`mt-auto w-full py-3 rounded-2xl text-sm font-black uppercase tracking-[0.1em] transition-all ${disponible ? 'bg-gray-900 text-white hover:bg-green-600' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
+            >
+              {disponible ? 'Agregar producto' : 'No disponible'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -5153,6 +5246,7 @@ export default function App() {
   const [filtroSoloNuevos, setFiltroSoloNuevos] = useState(false);
   const [ordenProductos, setOrdenProductos] = useState('nuevos');
   const [paginaProductos, setPaginaProductos] = useState(1);
+  const [productoDetalle, setProductoDetalle] = useState(null);
   const [pedidosVersion, setPedidosVersion] = useState(0);
   const [perfilVersion, setPerfilVersion] = useState(0);
   const [datos, setDatos] = useState({ 
@@ -5239,6 +5333,15 @@ export default function App() {
     setFiltroSoloNuevos(false);
     setOrdenProductos('nuevos');
     setPaginaProductos(1);
+  };
+
+  const abrirDetalleProducto = (producto) => {
+    if (!producto) return;
+    setProductoDetalle(producto);
+  };
+
+  const cerrarDetalleProducto = () => {
+    setProductoDetalle(null);
   };
 
   const notificarSincronizacionPedidos = () => setPedidosVersion((prev) => prev + 1);
@@ -5615,7 +5718,11 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <Carrusel productos={productosBD} agregarAlCarrito={agregarAlCarrito} />
+            <Carrusel
+              productos={productosBD}
+              agregarAlCarrito={agregarAlCarrito}
+              onVerDetalleProducto={abrirDetalleProducto}
+            />
             <div className="premium-panel rounded-[40px] p-10 md:p-12">
               <h2 className="text-2xl md:text-4xl italic text-gray-900 uppercase tracking-tighter text-center mb-3">Por qué elegir CeliaShop</h2>
               <p className="text-center text-sm text-gray-500 font-semibold mb-10">Diseñamos una compra simple, confiable y adaptada a cada cliente</p>
@@ -5816,11 +5923,9 @@ export default function App() {
                   return (
                     <div
                       key={p.id}
-                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 h-full flex flex-col ${p.activo && p.stock > 0 ? 'cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]' : ''}`}
+                      className="premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 h-full flex flex-col cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]"
                       style={{ '--card-delay': `${index * 75}ms` }}
-                      onClick={() => {
-                        if (p.activo && p.stock > 0) agregarAlCarrito(p);
-                      }}
+                      onClick={() => abrirDetalleProducto(p)}
                     >
                       <div className="relative">
                         <div className="h-24 sm:h-28 xl:h-32 w-full bg-white rounded-2xl mb-2.5 flex items-center justify-center overflow-hidden">
@@ -6000,6 +6105,12 @@ export default function App() {
           {mensajeToast}
         </div>
       )}
+
+      <ModalProductoDetalle
+        producto={productoDetalle}
+        onClose={cerrarDetalleProducto}
+        onAgregarCarrito={agregarAlCarrito}
+      />
     </div>
   );
 }
