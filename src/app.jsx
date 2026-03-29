@@ -5774,7 +5774,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="store-grid grid grid-cols-3 gap-3 md:gap-4 items-stretch">
+                <div className="store-grid-force-3 store-grid grid gap-3 md:gap-4 items-stretch">
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (

@@ -309,3 +309,8 @@ html.native-app .store-card-btn {
   letter-spacing: 0.03em;
   font-weight: 700;
 }
+
+.store-grid-force-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
