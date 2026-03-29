@@ -5634,7 +5634,6 @@ export default function App() {
       )}
       <header
         className="premium-nav-wrap z-[80] px-2 pt-2 md:px-3"
-        style={{ position: 'fixed', top: '0px', left: 0, right: 0, zIndex: 80, transform: 'translateZ(0)' }}
       >
       <nav className="mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">

@@ -108,6 +108,24 @@ button, input, select, textarea {
   pointer-events: auto;
 }
 
+html:not(.native-app) .premium-nav-wrap {
+  position: relative !important;
+  top: auto !important;
+  left: auto;
+  right: auto;
+  transform: none;
+}
+
+html:not(.native-app) .premium-main {
+  padding-top: 1.5rem !important;
+}
+
+@media (min-width: 768px) {
+  html:not(.native-app) .premium-main {
+    padding-top: 2rem !important;
+  }
+}
+
 .premium-main {
   position: relative;
   z-index: 1;
