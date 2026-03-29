@@ -64,7 +64,9 @@ const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
-const APK_DOWNLOAD_URL = `${import.meta.env.BASE_URL}celiashop-android.apk`;
+const APK_DOWNLOAD_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
+const APK_VERSION_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/apk-version.json';
+const APK_DOWNLOAD_URL_DIRECT = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
 
 const esProductoNuevo = (producto = {}) => {
   const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
@@ -1169,8 +1171,23 @@ function InstallAppBanner() {
   }, []);
 
   const descargarAPK = async () => {
+    let apkUrlFinal = APK_DOWNLOAD_URL;
+
     try {
-      const response = await fetch(APK_DOWNLOAD_URL, { cache: 'no-store' });
+      const versionResp = await fetch(`${APK_VERSION_URL}?ts=${Date.now()}`, { cache: 'no-store' });
+      if (versionResp.ok) {
+        const versionData = await versionResp.json().catch(() => null);
+        const buildId = String(versionData?.apkBuildId || versionData?.buildId || '').trim();
+        if (buildId) {
+          apkUrlFinal = `${APK_DOWNLOAD_URL}?build=${encodeURIComponent(buildId)}&ts=${Date.now()}`;
+        }
+      }
+    } catch {
+      apkUrlFinal = `${APK_DOWNLOAD_URL}?ts=${Date.now()}`;
+    }
+
+    try {
+      const response = await fetch(apkUrlFinal, { cache: 'reload' });
       if (!response.ok) throw new Error('No se pudo descargar la APK');
       const blob = await response.blob();
       const apkBlob = new Blob([blob], { type: 'application/vnd.android.package-archive' });
@@ -1186,7 +1203,7 @@ function InstallAppBanner() {
     } catch {
       // Fallback por compatibilidad si el navegador bloquea blob URLs.
       const enlaceDirecto = document.createElement('a');
-      enlaceDirecto.href = APK_DOWNLOAD_URL;
+      enlaceDirecto.href = apkUrlFinal;
       enlaceDirecto.download = 'celiashop.apk';
       enlaceDirecto.rel = 'noopener';
       document.body.appendChild(enlaceDirecto);
@@ -1236,18 +1253,10 @@ function InstallAppBanner() {
       </>
     );
   }
-  return (
-    <button
-      onClick={descargarAPK}
-      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
-    >
-      <Download size={15} />
-      <span>Instalar APK para Android</span>
-    </button>
-  );
+  return null;
 }
 
-function Carrusel({ productos, agregarAlCarrito }) {
+function Carrusel({ productos, agregarAlCarrito, onVerDetalleProducto }) {
   const [actual, setActual] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [slidesPorVista, setSlidesPorVista] = useState(5);
@@ -1364,7 +1373,11 @@ function Carrusel({ productos, agregarAlCarrito }) {
         >
           {productosOrdenados.map((p, i) => (
             <div key={p.id} className="px-2 flex" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
-              <div className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
+              <div
+                className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col cursor-pointer"
+                style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}
+                onClick={() => onVerDetalleProducto?.(p)}
+              >
                 <div className="relative h-36 md:h-40 flex items-center justify-center bg-white overflow-hidden">
                   <img
                     src={p.imagen_url}
@@ -1411,7 +1424,10 @@ function Carrusel({ productos, agregarAlCarrito }) {
                   </div>
                   </div>
                   <button
-                    onClick={() => agregarAlCarrito(p)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      agregarAlCarrito(p);
+                    }}
                     disabled={!p.activo || p.stock <= 0}
                     className={`w-full mt-auto py-3.5 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-[0.14em] transition-all duration-300 flex items-center justify-center ${
                       !p.activo || p.stock <= 0
@@ -1439,6 +1455,92 @@ function Carrusel({ productos, agregarAlCarrito }) {
             aria-label={`Ir al bloque ${i + 1}`}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ModalProductoDetalle({ producto, onClose, onAgregarCarrito }) {
+  useEffect(() => {
+    if (!producto) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [producto, onClose]);
+
+  if (!producto) return null;
+
+  const precioMostrar = (producto.en_oferta && Number(producto.precio_oferta) > 0)
+    ? Number(producto.precio_oferta)
+    : Number(producto.precio);
+  const disponible = Boolean(producto.activo) && Number(producto.stock || 0) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl premium-panel rounded-[28px] overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 z-10 h-10 w-10 rounded-full bg-white/95 border border-gray-200 text-gray-700 flex items-center justify-center hover:bg-white"
+            aria-label="Cerrar detalle"
+          >
+            <X size={20} />
+          </button>
+
+          <div className="bg-white p-4 md:p-6 flex items-center justify-center min-h-[260px] md:min-h-[360px]">
+            <img
+              src={producto.imagen_url}
+              alt={producto.nombre}
+              className="max-h-[320px] md:max-h-[420px] w-full object-contain"
+            />
+          </div>
+
+          <div className="p-5 md:p-7 flex flex-col">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">{producto.categoria || 'Sin categoría'}</p>
+            <h3 className="mt-2 text-2xl md:text-3xl font-black uppercase tracking-tight text-gray-900 leading-tight">{producto.nombre}</h3>
+
+            <div className="mt-4">
+              {producto.en_oferta && Number(producto.precio_oferta) > 0 && (
+                <p className="text-sm font-bold line-through text-gray-400">{formatearMoneda(producto.precio)}</p>
+              )}
+              <p className="text-3xl md:text-4xl font-black text-emerald-700 leading-none">{formatearMoneda(precioMostrar)}</p>
+            </div>
+
+            <p className={`mt-3 text-sm font-black uppercase tracking-[0.08em] ${disponible ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {disponible ? `Stock disponible: ${producto.stock}` : 'Sin stock'}
+            </p>
+
+            <p className="mt-4 text-sm text-gray-600 font-semibold leading-relaxed min-h-[70px]">
+              {String(producto.descripcion || '').trim() || 'Producto sin descripción cargada.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onAgregarCarrito(producto)}
+              disabled={!disponible}
+              className={`mt-auto w-full py-3 rounded-2xl text-sm font-black uppercase tracking-[0.1em] transition-all ${disponible ? 'bg-gray-900 text-white hover:bg-green-600' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
+            >
+              {disponible ? 'Agregar producto' : 'No disponible'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -5125,6 +5227,7 @@ export default function App() {
   const [filtroSoloNuevos, setFiltroSoloNuevos] = useState(false);
   const [ordenProductos, setOrdenProductos] = useState('nuevos');
   const [paginaProductos, setPaginaProductos] = useState(1);
+  const [productoDetalle, setProductoDetalle] = useState(null);
   const [pedidosVersion, setPedidosVersion] = useState(0);
   const [perfilVersion, setPerfilVersion] = useState(0);
   const [datos, setDatos] = useState({ 
@@ -5211,6 +5314,15 @@ export default function App() {
     setFiltroSoloNuevos(false);
     setOrdenProductos('nuevos');
     setPaginaProductos(1);
+  };
+
+  const abrirDetalleProducto = (producto) => {
+    if (!producto) return;
+    setProductoDetalle(producto);
+  };
+
+  const cerrarDetalleProducto = () => {
+    setProductoDetalle(null);
   };
 
   const notificarSincronizacionPedidos = () => setPedidosVersion((prev) => prev + 1);
@@ -5520,7 +5632,11 @@ export default function App() {
           <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-400">Cargando CeliaShop…</p>
         </div>
       )}
-      <nav className="sticky top-3 z-50 mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
+      <header
+        className="premium-nav-wrap z-[80] px-2 pt-2 md:px-3"
+        style={{ position: 'fixed', top: '0px', left: 0, right: 0, zIndex: 80, transform: 'translateZ(0)' }}
+      >
+      <nav className="mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
           <div onClick={() => setPagina('inicio')} className="cursor-pointer flex items-center justify-center gap-4 text-center">
             <div className="w-16 h-16 md:w-18 md:h-18 rounded-2xl bg-white/80 border border-white shadow-lg flex items-center justify-center">
@@ -5563,8 +5679,9 @@ export default function App() {
           </div>
         </div>
       </nav>
+      </header>
 
-      <main className="premium-main max-w-7xl mx-auto px-4 py-8 md:py-10 flex-grow w-full">
+      <main className="premium-main max-w-7xl mx-auto px-4 pt-[18.5rem] pb-8 md:pt-[15.5rem] md:pb-10 flex-grow w-full">
         {pagina === 'inicio' && (
           <div className="space-y-12">
             <div className="premium-hero text-center py-12 px-6 md:px-12 md:py-24 rounded-[42px] text-white">
@@ -5582,7 +5699,11 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <Carrusel productos={productosBD} agregarAlCarrito={agregarAlCarrito} />
+            <Carrusel
+              productos={productosBD}
+              agregarAlCarrito={agregarAlCarrito}
+              onVerDetalleProducto={abrirDetalleProducto}
+            />
             <div className="premium-panel rounded-[40px] p-10 md:p-12">
               <h2 className="text-2xl md:text-4xl italic text-gray-900 uppercase tracking-tighter text-center mb-3">Por qué elegir CeliaShop</h2>
               <p className="text-center text-sm text-gray-500 font-semibold mb-10">Diseñamos una compra simple, confiable y adaptada a cada cliente</p>
@@ -5774,17 +5895,21 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="store-grid grid grid-cols-3 gap-3 md:gap-4 items-stretch">
+                <div
+                  className="store-grid-force-3 store-grid grid gap-3 md:gap-4 items-stretch"
+                  style={{
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateRows: 'repeat(4, minmax(0, 1fr))',
+                  }}
+                >
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
                     <div
                       key={p.id}
-                      className={`premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 h-full flex flex-col ${p.activo && p.stock > 0 ? 'cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]' : ''}`}
+                      className="premium-product-card premium-store-card p-3 md:p-3.5 rounded-[24px] relative overflow-hidden group transition-all duration-300 h-full flex flex-col cursor-pointer hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]"
                       style={{ '--card-delay': `${index * 75}ms` }}
-                      onClick={() => {
-                        if (p.activo && p.stock > 0) agregarAlCarrito(p);
-                      }}
+                      onClick={() => abrirDetalleProducto(p)}
                     >
                       <div className="relative">
                         <div className="h-24 sm:h-28 xl:h-32 w-full bg-white rounded-2xl mb-2.5 flex items-center justify-center overflow-hidden">
@@ -5846,7 +5971,7 @@ export default function App() {
                   <div className="mt-7 rounded-[28px] border border-gray-200 bg-white/90 p-4 shadow-sm flex flex-col items-center gap-3">
                     <p className="text-sm font-black uppercase tracking-[0.12em] text-gray-700">Pagina {paginaProductosSegura} de {totalPaginasProductos}</p>
                     <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">12 productos por página</p>
-                    <div className="flex flex-wrap items-center justify-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 overflow-x-auto max-w-full pb-1">
                       <button
                         onClick={() => setPaginaProductos((prev) => Math.max(1, prev - 1))}
                         disabled={paginaProductosSegura <= 1}
@@ -5854,10 +5979,8 @@ export default function App() {
                       >
                         Anterior
                       </button>
-                      {Array.from({ length: Math.min(totalPaginasProductos, 5) }, (_, i) => {
-                        const base = Math.max(1, Math.min(paginaProductosSegura - 2, totalPaginasProductos - 4));
-                        const pagina = base + i;
-                        if (pagina > totalPaginasProductos) return null;
+                      {Array.from({ length: totalPaginasProductos }, (_, i) => {
+                        const pagina = i + 1;
                         return (
                           <button
                             key={pagina}
@@ -5964,6 +6087,12 @@ export default function App() {
           {mensajeToast}
         </div>
       )}
+
+      <ModalProductoDetalle
+        producto={productoDetalle}
+        onClose={cerrarDetalleProducto}
+        onAgregarCarrito={agregarAlCarrito}
+      />
     </div>
   );
 }
