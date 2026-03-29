@@ -5520,7 +5520,8 @@ export default function App() {
           <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-400">Cargando CeliaShop…</p>
         </div>
       )}
-      <nav className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
+      <header className="premium-nav-wrap fixed top-0 left-0 right-0 z-[80] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] md:px-3">
+      <nav className="mx-auto w-[min(98%,1700px)] premium-nav rounded-[30px] px-5 py-5 md:px-10 md:py-6">
         <div className="flex flex-col items-center gap-5">
           <div onClick={() => setPagina('inicio')} className="cursor-pointer flex items-center justify-center gap-4 text-center">
             <div className="w-16 h-16 md:w-18 md:h-18 rounded-2xl bg-white/80 border border-white shadow-lg flex items-center justify-center">
@@ -5563,8 +5564,9 @@ export default function App() {
           </div>
         </div>
       </nav>
+      </header>
 
-      <main className="premium-main max-w-7xl mx-auto px-4 pt-[17.5rem] pb-8 md:pt-[14.5rem] md:pb-10 flex-grow w-full">
+      <main className="premium-main max-w-7xl mx-auto px-4 pt-[18.5rem] pb-8 md:pt-[15.5rem] md:pb-10 flex-grow w-full">
         {pagina === 'inicio' && (
           <div className="space-y-12">
             <div className="premium-hero text-center py-12 px-6 md:px-12 md:py-24 rounded-[42px] text-white">
