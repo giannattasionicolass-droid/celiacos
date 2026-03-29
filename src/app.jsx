@@ -1365,11 +1365,11 @@ function Carrusel({ productos, agregarAlCarrito }) {
           {productosOrdenados.map((p, i) => (
             <div key={p.id} className="px-2 flex" style={{ flex: `0 0 ${100 / slidesPorVista}%` }}>
               <div className="premium-carousel-card w-full h-full rounded-[24px] border border-zinc-200/70 bg-white/95 shadow-md group flex flex-col" style={{ animationDelay: `${Math.min(i, 5) * 80}ms` }}>
-                <div className="relative h-36 md:h-40">
+                <div className="relative h-36 md:h-40 flex items-center justify-center bg-white overflow-hidden">
                   <img
                     src={p.imagen_url}
                     alt={p.nombre}
-                    className="w-full h-full object-contain bg-white transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/40 via-zinc-900/10 to-transparent opacity-70"></div>
                   <div className="premium-shimmer absolute inset-0"></div>
@@ -1386,11 +1386,11 @@ function Carrusel({ productos, agregarAlCarrito }) {
                 </div>
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="mb-2 flex items-center justify-center gap-2 text-center">
                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-zinc-500">{p.categoria || 'Sin categoria'}</p>
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
                   </div>
-                  <div className="min-h-[6.2rem] md:min-h-[6.8rem] mb-2">
+                  <div className="min-h-[6.2rem] md:min-h-[6.8rem] mb-2 flex items-center justify-center text-center px-1">
                     <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 leading-snug">{p.nombre}</h3>
                   </div>
                   <div className="mt-2 mb-3 min-h-[72px] md:min-h-[78px] flex flex-col items-center justify-center text-center">
@@ -5774,7 +5774,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                <div className="store-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 items-stretch">
+                <div className="store-grid grid grid-cols-3 gap-3 md:gap-4 items-stretch">
                   {productosPaginados.map((p, index) => {
                   const esNuevo = esProductoNuevo(p);
                   return (
@@ -5787,7 +5787,9 @@ export default function App() {
                       }}
                     >
                       <div className="relative">
-                        <img src={p.imagen_url} className="h-24 sm:h-28 xl:h-32 w-full object-contain bg-white rounded-2xl mb-2.5 transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
+                        <div className="h-24 sm:h-28 xl:h-32 w-full bg-white rounded-2xl mb-2.5 flex items-center justify-center overflow-hidden">
+                          <img src={p.imagen_url} className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]" alt={p.nombre} />
+                        </div>
                         {esNuevo && (
                           <span className="store-card-badge absolute top-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-[0.1em]">Nuevo</span>
                         )}
@@ -5798,12 +5800,11 @@ export default function App() {
 
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
-                        <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="mb-2 flex items-center justify-center gap-2 text-center">
                           <p className="store-card-cat text-[10px] font-extrabold uppercase tracking-[0.08em] text-gray-400 truncate">{p.categoria || 'Sin categoría'}</p>
-                          <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-transparent select-none">Stock</span>
                         </div>
 
-                        <div className="min-h-[5.8rem] md:min-h-[5.8rem]">
+                        <div className="min-h-[5.8rem] md:min-h-[5.8rem] flex items-center justify-center text-center px-1">
                           <h3 className="store-card-name font-extrabold text-[14px] md:text-sm text-gray-900 leading-snug break-words [overflow-wrap:anywhere]">{p.nombre}</h3>
                         </div>
                         <div className="mt-2 mb-2.5 min-h-[68px] md:min-h-[74px] flex flex-col items-center justify-center text-center">
