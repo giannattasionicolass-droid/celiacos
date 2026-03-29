@@ -1391,14 +1391,17 @@ function Carrusel({ productos, agregarAlCarrito }) {
                     {p.esNuevo && <p className="text-[10px] md:text-xs font-black text-emerald-700 uppercase tracking-[0.12em]">Recien ingresado</p>}
                   </div>
                   <h3 className="text-sm md:text-base font-black tracking-[0.01em] text-zinc-900 mb-2 leading-snug">{p.nombre}</h3>
-                  <div className="mt-2 mb-3 text-center">
+                  <div className="mt-2 mb-3 min-h-[72px] md:min-h-[78px] flex flex-col items-center justify-center text-center">
                     {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                       <div className="mb-1">
                         <p className="text-xl md:text-2xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
                         <p className="text-xs text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
                       </div>
                     ) : (
-                      <p className="text-xl md:text-2xl text-emerald-700 font-black mb-1">{formatearMoneda(p.precio)}</p>
+                      <div className="mb-1">
+                        <p className="text-xl md:text-2xl text-emerald-700 font-black leading-none">{formatearMoneda(p.precio)}</p>
+                        <p className="text-xs font-bold invisible">{formatearMoneda(p.precio)}</p>
+                      </div>
                     )}
                     <p className={`text-xs md:text-sm font-black ${p.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {p.stock > 0 ? `Stock: ${p.stock}` : 'Sin stock'}
@@ -5795,14 +5798,17 @@ export default function App() {
                         </div>
 
                         <h3 className="font-black text-[13px] md:text-sm text-gray-900 leading-tight">{p.nombre}</h3>
-                        <div className="mt-2 mb-2.5 text-center">
+                        <div className="mt-2 mb-2.5 min-h-[68px] md:min-h-[74px] flex flex-col items-center justify-center text-center">
                           {p.en_oferta && Number(p.precio_oferta) > 0 ? (
                             <div className="mb-1">
                               <p className="text-lg md:text-xl text-orange-500 font-black leading-none">{formatearMoneda(p.precio_oferta)}</p>
                               <p className="text-[11px] text-gray-400 font-bold line-through">{formatearMoneda(p.precio)}</p>
                             </div>
                           ) : (
-                            <p className="text-lg md:text-xl text-emerald-600 font-black mt-1 mb-1">{formatearMoneda(p.precio)}</p>
+                            <div className="mb-1">
+                              <p className="text-lg md:text-xl text-emerald-600 font-black leading-none">{formatearMoneda(p.precio)}</p>
+                              <p className="text-[11px] font-bold invisible">{formatearMoneda(p.precio)}</p>
+                            </div>
                           )}
                           {!p.activo || Number(p.stock || 0) <= 0 ? (
                             <p className="text-[10px] font-black uppercase tracking-[0.1em] text-rose-500">Sin stock</p>
