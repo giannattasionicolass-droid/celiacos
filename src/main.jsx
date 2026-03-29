@@ -13,11 +13,25 @@ const APK_FORCE_PROMPT_STORAGE_KEY = 'apkForcePromptTokenSeen'
 const esCapacitorNativo = () => {
   try {
     if (typeof window === 'undefined') return false
-    if (typeof window.Capacitor === 'undefined') return false
-    if (typeof window.Capacitor.isNativePlatform === 'function') {
-      return Boolean(window.Capacitor.isNativePlatform())
+    const capacitor = window.Capacitor
+
+    if (capacitor) {
+      if (typeof capacitor.isNativePlatform === 'function') {
+        if (capacitor.isNativePlatform()) return true
+      }
+
+      if (typeof capacitor.getPlatform === 'function') {
+        const platform = String(capacitor.getPlatform() || '').toLowerCase()
+        if (platform && platform !== 'web') return true
+      }
+
+      return true
     }
-    return true
+
+    const protocol = String(window.location?.protocol || '').toLowerCase()
+    if (protocol === 'capacitor:' || protocol === 'file:') return true
+
+    return false
   } catch {
     return false
   }
@@ -282,12 +296,11 @@ const mostrarActualizacionObligatoria = ({ remoteBuildId, forcePromptToken, show
 }
 
 const iniciarChequeoActualizacionNativa = () => {
-  if (!esCapacitorNativo()) return
-
   let checkInProgress = false
 
   const ejecutarChequeo = async () => {
     if (checkInProgress) return
+    if (!esCapacitorNativo()) return
     checkInProgress = true
 
     try {
@@ -295,7 +308,13 @@ const iniciarChequeoActualizacionNativa = () => {
       if (!remoteInfo?.buildId) return
 
       const showBecauseBuildChanged = remoteInfo.buildId !== APP_BUILD_ID
-      const seenForcePromptToken = String(localStorage.getItem(APK_FORCE_PROMPT_STORAGE_KEY) || '')
+      const seenForcePromptToken = (() => {
+        try {
+          return String(localStorage.getItem(APK_FORCE_PROMPT_STORAGE_KEY) || '')
+        } catch {
+          return ''
+        }
+      })()
       const showBecauseForcedGlobalPrompt = remoteInfo.forcePromptAllDevices
         && remoteInfo.forcePromptToken
         && seenForcePromptToken !== remoteInfo.forcePromptToken
@@ -321,13 +340,23 @@ const iniciarChequeoActualizacionNativa = () => {
 
   // Primer chequeo al iniciar + chequeo periódico.
   void ejecutarChequeo()
+
+  // En algunos dispositivos el bridge nativo se inicializa unos segundos más tarde.
+  window.setTimeout(() => {
+    void ejecutarChequeo()
+  }, 3 * 1000)
+
+  window.setTimeout(() => {
+    void ejecutarChequeo()
+  }, 8 * 1000)
+
   window.setInterval(() => {
     void ejecutarChequeo()
   }, 2 * 60 * 1000)
 }
 
 // Registrar Service Worker solo en web/PWA, NO en Capacitor nativo
-if ('serviceWorker' in navigator && !window.Capacitor) {
+if ('serviceWorker' in navigator && !esCapacitorNativo()) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
   })
