@@ -9,6 +9,10 @@ const APK_UPDATE_URL = 'https://giannattasionicolass-droid.github.io/celiacos/ce
 const APK_UPDATE_MODAL_ID = 'apk-update-required-modal'
 const APK_UPDATE_STYLE_ID = 'apk-update-required-style'
 const APK_FORCE_PROMPT_STORAGE_KEY = 'apkForcePromptTokenSeen'
+const APK_FORCE_NOTIFICATION_STORAGE_KEY = 'apkForceNotificationTokenSeen'
+const APK_UPDATE_NOTIFICATION_ID = 88001
+
+let localNotificationBindingsReady = false
 
 const esCapacitorNativo = () => {
   try {
@@ -101,6 +105,136 @@ const abrirDescargaApkExterna = (buildId) => {
     document.body.removeChild(enlace)
   } catch {
     window.open(urlFinal, '_blank', 'noopener,noreferrer')
+  }
+}
+
+const obtenerLocalNotificationsApi = async () => {
+  if (!esCapacitorNativo()) return null
+
+  try {
+    const mod = await import('@capacitor/local-notifications')
+    return mod?.LocalNotifications || null
+  } catch {
+    return null
+  }
+}
+
+const prepararNotificacionesActualizacion = async (LocalNotifications) => {
+  if (!LocalNotifications || localNotificationBindingsReady) return
+
+  try {
+    await LocalNotifications.registerActionTypes({
+      types: [
+        {
+          id: 'APK_UPDATE_ACTIONS',
+          actions: [
+            {
+              id: 'UPDATE_NOW',
+              title: 'Actualizar',
+            },
+          ],
+        },
+      ],
+    })
+  } catch {
+    // Si el dispositivo no soporta acciones personalizadas, seguimos igual.
+  }
+
+  LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+    const actionId = String(event?.actionId || '').toUpperCase()
+    const id = Number(event?.notification?.id)
+    const buildId = String(event?.notification?.extra?.buildId || APP_BUILD_ID).trim() || APP_BUILD_ID
+
+    if (id !== APK_UPDATE_NOTIFICATION_ID) return
+    if (actionId && actionId !== 'UPDATE_NOW' && actionId !== 'TAP') return
+
+    abrirDescargaApkExterna(buildId)
+  })
+
+  localNotificationBindingsReady = true
+}
+
+const pedirPermisoNotificaciones = async (LocalNotifications) => {
+  if (!LocalNotifications) return false
+
+  try {
+    const permisoActual = await LocalNotifications.checkPermissions()
+    if (permisoActual?.display === 'granted') return true
+  } catch {
+    return false
+  }
+
+  try {
+    const permisoNuevo = await LocalNotifications.requestPermissions()
+    return permisoNuevo?.display === 'granted'
+  } catch {
+    return false
+  }
+}
+
+const emitirNotificacionActualizacion = async ({ buildId, forcePromptToken }) => {
+  const tokenAviso = String(forcePromptToken || buildId || '').trim()
+  if (!tokenAviso) return
+
+  const seenNotificationToken = (() => {
+    try {
+      return String(localStorage.getItem(APK_FORCE_NOTIFICATION_STORAGE_KEY) || '')
+    } catch {
+      return ''
+    }
+  })()
+
+  if (seenNotificationToken === tokenAviso) return
+
+  const LocalNotifications = await obtenerLocalNotificationsApi()
+  if (!LocalNotifications) return
+
+  const permisoConcedido = await pedirPermisoNotificaciones(LocalNotifications)
+  if (!permisoConcedido) return
+
+  await prepararNotificacionesActualizacion(LocalNotifications)
+
+  try {
+    await LocalNotifications.createChannel({
+      id: 'apk-updates',
+      name: 'Actualizaciones CeliaShop',
+      description: 'Avisos para instalar la ultima APK publicada.',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+      vibration: true,
+    })
+  } catch {
+    // Algunos dispositivos no requieren o no soportan canales custom.
+  }
+
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: APK_UPDATE_NOTIFICATION_ID }] })
+  } catch {
+    // no-op
+  }
+
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: APK_UPDATE_NOTIFICATION_ID,
+          title: 'Actualizacion obligatoria de CeliaShop',
+          body: 'Toca para descargar la APK mas nueva y seguir usando la app.',
+          actionTypeId: 'APK_UPDATE_ACTIONS',
+          channelId: 'apk-updates',
+          ongoing: true,
+          autoCancel: false,
+          extra: {
+            buildId,
+          },
+        },
+      ],
+    })
+
+    localStorage.setItem(APK_FORCE_NOTIFICATION_STORAGE_KEY, tokenAviso)
+  } catch {
+    // Si falla la notificacion, mantenemos el modal obligatorio como respaldo.
   }
 }
 
@@ -320,6 +454,11 @@ const iniciarChequeoActualizacionNativa = () => {
         && seenForcePromptToken !== remoteInfo.forcePromptToken
 
       if (!showBecauseBuildChanged && !showBecauseForcedGlobalPrompt) return
+
+      await emitirNotificacionActualizacion({
+        buildId: remoteInfo.buildId,
+        forcePromptToken: remoteInfo.forcePromptToken,
+      })
 
       mostrarActualizacionObligatoria({
         remoteBuildId: remoteInfo.buildId,
