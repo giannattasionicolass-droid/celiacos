@@ -66,6 +66,7 @@ const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 const APK_DOWNLOAD_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
 const APK_VERSION_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/apk-version.json';
+const APK_DOWNLOAD_URL_DIRECT = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
 
 const esProductoNuevo = (producto = {}) => {
   const fechaRaw = producto?.created_at || producto?.fecha_alta || producto?.fecha || null;
@@ -1253,13 +1254,24 @@ function InstallAppBanner() {
     );
   }
   return (
-    <button
-      onClick={descargarAPK}
-      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
-    >
-      <Download size={15} />
-      <span>Instalar APK para Android</span>
-    </button>
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <button
+        onClick={descargarAPK}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-600 text-white text-xs font-black uppercase tracking-[0.12em] shadow-lg hover:bg-green-700 transition-colors"
+      >
+        <Download size={15} />
+        <span>Instalar APK para Android</span>
+      </button>
+      <a
+        href={`${APK_DOWNLOAD_URL_DIRECT}?ts=${Date.now()}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/90 border border-gray-300 text-gray-800 text-[10px] font-black uppercase tracking-[0.12em] shadow hover:bg-white transition-colors"
+      >
+        <Download size={14} />
+        <span>Descarga directa</span>
+      </a>
+    </div>
   );
 }
 
