@@ -1268,22 +1268,13 @@ function Carrusel({ productos, agregarAlCarrito, onVerDetalleProducto }) {
       esNuevo: esProductoNuevo(producto),
     }));
 
-    return lista.sort((a, b) => {
-      const ofertaA = a.en_oferta ? 1 : 0;
-      const ofertaB = b.en_oferta ? 1 : 0;
-      if (ofertaA !== ofertaB) return ofertaB - ofertaA;
-
-      const nuevoA = a.esNuevo ? 1 : 0;
-      const nuevoB = b.esNuevo ? 1 : 0;
-      if (nuevoA !== nuevoB) return nuevoB - nuevoA;
-
-      const fechaA = new Date(a?.created_at || a?.fecha_alta || 0).getTime();
-      const fechaB = new Date(b?.created_at || b?.fecha_alta || 0).getTime();
-      if (!Number.isNaN(fechaA) && !Number.isNaN(fechaB) && fechaA !== fechaB) {
+    return lista
+      .sort((a, b) => {
+        const fechaA = new Date(a?.updated_at || a?.created_at || a?.fecha_alta || 0).getTime();
+        const fechaB = new Date(b?.updated_at || b?.created_at || b?.fecha_alta || 0).getTime();
         return fechaB - fechaA;
-      }
-      return String(a?.nombre || '').localeCompare(String(b?.nombre || ''), 'es');
-    });
+      })
+      .slice(0, 10);
   }, [productos]);
 
   useEffect(() => {
