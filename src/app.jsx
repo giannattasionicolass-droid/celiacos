@@ -11,6 +11,7 @@ const CATEGORIAS_PREDEFINIDAS = [
   'Harinas',
   'Pastas',
   'Panificados',
+  'Galletitas',
   'Almidones y Fécula',
   'Condimentos y Especias',
   'Aderezos y Salsas',
