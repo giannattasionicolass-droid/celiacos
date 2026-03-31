@@ -2826,6 +2826,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
   const [paginaVentasActual, setPaginaVentasActual] = useState(1);
+  const [paginaStockActual, setPaginaStockActual] = useState(1);
   const [filtroCliente, setFiltroCliente] = useState('');
   const [pedidosExpandido, setPedidosExpandido] = useState({});
   const [pedidosClienteExpandido, setPedidosClienteExpandido] = useState({});
@@ -2951,6 +2952,14 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       return nombre.includes(filtro) || categoria.includes(filtro);
     });
   }, [productos, filtroStockProducto]);
+
+  const stockPorPagina = 10;
+  const totalPaginasStock = Math.max(1, Math.ceil(productosFiltradosStock.length / stockPorPagina));
+  const paginaStockSegura = Math.min(paginaStockActual, totalPaginasStock);
+  const inicioStock = (paginaStockSegura - 1) * stockPorPagina;
+  const finStock = inicioStock + stockPorPagina;
+  const productosFiltradosStockPaginados = productosFiltradosStock.slice(inicioStock, finStock);
+  const paginasStock = Array.from({ length: totalPaginasStock }, (_, i) => i + 1);
 
   const ejecutarResetTotalBase = async () => {
     if (reseteandoBase) return;
@@ -3205,6 +3214,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   useEffect(() => {
     setPaginaVentasActual(1);
   }, [tab, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroBusqueda]);
+
+  useEffect(() => {
+    setPaginaStockActual(1);
+  }, [filtroStockProducto]);
 
   const agregarProducto = async (e) => {
     e.preventDefault();
@@ -4404,7 +4417,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               />
             </div>
 
-            {productosFiltradosStock.map(p => (
+            {productosFiltradosStockPaginados.map(p => (
               <div key={p.id} className="bg-white p-5 rounded-[30px] border border-gray-100 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
                   <img src={p.imagen_url} className="w-16 h-16 object-cover rounded-2xl bg-gray-50" alt={p.nombre} />
@@ -4429,6 +4442,39 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             {productosFiltradosStock.length === 0 && (
               <div className="bg-white p-6 rounded-[24px] border border-gray-100 text-center text-sm font-semibold text-gray-500">
                 No hay productos que coincidan con la búsqueda.
+              </div>
+            )}
+
+            {productosFiltradosStock.length > 0 && (
+              <div className="mt-2 w-full flex flex-col items-center gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.11em] text-gray-500">
+                  Pagina {paginaStockSegura} de {totalPaginasStock} · Mostrando {Math.min(inicioStock + 1, productosFiltradosStock.length)}-{Math.min(finStock, productosFiltradosStock.length)} de {productosFiltradosStock.length} productos
+                </p>
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setPaginaStockActual((prev) => Math.max(1, prev - 1))}
+                    disabled={paginaStockSegura <= 1}
+                    className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+                  {paginasStock.map((pagina) => (
+                    <button
+                      key={pagina}
+                      onClick={() => setPaginaStockActual(pagina)}
+                      className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaStockSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      {pagina}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPaginaStockActual((prev) => Math.min(totalPaginasStock, prev + 1))}
+                    disabled={paginaStockSegura >= totalPaginasStock}
+                    className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                  >
+                    Siguiente
+                  </button>
+                </div>
               </div>
             )}
           </div>
