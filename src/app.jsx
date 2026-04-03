@@ -561,7 +561,6 @@ const imprimirFacturaPedido = (pedido, cliente = {}) => {
     <div style="font-size:12px;line-height:1.6;">
       Método: ${escaparHtml(metodoPagoLabel)}<br/>
       ${metodoPagoCambiado ? `Aviso: administración modificó la forma de pago originalmente informada (${escaparHtml(metodoPagoOriginalLabel)}).<br/>` : ''}
-      ${metodoPagoRaw === 'contra_entrega' ? 'Recordatorio: entregar dinero al vendedor al recibir el pedido.<br/>' : ''}
       ${metodoPagoRaw === 'transferencia' ? `Banco: ${escaparHtml(DATOS_BANCARIOS.banco || '(pendiente)')} · Titular: ${escaparHtml(DATOS_BANCARIOS.titular || '(pendiente)')}<br/>CBU: ${escaparHtml(DATOS_BANCARIOS.cbu || '(pendiente)')} · Alias: ${escaparHtml(DATOS_BANCARIOS.alias || '(pendiente)')} · CUIT: ${escaparHtml(DATOS_BANCARIOS.cuit || '(pendiente)')}<br/>` : ''}
       ${comprobantePagoUrl ? `Comprobante: <a href="${escaparHtml(comprobantePagoUrl)}" target="_blank" rel="noreferrer">${escaparHtml(comprobantePagoNombre || 'Ver comprobante')}</a>` : ''}
     </div>
