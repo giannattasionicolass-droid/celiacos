@@ -3776,7 +3776,6 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         total: totalActualizado,
         email: clienteActualizado.email,
         telefono: clienteActualizado.telefono,
-        cuit: clienteActualizado.cuit,
         direccion_envio: clienteActualizado.direccion_envio,
         direccion_entrega: clienteActualizado.direccion_envio,
         email_confirmacion: clienteActualizado.email,
@@ -5086,83 +5085,28 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   <div className="p-6 md:p-8 space-y-4">
                     <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 mb-4">
                       <p className="text-xs font-black uppercase tracking-widest text-blue-600 mb-3">Datos del Cliente</p>
-                      {editandoFactura ? (
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <input
-                            type="text"
-                            placeholder="Nombre"
-                            value={clienteFacturaEditado.nombre || ''}
-                            onChange={(e) => cambiarClienteFactura('nombre', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Apellido"
-                            value={clienteFacturaEditado.apellido || ''}
-                            onChange={(e) => cambiarClienteFactura('apellido', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Nombre de fantasia"
-                            value={clienteFacturaEditado.nombre_fantasia || ''}
-                            onChange={(e) => cambiarClienteFactura('nombre_fantasia', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
-                          />
-                          <input
-                            type="email"
-                            placeholder="Email"
-                            value={clienteFacturaEditado.email || ''}
-                            onChange={(e) => cambiarClienteFactura('email', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Telefono"
-                            value={clienteFacturaEditado.telefono || ''}
-                            onChange={(e) => cambiarClienteFactura('telefono', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                          />
-                          <input
-                            type="text"
-                            placeholder="CUIT"
-                            value={clienteFacturaEditado.cuit || ''}
-                            onChange={(e) => cambiarClienteFactura('cuit', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Direccion de entrega"
-                            value={clienteFacturaEditado.direccion_envio || ''}
-                            onChange={(e) => cambiarClienteFactura('direccion_envio', e.target.value)}
-                            className="w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
-                          />
-                          <p className="md:col-span-2 text-xs font-black text-blue-700">Estos cambios se reflejan en la factura de abajo en tiempo real y se guardan al tocar Guardar factura.</p>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Nombre</p>
+                          <p className="font-bold text-gray-800">{nombreClienteFactura || 'No informado'}</p>
                         </div>
-                      ) : (
-                        <div className="grid gap-3 md:grid-cols-3">
-                          <div>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Nombre</p>
-                            <p className="font-bold text-gray-800">{nombreClienteFactura || 'No informado'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Email</p>
-                            <p className="font-bold text-gray-800 break-words">{clienteFactura.email || 'No informado'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Teléfono</p>
-                            <p className="font-bold text-gray-800">{clienteFactura.telefono || 'No informado'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">CUIT</p>
-                            <p className="font-bold text-gray-800">{clienteFactura.cuit || 'No informado'}</p>
-                          </div>
-                          <div className="md:col-span-2">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Dirección de Entrega</p>
-                            <p className="font-bold text-gray-800">{clienteFactura.direccion_envio || obtenerDireccionPedido(ped) || 'No informada'}</p>
-                          </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Email</p>
+                          <p className="font-bold text-gray-800 break-words">{clienteFactura.email || 'No informado'}</p>
                         </div>
-                      )}
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Teléfono</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.telefono || 'No informado'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">CUIT</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.cuit || 'No informado'}</p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Dirección de Entrega</p>
+                          <p className="font-bold text-gray-800">{clienteFactura.direccion_envio || obtenerDireccionPedido(ped) || 'No informada'}</p>
+                        </div>
+                      </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-6">
                       <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
