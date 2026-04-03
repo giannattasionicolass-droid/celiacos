@@ -723,6 +723,26 @@ const obtenerClienteDePedido = (pedido, clientes = []) => {
   return clientes.find((cliente) => String(cliente?.id || '') === clienteId) || null;
 };
 
+const crearClienteEditableVacio = () => ({
+  nombre: '',
+  apellido: '',
+  nombre_fantasia: '',
+  email: '',
+  telefono: '',
+  cuit: '',
+  direccion_envio: '',
+});
+
+const construirClienteEditableDesdePedido = (pedido = {}, cliente = {}) => ({
+  nombre: String(cliente?.nombre || pedido?.cliente?.nombre || pedido?.nombre || '').trim(),
+  apellido: String(cliente?.apellido || pedido?.cliente?.apellido || '').trim(),
+  nombre_fantasia: String(cliente?.nombre_fantasia || pedido?.cliente?.nombre_fantasia || pedido?.nombre_fantasia || '').trim(),
+  email: String(cliente?.email || pedido?.email || pedido?.cliente?.email || '').trim(),
+  telefono: String(cliente?.telefono || pedido?.telefono || pedido?.cliente?.telefono || '').trim(),
+  cuit: String(cliente?.cuit || pedido?.cuit || pedido?.cliente?.cuit || pedido?.pago_detalle?.cuit_cliente || '').trim(),
+  direccion_envio: String(cliente?.direccion_envio || obtenerDireccionPedido(pedido) || pedido?.cliente?.direccion_envio || '').trim(),
+});
+
 const construirClienteFallbackDesdePedido = (pedido) => ({
   id: obtenerIdClientePedido(pedido) || null,
   nombre: String(pedido?.cliente?.nombre || pedido?.nombre || '').trim(),
@@ -787,11 +807,14 @@ function TarjetaPedidoDetalle({ pedido, usuarioLogueado }) {
   );
 }
 
-function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false, editable = false, productosOverride = null, onCambiarLinea = null, onToggleLineaFaltante = null, onGuardarCambios = null, onCancelarEdicion = null, guardandoCambios = false, descuentoAdminPct = null, onCambiarDescuentoAdmin = null }) {
+function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, resaltarEstadoActual = false, editable = false, productosOverride = null, clienteEditado = null, onCambiarCliente = null, onCambiarLinea = null, onToggleLineaFaltante = null, onGuardarCambios = null, onCancelarEdicion = null, guardandoCambios = false, descuentoAdminPct = null, onCambiarDescuentoAdmin = null }) {
   const productos = Array.isArray(productosOverride)
     ? productosOverride.map((item) => normalizarProductoPedido(item))
     : obtenerProductosPedido(pedido);
   const lineas = construirLineasFactura(productos);
+  const clienteActivo = clienteEditado && typeof clienteEditado === 'object'
+    ? { ...cliente, ...clienteEditado }
+    : cliente;
 
   const subtotalFactura = lineas.length > 0 ? obtenerTotalFacturaDesdeLineas(lineas) : obtenerTotalPedido(pedido);
   const descuentoAplicado = obtenerDescuentosFaltantesDesdeLineas(lineas);
@@ -806,13 +829,13 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
   const itemsFacturables = obtenerItemsFacturablesDesdeLineas(lineas);
 
   const clienteId = String(
-    cliente?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id'
+    clienteActivo?.id || pedido?.user_id || pedido?.perfil_id || pedido?.usuario_id || pedido?.cliente_id || 'sin-id'
   );
-  const nombreCliente = obtenerNombreClienteFactura(pedido, cliente);
-  const emailCliente = pedido?.email || cliente?.email || 'No informado';
-  const telefonoCliente = pedido?.telefono || cliente?.telefono || 'No informado';
-  const cuitCliente = obtenerCuitClienteFactura(pedido, cliente);
-  const direccionCliente = obtenerDireccionPedido(pedido) || cliente?.direccion_envio || 'No informada';
+  const nombreCliente = obtenerNombreClienteFactura(pedido, clienteActivo);
+  const emailCliente = clienteActivo?.email || pedido?.email || 'No informado';
+  const telefonoCliente = clienteActivo?.telefono || pedido?.telefono || 'No informado';
+  const cuitCliente = obtenerCuitClienteFactura(pedido, clienteActivo);
+  const direccionCliente = clienteActivo?.direccion_envio || obtenerDireccionPedido(pedido) || 'No informada';
   const metodoPagoRaw = obtenerMetodoPagoPedido(pedido);
   const metodoPagoLabel = obtenerLabelMetodoPagoPedido(pedido);
   const metodoPagoOriginalLabel = obtenerLabelMetodoPagoPedido({ metodo_pago: obtenerMetodoPagoOriginalPedido(pedido) });
@@ -898,11 +921,68 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Cliente</p>
-            <p className="text-base font-black text-gray-900 uppercase">{nombreCliente}</p>
-            <p className="text-sm font-semibold text-gray-700 mt-1 break-all">{emailCliente}</p>
-            <p className="text-sm font-semibold text-gray-700 break-words">{telefonoCliente}</p>
-            <p className="text-sm font-semibold text-gray-700 break-words">CUIT: {cuitCliente}</p>
-            <p className="text-sm font-semibold text-gray-700 break-words">Dirección: {direccionCliente}</p>
+            {editable ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={clienteActivo?.nombre || ''}
+                  onChange={(e) => onCambiarCliente?.('nombre', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900"
+                />
+                <input
+                  type="text"
+                  placeholder="Apellido"
+                  value={clienteActivo?.apellido || ''}
+                  onChange={(e) => onCambiarCliente?.('apellido', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900"
+                />
+                <input
+                  type="text"
+                  placeholder="Nombre de fantasia"
+                  value={clienteActivo?.nombre_fantasia || ''}
+                  onChange={(e) => onCambiarCliente?.('nombre_fantasia', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={clienteActivo?.email || ''}
+                  onChange={(e) => onCambiarCliente?.('email', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Telefono"
+                  value={clienteActivo?.telefono || ''}
+                  onChange={(e) => onCambiarCliente?.('telefono', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900"
+                />
+                <input
+                  type="text"
+                  placeholder="CUIT"
+                  value={clienteActivo?.cuit || ''}
+                  onChange={(e) => onCambiarCliente?.('cuit', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900"
+                />
+                <input
+                  type="text"
+                  placeholder="Direccion"
+                  value={clienteActivo?.direccion_envio || ''}
+                  onChange={(e) => onCambiarCliente?.('direccion_envio', e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 md:col-span-2"
+                />
+                <p className="text-xs font-semibold text-gray-500 md:col-span-2">Vista previa: {nombreCliente || 'Cliente no informado'}</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-base font-black text-gray-900 uppercase">{nombreCliente}</p>
+                <p className="text-sm font-semibold text-gray-700 mt-1 break-all">{emailCliente}</p>
+                <p className="text-sm font-semibold text-gray-700 break-words">{telefonoCliente}</p>
+                <p className="text-sm font-semibold text-gray-700 break-words">CUIT: {cuitCliente}</p>
+                <p className="text-sm font-semibold text-gray-700 break-words">Dirección: {direccionCliente}</p>
+              </>
+            )}
             <p className="text-xs font-semibold text-gray-500 mt-2 break-all">ID cliente: {clienteId}</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-5">
@@ -2827,6 +2907,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [clienteEditado, setClienteEditado] = useState({
     nombre: '',
     apellido: '',
+    nombre_fantasia: '',
     email: '',
     telefono: '',
     cuit: '',
@@ -2837,6 +2918,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [productoEditando, setProductoEditando] = useState(null);
   const [pedidoEditandoId, setPedidoEditandoId] = useState(null);
   const [productosFacturaEditados, setProductosFacturaEditados] = useState([]);
+  const [clienteFacturaEditado, setClienteFacturaEditado] = useState(crearClienteEditableVacio);
   const [descuentoAdminFacturaPct, setDescuentoAdminFacturaPct] = useState(0);
   const [guardandoFacturaId, setGuardandoFacturaId] = useState(null);
   const [inventarioMovimientos, setInventarioMovimientos] = useState([]);
@@ -3525,18 +3607,27 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setTotalFacturado(siguientePedidos.reduce((acc, item) => acc + obtenerTotalPedido(item), 0));
   };
 
-  const iniciarEdicionFactura = (pedido) => {
+  const iniciarEdicionFactura = (pedido, cliente = {}) => {
     setPedidoEditandoId(pedido.id);
     setPedidosExpandido((prev) => ({ ...prev, [pedido.id]: true }));
     setProductosFacturaEditados(serializarProductosFactura(obtenerProductosPedido(pedido)));
+    setClienteFacturaEditado(construirClienteEditableDesdePedido(pedido, cliente));
     setDescuentoAdminFacturaPct(obtenerDescuentoAdminFacturaPct(pedido));
   };
 
   const cancelarEdicionFactura = () => {
     setPedidoEditandoId(null);
     setProductosFacturaEditados([]);
+    setClienteFacturaEditado(crearClienteEditableVacio());
     setDescuentoAdminFacturaPct(0);
     setGuardandoFacturaId(null);
+  };
+
+  const cambiarClienteFactura = (campo, valor) => {
+    setClienteFacturaEditado((prev) => ({
+      ...prev,
+      [campo]: valor,
+    }));
   };
 
   const cambiarLineaFactura = (indice, campo, valor) => {
@@ -3598,6 +3689,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setGuardandoFacturaId(pedido.id);
     try {
       const productosActualizados = serializarProductosFactura(productosFacturaEditados);
+      const clienteActualizado = {
+        ...crearClienteEditableVacio(),
+        ...construirClienteEditableDesdePedido(pedido, obtenerClienteDePedido(pedido, clientes) || construirClienteFallbackDesdePedido(pedido)),
+        ...clienteFacturaEditado,
+      };
       const lineasActualizadas = construirLineasFactura(productosActualizados);
       const subtotalFacturado = obtenerTotalFacturaDesdeLineas(lineasActualizadas);
       const descuentoFaltantes = obtenerDescuentosFaltantesDesdeLineas(lineasActualizadas);
@@ -3605,10 +3701,16 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       const descuentoAdminPctAplicado = normalizarDescuentoAdminPct(descuentoAdminFacturaPct);
       const descuentoAdminMonto = calcularDescuentoAdminMonto(subtotalTrasFaltantes, descuentoAdminPctAplicado);
       const totalActualizado = Math.max(0, subtotalTrasFaltantes - descuentoAdminMonto);
+      const clienteId = obtenerIdClientePedido(pedido);
 
       const pagoDetalleBase = pedido?.pago_detalle && typeof pedido.pago_detalle === 'object' ? pedido.pago_detalle : {};
       const pagoDetalleActualizado = {
         ...pagoDetalleBase,
+        cuit_cliente: clienteActualizado.cuit || null,
+        cliente_nombre: clienteActualizado.nombre || null,
+        cliente_apellido: clienteActualizado.apellido || null,
+        cliente_nombre_fantasia: clienteActualizado.nombre_fantasia || null,
+        email_confirmacion: clienteActualizado.email || null,
         factura: {
           ...(pagoDetalleBase?.factura || {}),
           descuento_admin_pct: descuentoAdminPctAplicado,
@@ -3621,13 +3723,57 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         },
       };
 
+      if (clienteId) {
+        const payloadPerfil = {
+          nombre: clienteActualizado.nombre,
+          apellido: clienteActualizado.apellido,
+          nombre_fantasia: clienteActualizado.nombre_fantasia,
+          email: clienteActualizado.email,
+          telefono: clienteActualizado.telefono,
+          cuit: clienteActualizado.cuit,
+          direccion_envio: clienteActualizado.direccion_envio,
+        };
+
+        const { error: errorPerfil } = await supabase
+          .from('perfiles')
+          .update(payloadPerfil)
+          .eq('id', clienteId);
+
+        if (errorPerfil) throw errorPerfil;
+
+        setClientes((prev) => prev.map((cli) => (
+          String(cli.id) === String(clienteId)
+            ? { ...cli, ...payloadPerfil }
+            : cli
+        )));
+      }
+
+      const clientePedidoActualizado = {
+        ...(pedido?.cliente && typeof pedido.cliente === 'object' ? pedido.cliente : {}),
+        id: clienteId || pedido?.cliente?.id || null,
+        nombre: clienteActualizado.nombre,
+        apellido: clienteActualizado.apellido,
+        nombre_fantasia: clienteActualizado.nombre_fantasia,
+        email: clienteActualizado.email,
+        telefono: clienteActualizado.telefono,
+        cuit: clienteActualizado.cuit,
+        direccion_envio: clienteActualizado.direccion_envio,
+      };
+
       const payloadBase = {
         productos: productosActualizados,
         total: totalActualizado,
+        email: clienteActualizado.email,
+        telefono: clienteActualizado.telefono,
+        cuit: clienteActualizado.cuit,
+        direccion_envio: clienteActualizado.direccion_envio,
+        direccion_entrega: clienteActualizado.direccion_envio,
+        email_confirmacion: clienteActualizado.email,
       };
       const variantesUpdate = [
-        { ...payloadBase, pago_detalle: pagoDetalleActualizado },
         { ...payloadBase, descuento_admin_pct: descuentoAdminPctAplicado, pago_detalle: pagoDetalleActualizado },
+        { ...payloadBase, cliente: clientePedidoActualizado, descuento_admin_pct: descuentoAdminPctAplicado, pago_detalle: pagoDetalleActualizado },
+        { ...payloadBase, pago_detalle: pagoDetalleActualizado },
         payloadBase,
       ];
 
@@ -3658,6 +3804,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
         ...(data || {}),
         productos: productosActualizados,
         total: totalActualizado,
+        email: clienteActualizado.email,
+        telefono: clienteActualizado.telefono,
+        cuit: clienteActualizado.cuit,
+        direccion_envio: clienteActualizado.direccion_envio,
+        direccion_entrega: clienteActualizado.direccion_envio,
+        email_confirmacion: clienteActualizado.email,
+        cliente: clientePedidoActualizado,
         pago_detalle: pagoDetalleActualizado,
         descuento_admin_pct: descuentoAdminPctAplicado,
       });
@@ -4200,6 +4353,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setClienteEditado({
       nombre: cli?.nombre || '',
       apellido: cli?.apellido || '',
+      nombre_fantasia: cli?.nombre_fantasia || '',
       email: cli?.email || '',
       telefono: cli?.telefono || '',
       cuit: cli?.cuit || '',
@@ -4212,6 +4366,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setClienteEditado({
       nombre: '',
       apellido: '',
+      nombre_fantasia: '',
       email: '',
       telefono: '',
       cuit: '',
@@ -4225,6 +4380,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       const payload = {
         nombre: String(clienteEditado.nombre || '').trim(),
         apellido: String(clienteEditado.apellido || '').trim(),
+        nombre_fantasia: String(clienteEditado.nombre_fantasia || '').trim(),
         email: String(clienteEditado.email || '').trim(),
         telefono: String(clienteEditado.telefono || '').trim(),
         cuit: String(clienteEditado.cuit || '').trim(),
@@ -4794,7 +4950,11 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
               const clienteId = String(ped.user_id || ped.perfil_id || ped.usuario_id || ped.cliente_id || 'sin-id');
               const expandido = Boolean(pedidosExpandido[ped.id]);
               const editandoFactura = pedidoEditandoId === ped.id;
-              const clienteFactura = clientesPorId[clienteId] || construirClienteFallbackDesdePedido(ped);
+              const clienteFacturaBase = clientesPorId[clienteId] || construirClienteFallbackDesdePedido(ped);
+              const clienteFactura = editandoFactura
+                ? { ...clienteFacturaBase, ...clienteFacturaEditado }
+                : clienteFacturaBase;
+              const nombreClienteFactura = obtenerNombreClienteFactura(ped, clienteFactura);
 
               return (
                 <div key={ped.id} className="bg-white rounded-[34px] border border-gray-100 shadow-sm overflow-hidden">
@@ -4802,7 +4962,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-xs md:text-sm font-black uppercase tracking-[0.2em] text-red-100 mb-2">Pedido #{obtenerNumeroPedido(ped)}</p>
-                        <h4 className="font-black text-2xl uppercase tracking-tighter">{clienteFactura.nombre && clienteFactura.apellido ? `${clienteFactura.nombre} ${clienteFactura.apellido}` : 'Cliente'}</h4>
+                        <h4 className="font-black text-2xl uppercase tracking-tighter">{nombreClienteFactura || 'Cliente'}</h4>
                         <p className="text-sm font-semibold text-red-50 mt-2">Compra: {formatearFechaPedido(ped)}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Email: {clienteFactura.email || 'No informado'}</p>
                         <p className="text-sm font-semibold text-red-100 mt-1">Email confirmación: {emailConfirmacionPedido || 'No informado'}</p>
@@ -4873,7 +5033,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                             {expandido ? 'Ocultar detalle' : 'Ver detalle completo'}
                           </button>
                           <button
-                            onClick={() => iniciarEdicionFactura(ped)}
+                            onClick={() => iniciarEdicionFactura(ped, clienteFacturaBase)}
                             className="px-4 py-2.5 rounded-xl bg-amber-300 text-gray-900 hover:bg-amber-200 text-xs font-black uppercase tracking-wider"
                           >
                             {editandoFactura ? 'Editando factura' : 'Editar factura'}
@@ -4895,7 +5055,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                       <div className="grid gap-3 md:grid-cols-3">
                         <div>
                           <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Nombre</p>
-                          <p className="font-bold text-gray-800">{clienteFactura.nombre && clienteFactura.apellido ? `${clienteFactura.nombre} ${clienteFactura.apellido}` : 'No informado'}</p>
+                          <p className="font-bold text-gray-800">{nombreClienteFactura || 'No informado'}</p>
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Email</p>
@@ -4965,7 +5125,9 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                         mostrarImagenesEnLineas
                         editable={editandoFactura}
                         productosOverride={editandoFactura ? productosFacturaEditados : null}
+                        clienteEditado={editandoFactura ? clienteFacturaEditado : null}
                         descuentoAdminPct={editandoFactura ? descuentoAdminFacturaPct : null}
+                        onCambiarCliente={cambiarClienteFactura}
                         onCambiarLinea={cambiarLineaFactura}
                         onCambiarDescuentoAdmin={setDescuentoAdminFacturaPct}
                         onToggleLineaFaltante={toggleLineaFacturaFaltante}
@@ -5118,6 +5280,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                                   value={clienteEditado.apellido}
                                   onChange={(e) => setClienteEditado((prev) => ({ ...prev, apellido: e.target.value }))}
                                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Nombre de fantasia"
+                                  value={clienteEditado.nombre_fantasia}
+                                  onChange={(e) => setClienteEditado((prev) => ({ ...prev, nombre_fantasia: e.target.value }))}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold md:col-span-2"
                                 />
                                 <input
                                   type="email"
