@@ -2076,9 +2076,6 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
             <p className="text-xs font-black uppercase tracking-widest text-sky-700 mb-1">Pago y confirmación</p>
             <p className="text-sm font-semibold text-gray-700">Método: {pedidoConfirmado.metodoPago === 'transferencia' ? 'Transferencia bancaria' : 'Efectivo'}</p>
             <p className="text-sm font-semibold text-gray-700 break-all">Email confirmación: {pedidoConfirmado.emailConfirmacion}</p>
-            {pedidoConfirmado.metodoPago === 'contra_entrega' && (
-              <p className="text-xs font-black text-amber-700">Recordatorio: tené el dinero listo al momento de la entrega.</p>
-            )}
             {pedidoConfirmado.metodoPago === 'transferencia' && pedidoConfirmado.comprobanteUrl && (
               <a href={pedidoConfirmado.comprobanteUrl} target="_blank" rel="noreferrer" className="text-sm font-black text-sky-700 underline">
                 Ver comprobante enviado
@@ -2206,12 +2203,7 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
                   </button>
                 </div>
 
-                {metodoPago === 'contra_entrega' ? (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
-                    <p className="text-xs md:text-sm font-black uppercase text-amber-700">Recordatorio</p>
-                    <p className="text-sm font-semibold text-amber-700 mt-1">Tené el dinero listo para entregarle al vendedor cuando reciba los productos.</p>
-                  </div>
-                ) : (
+                {metodoPago === 'contra_entrega' ? null : (
                   <div className="space-y-3">
                     <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-sm font-semibold text-sky-800">
                       <p className="text-xs font-black uppercase mb-1">Datos bancarios (pendiente de completar)</p>
