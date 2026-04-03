@@ -1041,9 +1041,6 @@ function FacturaPedido({ pedido, cliente = {}, mostrarImagenesEnLineas = false, 
             {metodoPagoCambiado ? <p><span className="font-black text-gray-900">Método original:</span> {metodoPagoOriginalLabel}</p> : null}
             <p className="break-all"><span className="font-black text-gray-900">Email confirmación:</span> {emailConfirmacion}</p>
             {metodoPagoCambiado ? <p className="md:col-span-2 text-amber-700 font-black">La forma de pago fue modificada por administración.</p> : null}
-            {metodoPagoRaw === 'contra_entrega' && (
-              <p className="md:col-span-2 text-amber-700 font-black">Recordatorio: el cliente debe tener el dinero listo para entregar al vendedor al recibir los productos.</p>
-            )}
             {(metodoPagoRaw === 'transferencia' || comprobantePagoUrl) && (
               <>
                 <p><span className="font-black text-gray-900">Banco:</span> {DATOS_BANCARIOS.banco || '(pendiente)'}</p>
