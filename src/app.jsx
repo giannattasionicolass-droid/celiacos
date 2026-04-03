@@ -2950,6 +2950,17 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     return mensaje.includes('schema cache') || mensaje.includes('column') || mensaje.includes('does not exist');
   };
 
+  const extraerColumnaFaltante = (error) => {
+    const mensaje = String(error?.message || '');
+    const matchComillasSimples = mensaje.match(/'([^']+)'\s+column/i);
+    if (matchComillasSimples?.[1]) return matchComillasSimples[1];
+    const matchComillasDobles = mensaje.match(/column\s+"([^"]+)"/i);
+    if (matchComillasDobles?.[1]) return matchComillasDobles[1];
+    const matchDoesNotExist = mensaje.match(/column\s+['"]?([^'"\s]+)['"]?\s+does not exist/i);
+    if (matchDoesNotExist?.[1]) return matchDoesNotExist[1];
+    return '';
+  };
+
   const esTablaInventarioNoDisponible = (error) => {
     const mensaje = String(error?.message || '').toLowerCase();
     return mensaje.includes('inventario_movimientos') && (
@@ -3779,22 +3790,45 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
       let data = null;
       let errorFinal = null;
-      for (const payload of variantesUpdate) {
-        const { data: dataIntento, error } = await supabase
-          .from('pedidos')
-          .update(payload)
-          .eq('id', pedido.id)
-          .select('*')
-          .maybeSingle();
+      for (const payloadOriginal of variantesUpdate) {
+        let payloadActual = { ...payloadOriginal };
+        let ultimoErrorColumna = null;
 
-        if (!error) {
-          data = dataIntento;
-          errorFinal = null;
-          break;
+        for (let intento = 0; intento < 8; intento += 1) {
+          const { data: dataIntento, error } = await supabase
+            .from('pedidos')
+            .update(payloadActual)
+            .eq('id', pedido.id)
+            .select('*')
+            .maybeSingle();
+
+          if (!error) {
+            data = dataIntento;
+            errorFinal = null;
+            break;
+          }
+
+          errorFinal = error;
+          if (!esErrorColumna(error)) break;
+
+          const columnaFaltante = extraerColumnaFaltante(error);
+          if (!columnaFaltante || !(columnaFaltante in payloadActual)) {
+            ultimoErrorColumna = error;
+            break;
+          }
+
+          const { [columnaFaltante]: _omitida, ...payloadSinColumna } = payloadActual;
+          payloadActual = payloadSinColumna;
+          ultimoErrorColumna = error;
+
+          if (Object.keys(payloadActual).length === 0) break;
         }
 
-        errorFinal = error;
-        if (!esErrorColumna(error)) break;
+        if (data) break;
+        if (errorFinal && !esErrorColumna(errorFinal)) break;
+        if (ultimoErrorColumna && Object.keys(payloadActual).length === 0) {
+          errorFinal = ultimoErrorColumna;
+        }
       }
 
       if (errorFinal) throw errorFinal;
