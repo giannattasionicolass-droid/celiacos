@@ -78,6 +78,10 @@ const normalizarMensajeAuth = (error) => {
     return 'Tenes que verificar tu email antes de ingresar.';
   }
 
+  if (mensajeLower.includes('rate limit exceeded')) {
+    return 'Supabase bloqueó temporalmente el envio por limite de emails. Esperá un rato o configurá SMTP propio en Supabase para ampliar el limite.';
+  }
+
   return mensaje || 'No se pudo completar la autenticacion.';
 };
 
@@ -5477,6 +5481,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [esLogin, setEsLogin] = useState(true);
   const [mensaje, setMensaje] = useState('');
+  const [tipoMensajeCuenta, setTipoMensajeCuenta] = useState('error');
   const [productosBD, setProductosBD] = useState([]);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [cargandoApp, setCargandoApp] = useState(true);
@@ -5699,6 +5704,7 @@ export default function App() {
     setUsuarioLogueado(null);
     setEsLogin(true);
     setPagina('cuenta');
+    setTipoMensajeCuenta('success');
     setMensaje('Verifica tu email desde el enlace que te enviamos antes de ingresar.');
     await supabase.auth.signOut();
   };
@@ -5972,10 +5978,12 @@ export default function App() {
           ...prev,
           password: '',
         }));
+        setTipoMensajeCuenta('success');
         setMensaje('Te enviamos un email para verificar tu cuenta. Confirmalo antes de ingresar.');
         setEsLogin(true);
       }
     } catch (err) {
+      setTipoMensajeCuenta('error');
       setMensaje(normalizarMensajeAuth(err));
     }
   };
@@ -5984,6 +5992,7 @@ export default function App() {
     const email = String(datos.email || '').trim();
 
     if (!email) {
+      setTipoMensajeCuenta('error');
       setMensaje('Ingresá tu email para recuperar la contraseña.');
       return;
     }
@@ -5995,9 +6004,11 @@ export default function App() {
       });
       if (error) throw error;
 
+      setTipoMensajeCuenta('success');
       setMensaje(`Te enviamos el email de recuperación a ${email}.`);
     } catch (error) {
-      setMensaje('No se pudo enviar el email de recuperación: ' + (error?.message || 'Error desconocido'));
+      setTipoMensajeCuenta('error');
+      setMensaje(normalizarMensajeAuth(error));
     } finally {
       setEnviandoRecuperacion(false);
     }
@@ -6428,7 +6439,7 @@ export default function App() {
             <h2 className="text-3xl italic text-gray-900 mb-3 text-center uppercase">{esLogin ? 'Ingresar' : 'Registrarse'}</h2>
             <p className="text-center text-xs uppercase tracking-[0.22em] text-gray-400 font-black mb-8">Tu acceso a compras, seguimiento y productos premium</p>
             {mensaje && (
-              <p className={`text-sm mb-4 ${/(verific|enviamos|recuperaci)/i.test(String(mensaje)) ? 'text-green-700' : 'text-red-500'}`}>
+              <p className={`text-sm mb-4 ${tipoMensajeCuenta === 'success' ? 'text-green-700' : 'text-red-500'}`}>
                 {mensaje}
               </p>
             )}
@@ -6465,7 +6476,7 @@ export default function App() {
 
               <button type="submit" className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black uppercase mt-4 shadow-lg hover:bg-green-600 transition-colors">Continuar</button>
             </form>
-            <button onClick={() => { setEsLogin(!esLogin); setMensaje(''); }} className="w-full mt-6 text-[10px] font-bold text-gray-400 uppercase text-center">{esLogin ? '¿No tenés cuenta? Registrate' : 'Ya tengo cuenta'}</button>
+            <button onClick={() => { setEsLogin(!esLogin); setMensaje(''); setTipoMensajeCuenta('error'); }} className="w-full mt-6 text-[10px] font-bold text-gray-400 uppercase text-center">{esLogin ? '¿No tenés cuenta? Registrate' : 'Ya tengo cuenta'}</button>
           </div>
         )}
       </main>
