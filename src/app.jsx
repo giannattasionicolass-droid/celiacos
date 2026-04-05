@@ -63,9 +63,55 @@ const PERIODOS_BALANCE = [
 
 const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 const APP_PUBLIC_URL = 'https://celiashop.store';
+const INACTIVIDAD_MAXIMA_MS = 24 * 60 * 60 * 1000;
+const ACTIVIDAD_SESION_STORAGE_KEY = 'celiashop_last_activity';
 
 const construirRedirectAuth = () => {
   return APP_PUBLIC_URL;
+};
+
+const leerActividadSesion = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(ACTIVIDAD_SESION_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const userId = String(parsed?.userId || '').trim();
+    const timestamp = Number(parsed?.timestamp || 0);
+
+    if (!userId || !Number.isFinite(timestamp) || timestamp <= 0) return null;
+    return { userId, timestamp };
+  } catch {
+    return null;
+  }
+};
+
+const guardarActividadSesion = (userId) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const idNormalizado = String(userId || '').trim();
+    if (!idNormalizado) return;
+
+    window.localStorage.setItem(ACTIVIDAD_SESION_STORAGE_KEY, JSON.stringify({
+      userId: idNormalizado,
+      timestamp: Date.now(),
+    }));
+  } catch {
+    // no-op
+  }
+};
+
+const limpiarActividadSesion = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem(ACTIVIDAD_SESION_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
 };
 
 const usuarioTieneEmailConfirmado = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
@@ -5593,6 +5639,7 @@ export default function App() {
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
   const ultimoSyncProductosRef = useRef(0);
   const bloqueoSesionSinConfirmarRef = useRef(false);
+  const cierreSesionInactividadRef = useRef(false);
   const esBloqueoRateLimitCuenta = tipoMensajeCuenta === 'error' && /limite de emails|rate limit/i.test(String(mensaje));
 
   const categoriasProductos = useMemo(() => (
@@ -5793,6 +5840,19 @@ export default function App() {
     setPagina('cuenta');
     setTipoMensajeCuenta('success');
     setMensaje('Verifica tu email desde el enlace que te enviamos antes de ingresar.');
+    limpiarActividadSesion();
+    await supabase.auth.signOut();
+  };
+
+  const cerrarSesionPorInactividad = async () => {
+    cierreSesionInactividadRef.current = true;
+    setSession(null);
+    setUsuarioLogueado(null);
+    setPagina('cuenta');
+    setEsLogin(true);
+    setTipoMensajeCuenta('error');
+    setMensaje('Tu sesión venció por 24 horas de inactividad. Volvé a ingresar para acceder a tu cuenta.');
+    limpiarActividadSesion();
     await supabase.auth.signOut();
   };
 
@@ -5831,8 +5891,22 @@ export default function App() {
         return;
       }
 
+      if (session) {
+        const actividadGuardada = leerActividadSesion();
+        const esMismaSesion = actividadGuardada?.userId === String(session.user?.id || '').trim();
+        const expiroPorInactividad = esMismaSesion && (Date.now() - Number(actividadGuardada?.timestamp || 0)) >= INACTIVIDAD_MAXIMA_MS;
+
+        if (expiroPorInactividad) {
+          void cerrarSesionPorInactividad();
+          return;
+        }
+      }
+
       setSession(session);
-      if (session) void traerPerfil(session);
+      if (session) {
+        guardarActividadSesion(session.user.id);
+        void traerPerfil(session);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -5847,8 +5921,20 @@ export default function App() {
         return;
       }
 
+      if (session) {
+        const actividadGuardada = leerActividadSesion();
+        const esMismaSesion = actividadGuardada?.userId === String(session.user?.id || '').trim();
+        const expiroPorInactividad = esMismaSesion && (Date.now() - Number(actividadGuardada?.timestamp || 0)) >= INACTIVIDAD_MAXIMA_MS;
+
+        if (expiroPorInactividad) {
+          void cerrarSesionPorInactividad();
+          return;
+        }
+      }
+
       setSession(session);
       if (session) {
+        guardarActividadSesion(session.user.id);
         void traerPerfil(session);
         return;
       }
@@ -5858,6 +5944,11 @@ export default function App() {
         bloqueoSesionSinConfirmarRef.current = false;
         return;
       }
+      if (cierreSesionInactividadRef.current) {
+        cierreSesionInactividadRef.current = false;
+        return;
+      }
+      limpiarActividadSesion();
       setPagina('inicio');
     });
 
@@ -5962,6 +6053,49 @@ export default function App() {
     if (!session?.user) return;
     refrescarPerfil();
   }, [perfilVersion, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return undefined;
+
+    const userId = session.user.id;
+
+    const registrarActividad = () => {
+      guardarActividadSesion(userId);
+    };
+
+    const verificarInactividad = () => {
+      const actividadGuardada = leerActividadSesion();
+      const esMismaSesion = actividadGuardada?.userId === String(userId).trim();
+      const ultimoUso = esMismaSesion ? Number(actividadGuardada?.timestamp || 0) : Date.now();
+
+      if (!esMismaSesion) {
+        guardarActividadSesion(userId);
+        return;
+      }
+
+      if ((Date.now() - ultimoUso) >= INACTIVIDAD_MAXIMA_MS) {
+        void cerrarSesionPorInactividad();
+      }
+    };
+
+    registrarActividad();
+
+    const eventosActividad = ['pointerdown', 'keydown', 'mousemove', 'scroll', 'touchstart', 'focus'];
+    for (const evento of eventosActividad) {
+      window.addEventListener(evento, registrarActividad, { passive: true });
+    }
+
+    document.addEventListener('visibilitychange', verificarInactividad);
+    const intervalo = window.setInterval(verificarInactividad, 60000);
+
+    return () => {
+      for (const evento of eventosActividad) {
+        window.removeEventListener(evento, registrarActividad);
+      }
+      document.removeEventListener('visibilitychange', verificarInactividad);
+      window.clearInterval(intervalo);
+    };
+  }, [session?.user?.id]);
 
   async function fetchProductos() {
     const abortController = new AbortController();
