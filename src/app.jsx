@@ -5482,6 +5482,10 @@ export default function App() {
   const [esLogin, setEsLogin] = useState(true);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensajeCuenta, setTipoMensajeCuenta] = useState('error');
+  const [modoNuevaContrasena, setModoNuevaContrasena] = useState(false);
+  const [nuevaContrasena, setNuevaContrasena] = useState('');
+  const [confirmacionNuevaContrasena, setConfirmacionNuevaContrasena] = useState('');
+  const [guardandoNuevaContrasena, setGuardandoNuevaContrasena] = useState(false);
   const [productosBD, setProductosBD] = useState([]);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [cargandoApp, setCargandoApp] = useState(true);
@@ -5710,6 +5714,16 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
+  const activarModoNuevaContrasena = () => {
+    setModoNuevaContrasena(true);
+    setPagina('cuenta');
+    setEsLogin(true);
+    setNuevaContrasena('');
+    setConfirmacionNuevaContrasena('');
+    setTipoMensajeCuenta('success');
+    setMensaje('Ingresá tu nueva contraseña para completar la recuperación.');
+  };
+
   const refrescarPerfil = async () => {
     if (!session?.user) return;
     const perfil = await resolverPerfilSesion(session);
@@ -5739,7 +5753,13 @@ export default function App() {
       if (session) void traerPerfil(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSession(session);
+        activarModoNuevaContrasena();
+        return;
+      }
+
       if (session && !usuarioTieneEmailConfirmado(session.user)) {
         void invalidarSesionNoConfirmada();
         return;
@@ -6012,6 +6032,53 @@ export default function App() {
       setMensaje(normalizarMensajeAuth(error));
     } finally {
       setEnviandoRecuperacion(false);
+    }
+  };
+
+  const guardarNuevaContrasena = async (e) => {
+    e.preventDefault();
+
+    const password = String(nuevaContrasena || '').trim();
+    const confirmacion = String(confirmacionNuevaContrasena || '').trim();
+
+    if (password.length < 6) {
+      setTipoMensajeCuenta('error');
+      setMensaje('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (password !== confirmacion) {
+      setTipoMensajeCuenta('error');
+      setMensaje('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setGuardandoNuevaContrasena(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+
+      setTipoMensajeCuenta('success');
+      setMensaje('Tu contraseña fue actualizada. Ya podés ingresar con la nueva clave.');
+      setModoNuevaContrasena(false);
+      setNuevaContrasena('');
+      setConfirmacionNuevaContrasena('');
+
+      if (typeof window !== 'undefined') {
+        const urlLimpia = `${window.location.origin}${window.location.pathname}`;
+        window.history.replaceState({}, document.title, urlLimpia);
+      }
+
+      await supabase.auth.signOut();
+      setSession(null);
+      setUsuarioLogueado(null);
+      setPagina('cuenta');
+      setEsLogin(true);
+    } catch (error) {
+      setTipoMensajeCuenta('error');
+      setMensaje(normalizarMensajeAuth(error));
+    } finally {
+      setGuardandoNuevaContrasena(false);
     }
   };
 
@@ -6437,8 +6504,8 @@ export default function App() {
         )}
         {pagina === 'cuenta' && (
           <div className="max-w-md mx-auto premium-panel p-10 rounded-[40px] mt-4">
-            <h2 className="text-3xl italic text-gray-900 mb-3 text-center uppercase">{esLogin ? 'Ingresar' : 'Registrarse'}</h2>
-            <p className="text-center text-xs uppercase tracking-[0.22em] text-gray-400 font-black mb-8">Tu acceso a compras, seguimiento y productos premium</p>
+            <h2 className="text-3xl italic text-gray-900 mb-3 text-center uppercase">{modoNuevaContrasena ? 'Nueva contraseña' : esLogin ? 'Ingresar' : 'Registrarse'}</h2>
+            <p className="text-center text-xs uppercase tracking-[0.22em] text-gray-400 font-black mb-8">{modoNuevaContrasena ? 'Definí una nueva clave para recuperar tu cuenta' : 'Tu acceso a compras, seguimiento y productos premium'}</p>
             {mensaje && (
               <p className={`text-sm mb-4 ${tipoMensajeCuenta === 'success' ? 'text-green-700' : 'text-red-500'}`}>
                 {mensaje}
@@ -6455,6 +6522,33 @@ export default function App() {
                 </p>
               </div>
             )}
+            {modoNuevaContrasena ? (
+              <form onSubmit={guardarNuevaContrasena} className="space-y-3">
+                <input
+                  type="password"
+                  placeholder="NUEVA CONTRASEÑA"
+                  className="premium-input w-full p-4 rounded-2xl text-xs font-bold"
+                  value={nuevaContrasena}
+                  onChange={e => setNuevaContrasena(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="REPETIR NUEVA CONTRASEÑA"
+                  className="premium-input w-full p-4 rounded-2xl text-xs font-bold"
+                  value={confirmacionNuevaContrasena}
+                  onChange={e => setConfirmacionNuevaContrasena(e.target.value)}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={guardandoNuevaContrasena}
+                  className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black uppercase mt-4 shadow-lg hover:bg-green-600 transition-colors disabled:bg-gray-400"
+                >
+                  {guardandoNuevaContrasena ? 'Guardando...' : 'Guardar nueva contraseña'}
+                </button>
+              </form>
+            ) : (
             <form onSubmit={manejarAccion} className="space-y-3">
               <input type="email" placeholder="EMAIL" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.email} onChange={e => setDatos({...datos, email: e.target.value})} required />
               <input type="password" placeholder="CONTRASEÑA" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.password} onChange={e => setDatos({...datos, password: e.target.value})} required />
@@ -6488,7 +6582,10 @@ export default function App() {
 
               <button type="submit" className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black uppercase mt-4 shadow-lg hover:bg-green-600 transition-colors">Continuar</button>
             </form>
-            <button onClick={() => { setEsLogin(!esLogin); setMensaje(''); setTipoMensajeCuenta('error'); }} className="w-full mt-6 text-[10px] font-bold text-gray-400 uppercase text-center">{esLogin ? '¿No tenés cuenta? Registrate' : 'Ya tengo cuenta'}</button>
+            )}
+            {!modoNuevaContrasena && (
+              <button onClick={() => { setEsLogin(!esLogin); setMensaje(''); setTipoMensajeCuenta('error'); }} className="w-full mt-6 text-[10px] font-bold text-gray-400 uppercase text-center">{esLogin ? '¿No tenés cuenta? Registrate' : 'Ya tengo cuenta'}</button>
+            )}
           </div>
         )}
       </main>
