@@ -5481,6 +5481,7 @@ export default function App() {
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [cargandoApp, setCargandoApp] = useState(true);
   const [confirmandoCarrito, setConfirmandoCarrito] = useState(false);
+  const [enviandoRecuperacion, setEnviandoRecuperacion] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
   const [carrito, setCarrito] = useState([]);
   const [mostrarToast, setMostrarToast] = useState(false);
@@ -5979,6 +5980,29 @@ export default function App() {
     }
   };
 
+  const enviarRecuperacionCuenta = async () => {
+    const email = String(datos.email || '').trim();
+
+    if (!email) {
+      setMensaje('Ingresá tu email para recuperar la contraseña.');
+      return;
+    }
+
+    setEnviandoRecuperacion(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: construirRedirectAuth(),
+      });
+      if (error) throw error;
+
+      setMensaje(`Te enviamos el email de recuperación a ${email}.`);
+    } catch (error) {
+      setMensaje('No se pudo enviar el email de recuperación: ' + (error?.message || 'Error desconocido'));
+    } finally {
+      setEnviandoRecuperacion(false);
+    }
+  };
+
   return (
     <div className="premium-shell min-h-screen flex flex-col">
       {cargandoApp && (
@@ -6404,13 +6428,26 @@ export default function App() {
             <h2 className="text-3xl italic text-gray-900 mb-3 text-center uppercase">{esLogin ? 'Ingresar' : 'Registrarse'}</h2>
             <p className="text-center text-xs uppercase tracking-[0.22em] text-gray-400 font-black mb-8">Tu acceso a compras, seguimiento y productos premium</p>
             {mensaje && (
-              <p className={`text-sm mb-4 ${String(mensaje).toLowerCase().includes('verific') ? 'text-green-700' : 'text-red-500'}`}>
+              <p className={`text-sm mb-4 ${/(verific|enviamos|recuperaci)/i.test(String(mensaje)) ? 'text-green-700' : 'text-red-500'}`}>
                 {mensaje}
               </p>
             )}
             <form onSubmit={manejarAccion} className="space-y-3">
               <input type="email" placeholder="EMAIL" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.email} onChange={e => setDatos({...datos, email: e.target.value})} required />
               <input type="password" placeholder="CONTRASEÑA" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.password} onChange={e => setDatos({...datos, password: e.target.value})} required />
+
+              {esLogin && (
+                <div className="flex justify-end px-1">
+                  <button
+                    type="button"
+                    onClick={enviarRecuperacionCuenta}
+                    disabled={enviandoRecuperacion}
+                    className="text-[11px] font-black uppercase tracking-wide text-green-700 hover:text-green-800 disabled:text-gray-400"
+                  >
+                    {enviandoRecuperacion ? 'Enviando...' : 'Recuperar contraseña'}
+                  </button>
+                </div>
+              )}
 
               {!esLogin && (
                 <>
