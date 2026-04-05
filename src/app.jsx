@@ -5507,6 +5507,7 @@ export default function App() {
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
   const ultimoSyncProductosRef = useRef(0);
   const bloqueoSesionSinConfirmarRef = useRef(false);
+  const esBloqueoRateLimitCuenta = tipoMensajeCuenta === 'error' && /limite de emails|rate limit/i.test(String(mensaje));
 
   const categoriasProductos = useMemo(() => (
     [...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map((p) => p.categoria).filter(Boolean)])].sort()
@@ -6442,6 +6443,17 @@ export default function App() {
               <p className={`text-sm mb-4 ${tipoMensajeCuenta === 'success' ? 'text-green-700' : 'text-red-500'}`}>
                 {mensaje}
               </p>
+            )}
+            {esBloqueoRateLimitCuenta && (
+              <div className="mb-5 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em]">Envio temporalmente pausado</p>
+                <p className="mt-2 text-sm font-semibold leading-relaxed">
+                  Supabase frenó los emails por cupo del proveedor interno. Podés esperar un rato para reintentar.
+                </p>
+                <p className="mt-2 text-xs font-semibold leading-relaxed text-amber-800">
+                  Para producción conviene configurar SMTP propio en Supabase y subir el limite en Authentication &gt; Rate Limits.
+                </p>
+              </div>
             )}
             <form onSubmit={manejarAccion} className="space-y-3">
               <input type="email" placeholder="EMAIL" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.email} onChange={e => setDatos({...datos, email: e.target.value})} required />
