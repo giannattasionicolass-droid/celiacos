@@ -63,6 +63,49 @@ const PERIODOS_BALANCE = [
 
 const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 
+const construirRedirectAuth = () => {
+  if (typeof window === 'undefined') return undefined;
+
+  const origin = String(window.location?.origin || '').trim();
+  const pathname = String(window.location?.pathname || '').trim();
+
+  if (!origin) return undefined;
+  if (pathname && pathname !== '/' && pathname !== '/index.html') return `${origin}${pathname}`;
+  return origin;
+};
+
+const usuarioTieneEmailConfirmado = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
+
+const normalizarMensajeAuth = (error) => {
+  const mensaje = String(error?.message || error || '').trim();
+  const mensajeLower = mensaje.toLowerCase();
+
+  if (mensajeLower.includes('email not confirmed')) {
+    return 'Tenes que verificar tu email antes de ingresar.';
+  }
+
+  return mensaje || 'No se pudo completar la autenticacion.';
+};
+
+const construirPerfilDesdeUsuarioAuth = (user = null) => {
+  if (!user?.id) return null;
+
+  const metadata = user?.user_metadata && typeof user.user_metadata === 'object'
+    ? user.user_metadata
+    : {};
+
+  return {
+    id: user.id,
+    nombre: String(metadata.nombre || '').trim(),
+    apellido: String(metadata.apellido || '').trim(),
+    cuit: String(metadata.cuit || '').trim(),
+    email: String(user.email || metadata.email || '').trim(),
+    telefono: String(metadata.telefono || '').trim(),
+    nombre_fantasia: String(metadata.nombre_fantasia || '').trim(),
+    direccion_envio: String(metadata.direccion_envio || metadata.direccion || '').trim(),
+  };
+};
+
 const DIAS_PRODUCTO_NUEVO = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 const APK_DOWNLOAD_URL = 'https://raw.githubusercontent.com/giannattasionicolass-droid/celiacos/main/docs/celiashop-android.apk';
@@ -5463,6 +5506,7 @@ export default function App() {
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
   const ultimoSyncProductosRef = useRef(0);
+  const bloqueoSesionSinConfirmarRef = useRef(false);
 
   const categoriasProductos = useMemo(() => (
     [...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map((p) => p.categoria).filter(Boolean)])].sort()
@@ -5603,30 +5647,114 @@ export default function App() {
     setTimeout(() => setMostrarToast(false), 2000);
   };
 
+  const crearPerfilDesdeAuth = async (user) => {
+    const perfilBase = construirPerfilDesdeUsuarioAuth(user);
+    if (!perfilBase) return null;
+
+    const { error: errorPerfil } = await supabase.from('perfiles').insert([perfilBase]);
+    if (!errorPerfil) return perfilBase;
+
+    const esErrorColumna = String(errorPerfil?.message || '').toLowerCase().includes('schema cache')
+      || String(errorPerfil?.message || '').toLowerCase().includes('column');
+
+    if (!esErrorColumna) throw errorPerfil;
+
+    const perfilCompat = {
+      id: perfilBase.id,
+      nombre: perfilBase.nombre,
+      apellido: perfilBase.apellido,
+      cuit: perfilBase.cuit,
+      email: perfilBase.email,
+      telefono: perfilBase.telefono,
+      direccion_envio: perfilBase.direccion_envio,
+    };
+
+    const { error: errorPerfilCompat } = await supabase.from('perfiles').insert([perfilCompat]);
+    if (errorPerfilCompat) throw errorPerfilCompat;
+
+    return perfilCompat;
+  };
+
+  const resolverPerfilSesion = async (sessionActual) => {
+    if (!sessionActual?.user) return null;
+
+    const { data, error } = await supabase
+      .from('perfiles')
+      .select('*')
+      .eq('id', sessionActual.user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return data;
+
+    if (usuarioTieneEmailConfirmado(sessionActual.user)) {
+      try {
+        return await crearPerfilDesdeAuth(sessionActual.user);
+      } catch (perfilError) {
+        console.error('Error creando perfil despues de confirmar email:', perfilError);
+      }
+    }
+
+    return { id: sessionActual.user.id, email: sessionActual.user.email };
+  };
+
+  const invalidarSesionNoConfirmada = async () => {
+    bloqueoSesionSinConfirmarRef.current = true;
+    setSession(null);
+    setUsuarioLogueado(null);
+    setEsLogin(true);
+    setPagina('cuenta');
+    setMensaje('Verifica tu email desde el enlace que te enviamos antes de ingresar.');
+    await supabase.auth.signOut();
+  };
+
   const refrescarPerfil = async () => {
     if (!session?.user) return;
-    const { data } = await supabase.from('perfiles').select('*').eq('id', session.user.id).maybeSingle();
-    if (data) setUsuarioLogueado(data);
-    else setUsuarioLogueado({ id: session.user.id, email: session.user.email });
+    const perfil = await resolverPerfilSesion(session);
+    if (perfil) setUsuarioLogueado(perfil);
   };
 
   useEffect(() => {
     const traerPerfil = async (sessionActual) => {
       if (!sessionActual?.user) return;
-      const { data } = await supabase.from('perfiles').select('*').eq('id', sessionActual.user.id).maybeSingle();
-      if (data) setUsuarioLogueado(data);
-      else setUsuarioLogueado({ id: sessionActual.user.id, email: sessionActual.user.email });
+
+      if (!usuarioTieneEmailConfirmado(sessionActual.user)) {
+        await invalidarSesionNoConfirmada();
+        return;
+      }
+
+      const perfil = await resolverPerfilSesion(sessionActual);
+      if (perfil) setUsuarioLogueado(perfil);
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !usuarioTieneEmailConfirmado(session.user)) {
+        void invalidarSesionNoConfirmada();
+        return;
+      }
+
       setSession(session);
-      if (session) traerPerfil(session);
+      if (session) void traerPerfil(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !usuarioTieneEmailConfirmado(session.user)) {
+        void invalidarSesionNoConfirmada();
+        return;
+      }
+
       setSession(session);
-      if (session) traerPerfil(session);
-      else { setUsuarioLogueado(null); setPagina('inicio'); }
+      if (session) {
+        void traerPerfil(session);
+        return;
+      }
+
+      setUsuarioLogueado(null);
+      if (bloqueoSesionSinConfirmarRef.current) {
+        bloqueoSesionSinConfirmarRef.current = false;
+        return;
+      }
+      setPagina('inicio');
     });
 
     fetchProductos();
@@ -5804,9 +5932,13 @@ export default function App() {
   const manejarAccion = async (e) => {
     e.preventDefault();
     try {
-          if (esLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email: datos.email, password: datos.password });
+      if (esLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: datos.email, password: datos.password });
         if (error) throw error;
+        if (!usuarioTieneEmailConfirmado(data?.user)) {
+          await invalidarSesionNoConfirmada();
+          return;
+        }
 
         if (redirectAfterLogin === 'checkout') {
           setPagina('carrito');
@@ -5819,32 +5951,38 @@ export default function App() {
           setPagina('inicio');
         }
       } else {
-        const { data, error } = await supabase.auth.signUp({ email: datos.email, password: datos.password });
+        const redirectAuth = construirRedirectAuth();
+        const { data, error } = await supabase.auth.signUp({
+          email: datos.email,
+          password: datos.password,
+          options: {
+            emailRedirectTo: redirectAuth,
+            data: {
+              nombre: String(datos.nombre || '').trim(),
+              apellido: String(datos.apellido || '').trim(),
+              cuit: String(datos.cuit || '').trim(),
+              telefono: String(datos.telefono || '').trim(),
+              nombre_fantasia: String(datos.nombre_fantasia || '').trim(),
+              direccion: String(datos.direccion || '').trim(),
+              direccion_envio: String(datos.direccion || '').trim(),
+              email: String(datos.email || '').trim(),
+            },
+          },
+        });
         if (error) throw error;
-        if (data.user) {
-          const perfilNuevo = {
-            id: data.user.id, nombre: datos.nombre, apellido: datos.apellido,
-            cuit: datos.cuit, email: datos.email, telefono: datos.telefono, nombre_fantasia: datos.nombre_fantasia, direccion_envio: datos.direccion
-          };
-
-          const { error: errorPerfil } = await supabase.from('perfiles').insert([perfilNuevo]);
-          if (errorPerfil) {
-            const esErrorColumna = String(errorPerfil?.message || '').toLowerCase().includes('schema cache')
-              || String(errorPerfil?.message || '').toLowerCase().includes('column');
-
-            if (!esErrorColumna) throw errorPerfil;
-
-            const perfilCompat = {
-              id: data.user.id, nombre: datos.nombre, apellido: datos.apellido,
-              cuit: datos.cuit, email: datos.email, telefono: datos.telefono, direccion_envio: datos.direccion
-            };
-            const { error: errorPerfilCompat } = await supabase.from('perfiles').insert([perfilCompat]);
-            if (errorPerfilCompat) throw errorPerfilCompat;
-          }
+        if (data?.session) {
+          await supabase.auth.signOut();
         }
+        setDatos((prev) => ({
+          ...prev,
+          password: '',
+        }));
+        setMensaje('Te enviamos un email para verificar tu cuenta. Confirmalo antes de ingresar.');
         setEsLogin(true);
       }
-    } catch (err) { setMensaje(err.message); }
+    } catch (err) {
+      setMensaje(normalizarMensajeAuth(err));
+    }
   };
 
   return (
@@ -6271,7 +6409,11 @@ export default function App() {
           <div className="max-w-md mx-auto premium-panel p-10 rounded-[40px] mt-4">
             <h2 className="text-3xl italic text-gray-900 mb-3 text-center uppercase">{esLogin ? 'Ingresar' : 'Registrarse'}</h2>
             <p className="text-center text-xs uppercase tracking-[0.22em] text-gray-400 font-black mb-8">Tu acceso a compras, seguimiento y productos premium</p>
-            {mensaje && <p className="text-sm text-red-500 mb-4">{mensaje}</p>}
+            {mensaje && (
+              <p className={`text-sm mb-4 ${String(mensaje).toLowerCase().includes('verific') ? 'text-green-700' : 'text-red-500'}`}>
+                {mensaje}
+              </p>
+            )}
             <form onSubmit={manejarAccion} className="space-y-3">
               <input type="email" placeholder="EMAIL" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.email} onChange={e => setDatos({...datos, email: e.target.value})} required />
               <input type="password" placeholder="CONTRASEÑA" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.password} onChange={e => setDatos({...datos, password: e.target.value})} required />
@@ -6284,6 +6426,9 @@ export default function App() {
                   <input type="text" placeholder="TELÉFONO" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.telefono} onChange={e => setDatos({...datos, telefono: e.target.value})} required />
                   <input type="text" placeholder="NOMBRE DE FANTASÍA (NEGOCIO/LOCAL)" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.nombre_fantasia} onChange={e => setDatos({...datos, nombre_fantasia: e.target.value})} />
                   <input type="text" placeholder="DIRECCIÓN" className="premium-input w-full p-4 rounded-2xl text-xs font-bold" value={datos.direccion} onChange={e => setDatos({...datos, direccion: e.target.value})} required />
+                  <p className="text-[11px] leading-relaxed text-gray-500 px-1">
+                    Tu cuenta quedara pendiente hasta que confirmes el email. Recién despues de esa verificacion se habilita el acceso.
+                  </p>
                 </>
               )}
 
