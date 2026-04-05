@@ -62,16 +62,10 @@ const PERIODOS_BALANCE = [
 ];
 
 const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
+const APP_PUBLIC_URL = 'https://celiashop.store';
 
 const construirRedirectAuth = () => {
-  if (typeof window === 'undefined') return undefined;
-
-  const origin = String(window.location?.origin || '').trim();
-  const pathname = String(window.location?.pathname || '').trim();
-
-  if (!origin) return undefined;
-  if (pathname && pathname !== '/' && pathname !== '/index.html') return `${origin}${pathname}`;
-  return origin;
+  return APP_PUBLIC_URL;
 };
 
 const usuarioTieneEmailConfirmado = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
@@ -4481,7 +4475,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+        redirectTo: construirRedirectAuth(),
       });
       if (error) throw error;
       alert(`Se envió el email de recuperación a ${email}.`);
