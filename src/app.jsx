@@ -2685,6 +2685,11 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
+  const [nuevaContrasena, setNuevaContrasena] = useState('');
+  const [confirmacionContrasena, setConfirmacionContrasena] = useState('');
+  const [guardandoContrasena, setGuardandoContrasena] = useState(false);
+  const [errorContrasena, setErrorContrasena] = useState('');
+  const [exitoContrasena, setExitoContrasena] = useState('');
 
   const esErrorColumnaPerfil = (err) => {
     const mensaje = String(err?.message || '').toLowerCase();
@@ -2767,6 +2772,41 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
     setEditando(false);
     setError('');
     setExito('');
+  };
+
+  const guardarNuevaContrasenaPerfil = async () => {
+    setGuardandoContrasena(true);
+    setErrorContrasena('');
+    setExitoContrasena('');
+
+    const password = String(nuevaContrasena || '').trim();
+    const confirmacion = String(confirmacionContrasena || '').trim();
+
+    if (password.length < 6) {
+      setErrorContrasena('La nueva contraseña debe tener al menos 6 caracteres.');
+      setGuardandoContrasena(false);
+      return;
+    }
+
+    if (password !== confirmacion) {
+      setErrorContrasena('Las contraseñas no coinciden.');
+      setGuardandoContrasena(false);
+      return;
+    }
+
+    try {
+      const { error: errorUpdate } = await supabase.auth.updateUser({ password });
+      if (errorUpdate) throw errorUpdate;
+
+      setNuevaContrasena('');
+      setConfirmacionContrasena('');
+      setExitoContrasena('Contraseña actualizada correctamente.');
+      setTimeout(() => setExitoContrasena(''), 3000);
+    } catch (err) {
+      setErrorContrasena('No se pudo cambiar la contraseña: ' + (err?.message || 'Error desconocido'));
+    } finally {
+      setGuardandoContrasena(false);
+    }
   };
 
   if (!usuarioLogueado) {
@@ -2907,6 +2947,48 @@ function SeccionPerfil({ usuarioLogueado, user, onRefrescar }) {
             <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Fecha de Creación</p>
             <p className="font-bold text-lg">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'No disponible'}</p>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-black uppercase">Seguridad</h3>
+        </div>
+
+        {errorContrasena && <p className="text-red-500 text-sm mb-4">{errorContrasena}</p>}
+        {exitoContrasena && <p className="text-green-500 text-sm mb-4">{exitoContrasena}</p>}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Nueva contraseña</p>
+            <input
+              type="password"
+              value={nuevaContrasena}
+              onChange={(e) => setNuevaContrasena(e.target.value)}
+              placeholder="Nueva contraseña"
+              className="w-full p-3 border border-gray-300 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Repetir contraseña</p>
+            <input
+              type="password"
+              value={confirmacionContrasena}
+              onChange={(e) => setConfirmacionContrasena(e.target.value)}
+              placeholder="Repetir nueva contraseña"
+              className="w-full p-3 border border-gray-300 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={guardarNuevaContrasenaPerfil}
+            disabled={guardandoContrasena}
+            className="bg-gradient-to-r from-gray-900 to-gray-800 text-white px-6 py-2 rounded-full font-black uppercase text-sm hover:from-gray-800 hover:to-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+          >
+            {guardandoContrasena ? 'Guardando...' : 'Cambiar contraseña'}
+          </button>
         </div>
       </div>
 
