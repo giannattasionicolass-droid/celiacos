@@ -64,6 +64,7 @@ const PERIODOS_BALANCE = [
 const ADMIN_EMAIL = 'giannattasio.nicolas@hotmail.com';
 const APP_PUBLIC_URL = 'https://celiashop.store';
 const INACTIVIDAD_MAXIMA_MS = 24 * 60 * 60 * 1000;
+const AVISO_INACTIVIDAD_MS = 5 * 60 * 1000;
 const ACTIVIDAD_SESION_STORAGE_KEY = 'celiashop_last_activity';
 
 const construirRedirectAuth = () => {
@@ -5619,6 +5620,7 @@ export default function App() {
   const [cargandoApp, setCargandoApp] = useState(true);
   const [confirmandoCarrito, setConfirmandoCarrito] = useState(false);
   const [enviandoRecuperacion, setEnviandoRecuperacion] = useState(false);
+  const [mostrarAvisoInactividad, setMostrarAvisoInactividad] = useState(false);
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
   const [carrito, setCarrito] = useState([]);
   const [mostrarToast, setMostrarToast] = useState(false);
@@ -5834,6 +5836,7 @@ export default function App() {
 
   const invalidarSesionNoConfirmada = async () => {
     bloqueoSesionSinConfirmarRef.current = true;
+    setMostrarAvisoInactividad(false);
     setSession(null);
     setUsuarioLogueado(null);
     setEsLogin(true);
@@ -5846,6 +5849,7 @@ export default function App() {
 
   const cerrarSesionPorInactividad = async () => {
     cierreSesionInactividadRef.current = true;
+    setMostrarAvisoInactividad(false);
     setSession(null);
     setUsuarioLogueado(null);
     setPagina('cuenta');
@@ -5912,6 +5916,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSession(session);
+        setMostrarAvisoInactividad(false);
         activarModoNuevaContrasena();
         return;
       }
@@ -5934,11 +5939,13 @@ export default function App() {
 
       setSession(session);
       if (session) {
+        setMostrarAvisoInactividad(false);
         guardarActividadSesion(session.user.id);
         void traerPerfil(session);
         return;
       }
 
+      setMostrarAvisoInactividad(false);
       setUsuarioLogueado(null);
       if (bloqueoSesionSinConfirmarRef.current) {
         bloqueoSesionSinConfirmarRef.current = false;
@@ -6061,6 +6068,7 @@ export default function App() {
 
     const registrarActividad = () => {
       guardarActividadSesion(userId);
+      setMostrarAvisoInactividad(false);
     };
 
     const verificarInactividad = () => {
@@ -6070,10 +6078,19 @@ export default function App() {
 
       if (!esMismaSesion) {
         guardarActividadSesion(userId);
+        setMostrarAvisoInactividad(false);
         return;
       }
 
-      if ((Date.now() - ultimoUso) >= INACTIVIDAD_MAXIMA_MS) {
+      const tiempoInactivo = Date.now() - ultimoUso;
+
+      if (tiempoInactivo >= (INACTIVIDAD_MAXIMA_MS - AVISO_INACTIVIDAD_MS)) {
+        setMostrarAvisoInactividad(true);
+      } else {
+        setMostrarAvisoInactividad(false);
+      }
+
+      if (tiempoInactivo >= INACTIVIDAD_MAXIMA_MS) {
         void cerrarSesionPorInactividad();
       }
     };
@@ -6096,6 +6113,12 @@ export default function App() {
       window.clearInterval(intervalo);
     };
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    guardarActividadSesion(session.user.id);
+    setMostrarAvisoInactividad(false);
+  }, [pagina, session?.user?.id]);
 
   async function fetchProductos() {
     const abortController = new AbortController();
@@ -6824,6 +6847,18 @@ export default function App() {
       {mostrarToast && (
         <div className="premium-toast fixed bottom-8 right-4 md:right-10 text-white px-8 py-4 rounded-[20px] font-black uppercase text-[10px] z-50">
           {mensajeToast}
+        </div>
+      )}
+
+      {mostrarAvisoInactividad && session?.user && (
+        <div className="fixed bottom-24 right-4 md:right-10 z-50 max-w-sm rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-4 shadow-2xl">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Sesión por vencer</p>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-amber-900">
+            Tu cuenta se cerrará sola en menos de 5 minutos por inactividad.
+          </p>
+          <p className="mt-2 text-xs font-semibold text-amber-800">
+            Navegá, tocá la pantalla o usá la app para mantener la sesión activa.
+          </p>
         </div>
       )}
 
