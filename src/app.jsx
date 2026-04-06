@@ -4,7 +4,7 @@ import { resetearDatosPrueba } from './adminReset';
 import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles, Mail, Phone, Globe, Share2, Download, Smartphone } from 'lucide-react';
 
-const URL_LOGO = "https://fsgssvindtmryytpgmxg.supabase.co/storage/v1/object/public/assets/Gemini_Generated_Image_cjh3kicjh3kicjh3.png";
+const URL_LOGO = `${import.meta.env.BASE_URL}apple-touch-icon.png`;
 const ESTADOS_PEDIDO = ['Pendiente', 'Confirmado', 'Enviado', 'Entregado', 'Cancelado'];
 
 const CATEGORIAS_PREDEFINIDAS = [
@@ -5981,19 +5981,21 @@ export default function App() {
       })
       .subscribe();
 
-    const intervalo = window.setInterval(() => {
-      notificarSincronizacionPedidos();
-    }, 15000);
-
     const onStorage = (event) => {
       if (event.key === PEDIDOS_SNAPSHOT_KEY) notificarSincronizacionPedidos();
     };
 
+    const onFocus = () => notificarSincronizacionPedidos();
+    const onOnline = () => notificarSincronizacionPedidos();
+
     window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
 
     return () => {
-      window.clearInterval(intervalo);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -6009,12 +6011,20 @@ export default function App() {
       })
       .subscribe();
 
-    const intervaloPerfil = window.setInterval(() => {
+    const onFocus = () => {
       if (session?.user?.id) notificarSincronizacionPerfil();
-    }, 15000);
+    };
+
+    const onOnline = () => {
+      if (session?.user?.id) notificarSincronizacionPerfil();
+    };
+
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
 
     return () => {
-      window.clearInterval(intervaloPerfil);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
       supabase.removeChannel(profileChannel);
     };
   }, [session?.user?.id]);
@@ -6043,13 +6053,7 @@ export default function App() {
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
 
-    // Fallback de seguridad si Realtime se cae temporalmente.
-    const intervaloProductos = window.setInterval(() => {
-      sincronizarProductosConThrottle();
-    }, 5000);
-
     return () => {
-      window.clearInterval(intervaloProductos);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       supabase.removeChannel(productosChannel);
