@@ -2,6 +2,7 @@
 import { supabase } from './supabaseClient';
 import { resetearDatosPrueba } from './adminReset';
 import { enviarEmailPedido, enviarMensajeContacto } from './orderNotifications';
+import { PRODUCTOS_RESPALDO } from './catalogFallback';
 import { ShoppingCart, User, ShieldCheck, Trash2, ShoppingBag, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, Search, CheckCircle, X, Package, Truck, House, Sparkles, Mail, Phone, Globe, Share2, Download, Smartphone } from 'lucide-react';
 
 const URL_LOGO = `${import.meta.env.BASE_URL}apple-touch-icon.png`;
@@ -117,9 +118,39 @@ const limpiarActividadSesion = () => {
 
 const usuarioTieneEmailConfirmado = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
 
+const mensajeIndicaRestriccionSupabase = (valor = '') => {
+  const mensaje = String(valor || '').trim().toLowerCase();
+  if (!mensaje) return false;
+
+  return mensaje.includes('exceed_egress_quota')
+    || mensaje.includes('service for this project is restricted')
+    || mensaje.includes('project is restricted')
+    || (mensaje.includes('egress') && mensaje.includes('quota'));
+};
+
+const esProyectoSupabaseRestringido = (error) => {
+  const candidatos = [
+    error,
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+  ];
+
+  return candidatos.some((valor) => mensajeIndicaRestriccionSupabase(valor));
+};
+
+const MENSAJE_SUPABASE_RESTRINGIDO = 'Supabase restringio temporalmente este proyecto por exceso de egress.';
+const MENSAJE_CUENTA_SUPABASE_RESTRINGIDA = `${MENSAJE_SUPABASE_RESTRINGIDO} El acceso a cuentas, pedidos y checkout quedo pausado hasta que soporte lo desbloquee.`;
+
 const normalizarMensajeAuth = (error) => {
   const mensaje = String(error?.message || error || '').trim();
   const mensajeLower = mensaje.toLowerCase();
+
+  if (mensajeIndicaRestriccionSupabase(mensajeLower)) {
+    return MENSAJE_CUENTA_SUPABASE_RESTRINGIDA;
+  }
 
   if (mensajeLower.includes('email not confirmed')) {
     return 'Tenes que verificar tu email antes de ingresar.';
@@ -389,6 +420,7 @@ const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).re
 ), 0);
 const formatearMoneda = (valor) => `$${Number(valor || 0).toFixed(2)}`;
 const PEDIDOS_SNAPSHOT_KEY = 'celiashop_pedidos_snapshot';
+const PRODUCTOS_SNAPSHOT_KEY = 'celiashop_productos_snapshot';
 const CLASE_BASE_ESTADO = 'inline-flex items-center justify-center text-center align-middle leading-none whitespace-nowrap';
 const obtenerClaseEstadoPedido = (estado) => {
   const valor = String(estado || '').toLowerCase();
@@ -724,6 +756,30 @@ const leerSnapshotsPedidos = () => {
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
+  }
+};
+
+const leerSnapshotProductos = () => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.localStorage.getItem(PRODUCTOS_SNAPSHOT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const guardarSnapshotProductos = (productos = []) => {
+  if (typeof window === 'undefined') return;
+  if (!Array.isArray(productos) || productos.length === 0) return;
+
+  try {
+    window.localStorage.setItem(PRODUCTOS_SNAPSHOT_KEY, JSON.stringify(productos));
+  } catch {
+    // no-op
   }
 };
 
@@ -1702,7 +1758,7 @@ function ModalProductoDetalle({ producto, onClose, onAgregarCarrito }) {
   );
 }
 
-function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, session, setRedirectAfterLogin, setEsLogin, confirmandoCarrito, setConfirmandoCarrito, setMensajeToast, setMostrarToast }) {
+function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, session, setRedirectAfterLogin, setEsLogin, confirmandoCarrito, setConfirmandoCarrito, setMensajeToast, setMostrarToast, supabaseRestringido = false }) {
   const [paso, setPaso] = useState(() => confirmandoCarrito ? 2 : 1);
   const [direccion, setDireccion] = useState(usuarioLogueado?.direccion_envio || '');
   const [telefono, setTelefono] = useState(usuarioLogueado?.telefono || '');
@@ -1784,6 +1840,13 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
   const eliminarItem = (id) => setCarrito(prev => prev.filter(i => i.id !== id));
 
   const irAlPago = () => {
+    if (supabaseRestringido) {
+      setMensajeToast('Checkout pausado: Supabase sigue restringido por egress.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 3200);
+      return;
+    }
+
     if (!session?.user) {
       setMensajeToast('Debes iniciar sesión para continuar');
       setMostrarToast(true);
@@ -1799,6 +1862,13 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
 
   const confirmarCompra = async () => {
     console.log('[DEBUG] confirmarCompra iniciada', { direccion, emailConfirmacion, carrito: carrito.length, usuarioLogueado: usuarioLogueado?.id, sessionUser: session?.user?.id });
+    if (supabaseRestringido) {
+      setMensajeToast('No podemos confirmar pedidos mientras Supabase siga restringido.');
+      setMostrarToast(true);
+      setTimeout(() => setMostrarToast(false), 3200);
+      return;
+    }
+
     if (!direccion.trim()) {
       setMensajeToast('Ingresá la dirección de entrega');
       setMostrarToast(true);
@@ -5616,6 +5686,8 @@ export default function App() {
   const [confirmacionNuevaContrasena, setConfirmacionNuevaContrasena] = useState('');
   const [guardandoNuevaContrasena, setGuardandoNuevaContrasena] = useState(false);
   const [productosBD, setProductosBD] = useState([]);
+  const [modoCatalogoRespaldo, setModoCatalogoRespaldo] = useState('');
+  const [supabaseRestringido, setSupabaseRestringido] = useState(false);
   const [redirectAfterLogin, setRedirectAfterLogin] = useState(null);
   const [cargandoApp, setCargandoApp] = useState(true);
   const [confirmandoCarrito, setConfirmandoCarrito] = useState(false);
@@ -5643,6 +5715,9 @@ export default function App() {
   const bloqueoSesionSinConfirmarRef = useRef(false);
   const cierreSesionInactividadRef = useRef(false);
   const esBloqueoRateLimitCuenta = tipoMensajeCuenta === 'error' && /limite de emails|rate limit/i.test(String(mensaje));
+  const descripcionCatalogoRespaldo = modoCatalogoRespaldo === 'snapshot'
+    ? 'Se muestra el ultimo catalogo guardado en este dispositivo.'
+    : 'Se muestra un catalogo de respaldo basico mientras se restablece la base.';
 
   const categoriasProductos = useMemo(() => (
     [...new Set([...CATEGORIAS_PREDEFINIDAS, ...productosBD.map((p) => p.categoria).filter(Boolean)])].sort()
@@ -6136,11 +6211,30 @@ export default function App() {
         .abortSignal(abortController.signal);
 
       if (error) throw error;
-      setProductosBD(Array.isArray(data) ? data : []);
+      const productos = Array.isArray(data) ? data : [];
+      setProductosBD(productos);
+      guardarSnapshotProductos(productos);
+      setModoCatalogoRespaldo('');
+      setSupabaseRestringido(false);
     } catch (error) {
       console.error('Error cargando productos:', error);
-      setProductosBD((prev) => (Array.isArray(prev) ? prev : []));
-      setMensajeToast('No pudimos actualizar el catálogo ahora. Reintentá en unos segundos.');
+      const snapshot = leerSnapshotProductos();
+      const usarSnapshot = snapshot.length > 0;
+      const productosFallback = usarSnapshot ? snapshot : PRODUCTOS_RESPALDO;
+      const proyectoRestringido = esProyectoSupabaseRestringido(error);
+
+      setProductosBD(Array.isArray(productosFallback) ? productosFallback : []);
+      setModoCatalogoRespaldo(Array.isArray(productosFallback) && productosFallback.length > 0 ? (usarSnapshot ? 'snapshot' : 'seed') : '');
+      setSupabaseRestringido(proyectoRestringido);
+      setMensajeToast(
+        proyectoRestringido
+          ? (usarSnapshot
+            ? 'Supabase restringido por egress. Mostrando el ultimo catalogo guardado.'
+            : 'Supabase restringido por egress. Mostrando un catalogo de respaldo.')
+          : (usarSnapshot
+            ? 'No pudimos actualizar el catalogo. Mostrando el ultimo guardado.'
+            : 'No pudimos actualizar el catalogo. Mostrando un catalogo de respaldo.')
+      );
       setMostrarToast(true);
       window.setTimeout(() => setMostrarToast(false), 3200);
     } finally {
@@ -6196,6 +6290,13 @@ export default function App() {
 
   const manejarAccion = async (e) => {
     e.preventDefault();
+
+    if (supabaseRestringido) {
+      setTipoMensajeCuenta('error');
+      setMensaje(MENSAJE_CUENTA_SUPABASE_RESTRINGIDA);
+      return;
+    }
+
     try {
       if (esLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({ email: datos.email, password: datos.password });
@@ -6247,6 +6348,7 @@ export default function App() {
         setEsLogin(true);
       }
     } catch (err) {
+      if (esProyectoSupabaseRestringido(err)) setSupabaseRestringido(true);
       setTipoMensajeCuenta('error');
       setMensaje(normalizarMensajeAuth(err));
     }
@@ -6254,6 +6356,12 @@ export default function App() {
 
   const enviarRecuperacionCuenta = async () => {
     const email = String(datos.email || '').trim();
+
+    if (supabaseRestringido) {
+      setTipoMensajeCuenta('error');
+      setMensaje(MENSAJE_CUENTA_SUPABASE_RESTRINGIDA);
+      return;
+    }
 
     if (!email) {
       setTipoMensajeCuenta('error');
@@ -6271,6 +6379,7 @@ export default function App() {
       setTipoMensajeCuenta('success');
       setMensaje(`Te enviamos el email de recuperación a ${email}.`);
     } catch (error) {
+      if (esProyectoSupabaseRestringido(error)) setSupabaseRestringido(true);
       setTipoMensajeCuenta('error');
       setMensaje(normalizarMensajeAuth(error));
     } finally {
@@ -6280,6 +6389,12 @@ export default function App() {
 
   const guardarNuevaContrasena = async (e) => {
     e.preventDefault();
+
+    if (supabaseRestringido) {
+      setTipoMensajeCuenta('error');
+      setMensaje(MENSAJE_CUENTA_SUPABASE_RESTRINGIDA);
+      return;
+    }
 
     const password = String(nuevaContrasena || '').trim();
     const confirmacion = String(confirmacionNuevaContrasena || '').trim();
@@ -6318,6 +6433,7 @@ export default function App() {
       setPagina('cuenta');
       setEsLogin(true);
     } catch (error) {
+      if (esProyectoSupabaseRestringido(error)) setSupabaseRestringido(true);
       setTipoMensajeCuenta('error');
       setMensaje(normalizarMensajeAuth(error));
     } finally {
@@ -6387,6 +6503,20 @@ export default function App() {
       </header>
 
       <main className="premium-main max-w-7xl mx-auto px-4 pt-[18.5rem] pb-8 md:pt-[15.5rem] md:pb-10 flex-grow w-full">
+        {(supabaseRestringido || modoCatalogoRespaldo) && (
+          <div className="mb-6 rounded-[32px] border border-amber-200 bg-amber-50 px-6 py-5 text-amber-900 shadow-sm">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em]">Modo emergencia</p>
+            <p className="mt-2 text-sm font-semibold leading-relaxed">
+              {MENSAJE_SUPABASE_RESTRINGIDO} El catalogo publico sigue disponible, pero login, pedidos y checkout estan pausados.
+            </p>
+            {modoCatalogoRespaldo && (
+              <p className="mt-2 text-xs font-semibold text-amber-800">
+                {descripcionCatalogoRespaldo}
+              </p>
+            )}
+          </div>
+        )}
+
         {pagina === 'inicio' && (
           <div className="space-y-12">
             <div className="premium-hero text-center py-12 px-6 md:px-12 md:py-24 rounded-[42px] text-white">
@@ -6724,6 +6854,7 @@ export default function App() {
             setConfirmandoCarrito={setConfirmandoCarrito}
             setMensajeToast={setMensajeToast}
             setMostrarToast={setMostrarToast}
+            supabaseRestringido={supabaseRestringido}
           />
         )}
         {pagina === 'contacto' && (
@@ -6762,6 +6893,14 @@ export default function App() {
                 </p>
                 <p className="mt-2 text-xs font-semibold leading-relaxed text-amber-800">
                   Para producción conviene configurar SMTP propio en Supabase y subir el limite en Authentication &gt; Rate Limits.
+                </p>
+              </div>
+            )}
+            {supabaseRestringido && (
+              <div className="mb-5 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-red-900">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em]">Acceso temporalmente pausado</p>
+                <p className="mt-2 text-sm font-semibold leading-relaxed">
+                  {MENSAJE_CUENTA_SUPABASE_RESTRINGIDA}
                 </p>
               </div>
             )}
