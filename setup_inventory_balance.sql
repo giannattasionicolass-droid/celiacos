@@ -174,7 +174,7 @@ begin
       new.id,
       'Descuento automático por venta',
       'pedido_automatico',
-      coalesce(new.user_id, new.perfil_id)
+      new.user_id
     );
   end loop;
 

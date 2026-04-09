@@ -1758,7 +1758,7 @@ function ModalProductoDetalle({ producto, onClose, onAgregarCarrito }) {
   );
 }
 
-function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, session, setRedirectAfterLogin, setEsLogin, confirmandoCarrito, setConfirmandoCarrito, setMensajeToast, setMostrarToast, supabaseRestringido = false }) {
+function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, session, setRedirectAfterLogin, setEsLogin, confirmandoCarrito, setConfirmandoCarrito, setMensajeToast, setMostrarToast, supabaseRestringido = false, onPedidoCreado = null }) {
   const [paso, setPaso] = useState(() => confirmandoCarrito ? 2 : 1);
   const [direccion, setDireccion] = useState(usuarioLogueado?.direccion_envio || '');
   const [telefono, setTelefono] = useState(usuarioLogueado?.telefono || '');
@@ -2159,6 +2159,9 @@ function SeccionCarrito({ carrito, setCarrito, setPagina, usuarioLogueado, sessi
       };
       console.log('[DEBUG] Guardando snapshot y confirmación del pedido. NumPedido: ' + numPedido);
       guardarSnapshotPedido(pedidoGenerado);
+      if (typeof onPedidoCreado === 'function') {
+        onPedidoCreado(productosPedido);
+      }
       setPedidoConfirmado({
         numero: numPedido,
         total,
@@ -5811,6 +5814,48 @@ export default function App() {
   const notificarSincronizacionPedidos = () => setPedidosVersion((prev) => prev + 1);
   const notificarSincronizacionPerfil = () => setPerfilVersion((prev) => prev + 1);
 
+  const descontarStockLocalPorPedido = (productosPedido = []) => {
+    if (!Array.isArray(productosPedido) || productosPedido.length === 0) return;
+
+    const cantidadesPorProducto = new Map();
+    for (const item of productosPedido) {
+      const productoId = String(item?.id || '').trim();
+      const cantidad = Math.max(0, Number(item?.cantidad) || 0);
+      if (!productoId || cantidad <= 0) continue;
+      cantidadesPorProducto.set(productoId, (cantidadesPorProducto.get(productoId) || 0) + cantidad);
+    }
+
+    if (cantidadesPorProducto.size === 0) return;
+
+    setProductosBD((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+
+      let huboCambios = false;
+      const actualizados = prev.map((producto) => {
+        const productoId = String(producto?.id || '').trim();
+        const cantidadDescontar = cantidadesPorProducto.get(productoId) || 0;
+        if (cantidadDescontar <= 0) return producto;
+
+        const stockActual = Math.max(0, Number(producto?.stock) || 0);
+        const stockNuevo = Math.max(0, stockActual - cantidadDescontar);
+        if (stockNuevo === stockActual) return producto;
+
+        huboCambios = true;
+        return {
+          ...producto,
+          stock: stockNuevo,
+        };
+      });
+
+      if (huboCambios) {
+        guardarSnapshotProductos(actualizados);
+        return actualizados;
+      }
+
+      return prev;
+    });
+  };
+
   // --- FUNCIÓN AGREGAR AL CARRITO (CORREGIDA) ---
   const agregarAlCarrito = (producto) => {
     if (!producto.activo) {
@@ -6855,6 +6900,7 @@ export default function App() {
             setMensajeToast={setMensajeToast}
             setMostrarToast={setMostrarToast}
             supabaseRestringido={supabaseRestringido}
+            onPedidoCreado={descontarStockLocalPorPedido}
           />
         )}
         {pagina === 'contacto' && (

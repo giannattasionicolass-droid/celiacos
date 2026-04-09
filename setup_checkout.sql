@@ -131,7 +131,13 @@ create index if not exists pedidos_fecha_idx on public.pedidos(fecha desc);
 -- 6. Políticas y permisos
 alter table public.pedidos enable row level security;
 
-drop function if exists public.es_admin_email();
+drop policy if exists "pedidos_select_own" on public.pedidos;
+drop policy if exists "pedidos_insert_own" on public.pedidos;
+drop policy if exists "pedidos_update_own" on public.pedidos;
+drop policy if exists "pedidos_select_admin_or_own" on public.pedidos;
+drop policy if exists "pedidos_insert_admin_or_own" on public.pedidos;
+drop policy if exists "pedidos_update_admin_or_own" on public.pedidos;
+
 create or replace function public.es_admin_email()
 returns boolean
 language sql
@@ -139,13 +145,6 @@ stable
 as $$
   select lower(coalesce(auth.jwt() ->> 'email', '')) = 'giannattasio.nicolas@hotmail.com';
 $$;
-
-drop policy if exists "pedidos_select_own" on public.pedidos;
-drop policy if exists "pedidos_insert_own" on public.pedidos;
-drop policy if exists "pedidos_update_own" on public.pedidos;
-drop policy if exists "pedidos_select_admin_or_own" on public.pedidos;
-drop policy if exists "pedidos_insert_admin_or_own" on public.pedidos;
-drop policy if exists "pedidos_update_admin_or_own" on public.pedidos;
 
 create policy "pedidos_select_admin_or_own"
 on public.pedidos
