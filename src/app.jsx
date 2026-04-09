@@ -1484,10 +1484,12 @@ function Carrusel({ productos, agregarAlCarrito, onVerDetalleProducto }) {
 
   const productosOrdenados = useMemo(() => {
     if (!Array.isArray(productos)) return [];
-    const lista = productos.map((producto) => ({
-      ...producto,
-      esNuevo: esProductoNuevo(producto),
-    }));
+    const lista = productos
+      .filter((producto) => Boolean(producto?.activo) && Number(producto?.stock || 0) > 0)
+      .map((producto) => ({
+        ...producto,
+        esNuevo: esProductoNuevo(producto),
+      }));
 
     return lista
       .sort((a, b) => {
