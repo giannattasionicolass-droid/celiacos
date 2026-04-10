@@ -73,7 +73,8 @@ const VISITOR_ID_STORAGE_KEY = 'celiashop_visitor_id';
 const VISIT_SESSION_STORAGE_KEY = 'celiashop_visit_session_id';
 const VISIT_REGISTRADA_STORAGE_KEY = 'celiashop_visit_logged';
 const TABLA_VISITAS_WEB = 'web_visitas';
-const LIMITE_VISITAS_ADMIN = 250;
+const LIMITE_VISITAS_ADMIN = 200;
+const VISITAS_WEB_POR_PAGINA = 20;
 
 const generarIdUnico = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -3307,6 +3308,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     disponible: true,
     mensaje: '',
   });
+  const [paginaVisitasActual, setPaginaVisitasActual] = useState(1);
   const [totalVentas, setTotalVentas] = useState(0);
   const [totalFacturado, setTotalFacturado] = useState(0);
   const [actualizandoPedidoId, setActualizandoPedidoId] = useState(null);
@@ -3767,6 +3769,10 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     setPaginaStockActual(1);
   }, [filtroStockProducto]);
 
+  useEffect(() => {
+    setPaginaVisitasActual(1);
+  }, [tab, visitasWeb]);
+
   const resumenVisitasWeb = useMemo(() => {
     const ahora = Date.now();
     const inicioHoy = obtenerInicioDia().getTime();
@@ -3812,6 +3818,13 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
   }, [visitasWeb]);
+
+  const totalPaginasVisitas = Math.max(1, Math.ceil(visitasWeb.length / VISITAS_WEB_POR_PAGINA));
+  const paginaVisitasSegura = Math.min(paginaVisitasActual, totalPaginasVisitas);
+  const inicioVisitas = (paginaVisitasSegura - 1) * VISITAS_WEB_POR_PAGINA;
+  const finVisitas = inicioVisitas + VISITAS_WEB_POR_PAGINA;
+  const visitasWebPaginadas = visitasWeb.slice(inicioVisitas, finVisitas);
+  const paginasVisitas = Array.from({ length: totalPaginasVisitas }, (_, i) => i + 1);
 
   const agregarProducto = async (e) => {
     e.preventDefault();
@@ -6007,7 +6020,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   <p className="text-xs font-black uppercase tracking-widest text-gray-500">Últimas visitas</p>
                   <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mt-1">Horario de ingreso e IP</h4>
                 </div>
-                <p className="text-[11px] font-semibold text-gray-500">Máximo {LIMITE_VISITAS_ADMIN} filas</p>
+                <p className="text-[11px] font-semibold text-gray-500">Máximo {LIMITE_VISITAS_ADMIN} filas · {VISITAS_WEB_POR_PAGINA} por página</p>
               </div>
 
               {cargandoVisitasWeb ? (
@@ -6017,46 +6030,86 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
                   {estadoVisitasWeb.disponible ? 'Todavía no hay visitas registradas.' : 'La tabla todavía no está disponible.'}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-600 uppercase text-[10px] tracking-widest">
-                      <tr>
-                        <th className="text-left px-4 py-3">Ingreso</th>
-                        <th className="text-left px-4 py-3">IP</th>
-                        <th className="text-left px-4 py-3">Página</th>
-                        <th className="text-left px-4 py-3">Origen</th>
-                        <th className="text-left px-4 py-3">Dispositivo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visitasWeb.map((visita) => {
-                        const referrer = String(visita?.referrer || '').trim();
-                        let origen = 'Directo';
-                        if (referrer) {
-                          try {
-                            origen = new URL(referrer).hostname || referrer;
-                          } catch {
-                            origen = referrer;
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600 uppercase text-[10px] tracking-widest">
+                        <tr>
+                          <th className="text-left px-4 py-3">Ingreso</th>
+                          <th className="text-left px-4 py-3">IP</th>
+                          <th className="text-left px-4 py-3">Página</th>
+                          <th className="text-left px-4 py-3">Origen</th>
+                          <th className="text-left px-4 py-3">Dispositivo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visitasWebPaginadas.map((visita) => {
+                          const referrer = String(visita?.referrer || '').trim();
+                          let origen = 'Directo';
+                          if (referrer) {
+                            try {
+                              origen = new URL(referrer).hostname || referrer;
+                            } catch {
+                              origen = referrer;
+                            }
                           }
-                        }
 
-                        return (
-                          <tr key={visita.id} className="border-t border-gray-100 align-top">
-                            <td className="px-4 py-3 font-black text-gray-900 whitespace-nowrap">{formatearFechaHora(visita.created_at)}</td>
-                            <td className="px-4 py-3">
-                              <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700 border border-sky-200">
-                                {normalizarIpVisita(visita.ip)}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-gray-700">{String(visita?.path || '/').trim() || '/'}</td>
-                            <td className="px-4 py-3 font-semibold text-gray-700 break-all">{origen}</td>
-                            <td className="px-4 py-3 text-[11px] font-semibold text-gray-500 max-w-[280px] break-words">{String(visita?.user_agent || 'No disponible').trim() || 'No disponible'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                          return (
+                            <tr key={visita.id} className="border-t border-gray-100 align-top">
+                              <td className="px-4 py-3 font-black text-gray-900 whitespace-nowrap">{formatearFechaHora(visita.created_at)}</td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700 border border-sky-200">
+                                  {normalizarIpVisita(visita.ip)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 font-semibold text-gray-700">{String(visita?.path || '/').trim() || '/'}</td>
+                              <td className="px-4 py-3 font-semibold text-gray-700 break-all">{origen}</td>
+                              <td className="px-4 py-3 text-[11px] font-semibold text-gray-500 max-w-[280px] break-words">{String(visita?.user_agent || 'No disponible').trim() || 'No disponible'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {visitasWeb.length > 0 && (
+                    <div className="border-t border-gray-100 px-6 py-4 flex flex-col items-center gap-3">
+                      <p className="text-xs font-black uppercase tracking-[0.11em] text-gray-500 text-center">
+                        Pagina {paginaVisitasSegura} de {totalPaginasVisitas} · Mostrando {Math.min(inicioVisitas + 1, visitasWeb.length)}-{Math.min(finVisitas, visitasWeb.length)} de {visitasWeb.length} conexiones
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setPaginaVisitasActual((prev) => Math.max(1, prev - 1))}
+                          disabled={paginaVisitasSegura <= 1}
+                          className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                        >
+                          Anterior
+                        </button>
+
+                        {paginasVisitas.map((pagina) => (
+                          <button
+                            type="button"
+                            key={pagina}
+                            onClick={() => setPaginaVisitasActual(pagina)}
+                            className={`px-3 py-2 rounded-xl text-xs font-black uppercase ${pagina === paginaVisitasSegura ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          >
+                            {pagina}
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() => setPaginaVisitasActual((prev) => Math.min(totalPaginasVisitas, prev + 1))}
+                          disabled={paginaVisitasSegura >= totalPaginasVisitas}
+                          className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase disabled:opacity-50"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

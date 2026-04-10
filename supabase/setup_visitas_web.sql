@@ -41,6 +41,25 @@ as $$
   select lower(coalesce(auth.jwt() ->> 'email', '')) = 'giannattasio.nicolas@hotmail.com';
 $$;
 
+create or replace function public.limpiar_exceso_web_visitas()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.web_visitas
+  where id in (
+    select id
+    from public.web_visitas
+    order by created_at desc, id desc
+    offset 200
+  );
+
+  return null;
+end;
+$$;
+
 create table if not exists public.web_visitas (
   id uuid primary key default gen_random_uuid(),
   visitor_id text not null,
@@ -66,9 +85,24 @@ update public.web_visitas
 set ip = public.obtener_ip_visita_web()
 where ip is null;
 
+delete from public.web_visitas
+where id in (
+  select id
+  from public.web_visitas
+  order by created_at desc, id desc
+  offset 200
+);
+
 create unique index if not exists web_visitas_session_id_key on public.web_visitas(session_id);
 create index if not exists web_visitas_created_at_idx on public.web_visitas(created_at desc);
 create index if not exists web_visitas_visitor_id_idx on public.web_visitas(visitor_id);
+
+drop trigger if exists trg_web_visitas_limpiar_exceso on public.web_visitas;
+
+create trigger trg_web_visitas_limpiar_exceso
+after insert on public.web_visitas
+for each statement
+execute function public.limpiar_exceso_web_visitas();
 
 alter table public.web_visitas enable row level security;
 

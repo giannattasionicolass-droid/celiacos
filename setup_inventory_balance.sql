@@ -8,6 +8,39 @@ alter table if exists public.productos
 alter table if exists public.pedidos
   add column if not exists stock_descontado boolean not null default false;
 
+do $$
+begin
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
+  ) then
+    if not exists (
+      select 1
+      from pg_publication_rel pr
+      join pg_class c on c.oid = pr.prrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      join pg_publication p on p.oid = pr.prpubid
+      where p.pubname = 'supabase_realtime'
+        and n.nspname = 'public'
+        and c.relname = 'productos'
+    ) then
+      execute 'alter publication supabase_realtime add table public.productos';
+    end if;
+
+    if not exists (
+      select 1
+      from pg_publication_rel pr
+      join pg_class c on c.oid = pr.prrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      join pg_publication p on p.oid = pr.prpubid
+      where p.pubname = 'supabase_realtime'
+        and n.nspname = 'public'
+        and c.relname = 'inventario_movimientos'
+    ) then
+      execute 'alter publication supabase_realtime add table public.inventario_movimientos';
+    end if;
+  end if;
+end $$;
+
 create table if not exists public.inventario_movimientos (
   id uuid primary key default gen_random_uuid(),
   producto_id uuid not null references public.productos(id) on delete cascade,
