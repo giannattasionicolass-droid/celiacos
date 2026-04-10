@@ -29,6 +29,8 @@ const DATOS_CELIASHOP = {
   direccion: 'Buenos Aires, Argentina',
   telefono: '2281-537168',
   email: 'celiashopazul@gmail.com',
+  instagram: 'https://www.instagram.com/celiashopazul/',
+  facebook: 'https://www.facebook.com/celiashopazul',
   condicionIva: 'Responsable Inscripto'
 };
 
@@ -7222,14 +7224,24 @@ function SeccionContacto({ usuarioLogueado, session, setMensajeToast, setMostrar
           <div className="rounded-2xl bg-white/85 border border-gray-200 p-4">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-500 mb-3">Redes sociales</p>
             <div className="flex flex-col gap-2">
-              <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                <span className="inline-flex items-center gap-2 text-sm font-black text-gray-800"><Globe size={16} /> Instagram</span>
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Proximamente</span>
-              </div>
-              <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-                <span className="inline-flex items-center gap-2 text-sm font-black text-gray-800"><Share2 size={16} /> Facebook</span>
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Proximamente</span>
-              </div>
+              <a
+                href={DATOS_CELIASHOP.instagram}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-black text-gray-800 transition-colors hover:border-emerald-300 hover:text-emerald-700"
+              >
+                <span className="inline-flex items-center gap-2"><Globe size={16} /> Instagram</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">@celiashopazul</span>
+              </a>
+              <a
+                href={DATOS_CELIASHOP.facebook}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-black text-gray-800 transition-colors hover:border-emerald-300 hover:text-emerald-700"
+              >
+                <span className="inline-flex items-center gap-2"><Share2 size={16} /> Facebook</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">/celiashopazul</span>
+              </a>
             </div>
           </div>
         </div>
