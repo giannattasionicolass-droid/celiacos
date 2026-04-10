@@ -69,6 +69,19 @@ const APP_PUBLIC_URL = 'https://celiashop.store';
 const INACTIVIDAD_MAXIMA_MS = 24 * 60 * 60 * 1000;
 const AVISO_INACTIVIDAD_MS = 5 * 60 * 1000;
 const ACTIVIDAD_SESION_STORAGE_KEY = 'celiashop_last_activity';
+const VISITOR_ID_STORAGE_KEY = 'celiashop_visitor_id';
+const VISIT_SESSION_STORAGE_KEY = 'celiashop_visit_session_id';
+const VISIT_REGISTRADA_STORAGE_KEY = 'celiashop_visit_logged';
+const TABLA_VISITAS_WEB = 'web_visitas';
+const LIMITE_VISITAS_ADMIN = 250;
+
+const generarIdUnico = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 const construirRedirectAuth = () => {
   return APP_PUBLIC_URL;
@@ -115,6 +128,136 @@ const limpiarActividadSesion = () => {
     window.localStorage.removeItem(ACTIVIDAD_SESION_STORAGE_KEY);
   } catch {
     // no-op
+  }
+};
+
+const leerStorageSeguro = (storage, key) => {
+  if (!storage || !key) return '';
+
+  try {
+    return String(storage.getItem(key) || '').trim();
+  } catch {
+    return '';
+  }
+};
+
+const guardarStorageSeguro = (storage, key, value) => {
+  if (!storage || !key) return;
+
+  try {
+    storage.setItem(key, value);
+  } catch {
+    // no-op
+  }
+};
+
+const obtenerVisitorId = () => {
+  if (typeof window === 'undefined') return '';
+
+  const existente = leerStorageSeguro(window.localStorage, VISITOR_ID_STORAGE_KEY);
+  if (existente) return existente;
+
+  const nuevo = generarIdUnico();
+  guardarStorageSeguro(window.localStorage, VISITOR_ID_STORAGE_KEY, nuevo);
+  return nuevo;
+};
+
+const obtenerSessionVisitaId = () => {
+  if (typeof window === 'undefined') return '';
+
+  const existente = leerStorageSeguro(window.sessionStorage, VISIT_SESSION_STORAGE_KEY);
+  if (existente) return existente;
+
+  const nuevo = generarIdUnico();
+  guardarStorageSeguro(window.sessionStorage, VISIT_SESSION_STORAGE_KEY, nuevo);
+  return nuevo;
+};
+
+const visitaYaRegistradaEnSesion = () => {
+  if (typeof window === 'undefined') return false;
+  return leerStorageSeguro(window.sessionStorage, VISIT_REGISTRADA_STORAGE_KEY) === '1';
+};
+
+const marcarVisitaRegistradaEnSesion = () => {
+  if (typeof window === 'undefined') return;
+  guardarStorageSeguro(window.sessionStorage, VISIT_REGISTRADA_STORAGE_KEY, '1');
+};
+
+const normalizarIpVisita = (valor = '') => {
+  const ip = String(valor || '').trim();
+  return ip || 'No disponible';
+};
+
+const formatearFechaHora = (valor) => {
+  if (!valor) return 'Sin fecha registrada';
+
+  const fecha = new Date(valor);
+  if (Number.isNaN(fecha.getTime())) return 'Sin fecha registrada';
+
+  return fecha.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const obtenerInicioDia = (fechaBase = new Date()) => {
+  const fecha = new Date(fechaBase);
+  fecha.setHours(0, 0, 0, 0);
+  return fecha;
+};
+
+const obtenerInicioHaceDias = (dias = 0) => {
+  const fecha = obtenerInicioDia();
+  fecha.setDate(fecha.getDate() - dias);
+  return fecha;
+};
+
+const construirPayloadVisitaWeb = () => {
+  if (typeof window === 'undefined') return null;
+
+  const visitorId = obtenerVisitorId();
+  const sessionId = obtenerSessionVisitaId();
+  if (!visitorId || !sessionId) return null;
+
+  return {
+    visitor_id: visitorId,
+    session_id: sessionId,
+    path: String(window.location?.pathname || '/').trim() || '/',
+    referrer: String(document.referrer || '').trim(),
+    user_agent: String(window.navigator?.userAgent || '').trim(),
+  };
+};
+
+const registrarVisitaWeb = async () => {
+  if (typeof window === 'undefined' || visitaYaRegistradaEnSesion()) return;
+
+  const payload = construirPayloadVisitaWeb();
+  if (!payload) return;
+
+  try {
+    const { error } = await supabase
+      .from(TABLA_VISITAS_WEB)
+      .upsert(payload, { onConflict: 'session_id', ignoreDuplicates: true });
+
+    if (error) {
+      const mensaje = String(error?.message || '').toLowerCase();
+      const tablaNoDisponible = mensaje.includes(TABLA_VISITAS_WEB) && (
+        mensaje.includes('does not exist')
+        || mensaje.includes('could not find the table')
+        || mensaje.includes('schema cache')
+      );
+      if (!tablaNoDisponible) {
+        console.warn('No se pudo registrar la visita web:', error);
+      }
+      return;
+    }
+
+    marcarVisitaRegistradaEnSesion();
+  } catch (error) {
+    console.warn('No se pudo registrar la visita web:', error);
   }
 };
 
@@ -485,14 +628,7 @@ const obtenerVisualEstadoPedido = (estado) => {
 };
 const formatearFechaPedido = (pedido) => {
   const fecha = obtenerFechaPedido(pedido);
-  if (!fecha) return 'Sin fecha registrada';
-  return new Date(fecha).toLocaleString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return formatearFechaHora(fecha);
 };
 
 const escaparHtml = (valor) => String(valor ?? '')
@@ -3165,6 +3301,12 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const [pedidos, setPedidos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [visitasWeb, setVisitasWeb] = useState([]);
+  const [cargandoVisitasWeb, setCargandoVisitasWeb] = useState(false);
+  const [estadoVisitasWeb, setEstadoVisitasWeb] = useState({
+    disponible: true,
+    mensaje: '',
+  });
   const [totalVentas, setTotalVentas] = useState(0);
   const [totalFacturado, setTotalFacturado] = useState(0);
   const [actualizandoPedidoId, setActualizandoPedidoId] = useState(null);
@@ -3239,6 +3381,16 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   const esTablaInventarioNoDisponible = (error) => {
     const mensaje = String(error?.message || '').toLowerCase();
     return mensaje.includes('inventario_movimientos') && (
+      mensaje.includes('could not find the table')
+      || mensaje.includes('schema cache')
+      || mensaje.includes('relation')
+      || mensaje.includes('does not exist')
+    );
+  };
+
+  const esTablaVisitasNoDisponible = (error) => {
+    const mensaje = String(error?.message || '').toLowerCase();
+    return mensaje.includes(TABLA_VISITAS_WEB) && (
       mensaje.includes('could not find the table')
       || mensaje.includes('schema cache')
       || mensaje.includes('relation')
@@ -3465,6 +3617,41 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
     }
   };
 
+  const traerVisitasWeb = async () => {
+    setCargandoVisitasWeb(true);
+    try {
+      const { data, error } = await supabase
+        .from(TABLA_VISITAS_WEB)
+        .select('id, visitor_id, session_id, ip, path, referrer, user_agent, created_at')
+        .order('created_at', { ascending: false })
+        .limit(LIMITE_VISITAS_ADMIN);
+
+      if (error) {
+        if (esTablaVisitasNoDisponible(error)) {
+          setVisitasWeb([]);
+          setEstadoVisitasWeb({
+            disponible: false,
+            mensaje: 'Falta crear la tabla de visitas en Supabase. Ejecutá supabase/setup_visitas_web.sql en SQL Editor.',
+          });
+          return;
+        }
+        throw error;
+      }
+
+      setVisitasWeb(Array.isArray(data) ? data : []);
+      setEstadoVisitasWeb({ disponible: true, mensaje: '' });
+    } catch (error) {
+      console.error('No se pudieron cargar las visitas web:', error);
+      setVisitasWeb([]);
+      setEstadoVisitasWeb({
+        disponible: false,
+        mensaje: `No se pudieron cargar las visitas web: ${error?.message || 'Error desconocido'}`,
+      });
+    } finally {
+      setCargandoVisitasWeb(false);
+    }
+  };
+
   const diagnosticarTriggerDescuentoStock = async () => {
     setDiagnosticoTriggerStock({
       estado: 'pendiente',
@@ -3569,6 +3756,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
       traerMovimientosInventario();
       diagnosticarTriggerDescuentoStock();
     }
+    if (tab === 'visitas') traerVisitasWeb();
   }, [tab, pedidosVersion]);
 
   useEffect(() => {
@@ -3578,6 +3766,52 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
   useEffect(() => {
     setPaginaStockActual(1);
   }, [filtroStockProducto]);
+
+  const resumenVisitasWeb = useMemo(() => {
+    const ahora = Date.now();
+    const inicioHoy = obtenerInicioDia().getTime();
+    const hace7Dias = obtenerInicioHaceDias(6).getTime();
+    const hace30Min = ahora - (30 * 60 * 1000);
+
+    const visitasHoy = [];
+    const visitasSemana = [];
+    const sesionesActivas = new Set();
+    const visitantesSemana = new Set();
+
+    for (const visita of visitasWeb) {
+      const timestamp = new Date(visita?.created_at || 0).getTime();
+      if (Number.isNaN(timestamp)) continue;
+
+      if (timestamp >= inicioHoy) visitasHoy.push(visita);
+      if (timestamp >= hace7Dias) {
+        visitasSemana.push(visita);
+        if (visita?.visitor_id) visitantesSemana.add(String(visita.visitor_id));
+      }
+      if (timestamp >= hace30Min && visita?.session_id) {
+        sesionesActivas.add(String(visita.session_id));
+      }
+    }
+
+    return {
+      hoy: visitasHoy.length,
+      ultimos7Dias: visitasSemana.length,
+      visitantesUnicos7Dias: visitantesSemana.size,
+      sesionesActivas30Min: sesionesActivas.size,
+    };
+  }, [visitasWeb]);
+
+  const topIpsVisitasWeb = useMemo(() => {
+    const acumulado = new Map();
+
+    for (const visita of visitasWeb) {
+      const ip = normalizarIpVisita(visita?.ip);
+      acumulado.set(ip, (acumulado.get(ip) || 0) + 1);
+    }
+
+    return Array.from(acumulado.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+  }, [visitasWeb]);
 
   const agregarProducto = async (e) => {
     e.preventDefault();
@@ -4761,6 +4995,7 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
             <button onClick={() => setTab('inventario')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'inventario' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Inventario</button>
             <button onClick={() => setTab('ventas')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'ventas' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Ventas</button>
             <button onClick={() => setTab('clientes')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'clientes' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Clientes</button>
+            <button onClick={() => setTab('visitas')} className={`whitespace-nowrap px-4 py-2 rounded-2xl font-black text-xs md:px-6 md:text-sm uppercase transition-all ${tab === 'visitas' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500'}`}>Visitas web</button>
           </div>
         </div>
       </div>
@@ -5716,6 +5951,142 @@ function AdminPanel({ productos, traerProductos, pedidosVersion, onPedidosSync }
           )}
         </div>
       )}
+
+      {tab === 'visitas' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-[30px] border border-gray-100 shadow-sm p-5 md:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Analítica liviana</p>
+                <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-gray-900">Flujo de visitas web</h3>
+                <p className="text-sm font-semibold text-gray-500 mt-1">
+                  Se registra una visita por sesión de navegador para no multiplicar escrituras en Supabase.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={traerVisitasWeb}
+                disabled={cargandoVisitasWeb}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide ${cargandoVisitasWeb ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-gray-700'}`}
+              >
+                {cargandoVisitasWeb ? 'Actualizando...' : 'Actualizar visitas'}
+              </button>
+            </div>
+
+            {!estadoVisitasWeb.disponible && estadoVisitasWeb.mensaje && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                <p className="text-[11px] font-black uppercase tracking-widest">Configuración pendiente</p>
+                <p className="text-sm font-semibold mt-1">{estadoVisitasWeb.mensaje}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Ingresos hoy</p>
+              <p className="text-3xl font-black text-gray-900 mt-2">{resumenVisitasWeb.hoy}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Últimos 7 días</p>
+              <p className="text-3xl font-black text-gray-900 mt-2">{resumenVisitasWeb.ultimos7Dias}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Visitantes únicos 7 días</p>
+              <p className="text-3xl font-black text-gray-900 mt-2">{resumenVisitasWeb.visitantesUnicos7Dias}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Sesiones activas 30 min</p>
+              <p className="text-3xl font-black text-emerald-700 mt-2">{resumenVisitasWeb.sesionesActivas30Min}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2 bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-500">Últimas visitas</p>
+                  <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mt-1">Horario de ingreso e IP</h4>
+                </div>
+                <p className="text-[11px] font-semibold text-gray-500">Máximo {LIMITE_VISITAS_ADMIN} filas</p>
+              </div>
+
+              {cargandoVisitasWeb ? (
+                <div className="px-6 py-8 text-center text-sm font-semibold text-gray-500">Cargando visitas...</div>
+              ) : visitasWeb.length === 0 ? (
+                <div className="px-6 py-8 text-center text-sm font-semibold text-gray-500">
+                  {estadoVisitasWeb.disponible ? 'Todavía no hay visitas registradas.' : 'La tabla todavía no está disponible.'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-600 uppercase text-[10px] tracking-widest">
+                      <tr>
+                        <th className="text-left px-4 py-3">Ingreso</th>
+                        <th className="text-left px-4 py-3">IP</th>
+                        <th className="text-left px-4 py-3">Página</th>
+                        <th className="text-left px-4 py-3">Origen</th>
+                        <th className="text-left px-4 py-3">Dispositivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visitasWeb.map((visita) => {
+                        const referrer = String(visita?.referrer || '').trim();
+                        let origen = 'Directo';
+                        if (referrer) {
+                          try {
+                            origen = new URL(referrer).hostname || referrer;
+                          } catch {
+                            origen = referrer;
+                          }
+                        }
+
+                        return (
+                          <tr key={visita.id} className="border-t border-gray-100 align-top">
+                            <td className="px-4 py-3 font-black text-gray-900 whitespace-nowrap">{formatearFechaHora(visita.created_at)}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700 border border-sky-200">
+                                {normalizarIpVisita(visita.ip)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-gray-700">{String(visita?.path || '/').trim() || '/'}</td>
+                            <td className="px-4 py-3 font-semibold text-gray-700 break-all">{origen}</td>
+                            <td className="px-4 py-3 text-[11px] font-semibold text-gray-500 max-w-[280px] break-words">{String(visita?.user_agent || 'No disponible').trim() || 'No disponible'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-black uppercase tracking-widest text-gray-500">IPs más repetidas</p>
+                <div className="mt-4 space-y-3">
+                  {topIpsVisitasWeb.length === 0 ? (
+                    <p className="text-sm font-semibold text-gray-500">Sin datos todavía.</p>
+                  ) : topIpsVisitasWeb.map(([ip, cantidad]) => (
+                    <div key={ip} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                      <span className="text-xs font-black text-gray-800 break-all pr-3">{ip}</span>
+                      <span className="text-xs font-black uppercase rounded-full bg-gray-900 text-white px-3 py-1">{cantidad}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-black uppercase tracking-widest text-gray-500">Qué guarda esta vista</p>
+                <div className="mt-4 space-y-3 text-sm font-semibold text-gray-600">
+                  <p>Se registra la hora de ingreso usando created_at del servidor.</p>
+                  <p>La IP la completa Supabase desde el request cuando insertás la visita.</p>
+                  <p>Solo se crea una fila por sesión para evitar consumo innecesario.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6042,6 +6413,8 @@ export default function App() {
   };
 
   useEffect(() => {
+    void registrarVisitaWeb();
+
     const traerPerfil = async (sessionActual) => {
       if (!sessionActual?.user) return;
 
