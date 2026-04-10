@@ -774,13 +774,53 @@ const leerSnapshotProductos = () => {
 
 const guardarSnapshotProductos = (productos = []) => {
   if (typeof window === 'undefined') return;
-  if (!Array.isArray(productos) || productos.length === 0) return;
+  if (!Array.isArray(productos)) return;
 
   try {
     window.localStorage.setItem(PRODUCTOS_SNAPSHOT_KEY, JSON.stringify(productos));
   } catch {
     // no-op
   }
+};
+
+const ordenarProductosPorNombre = (productos = []) => {
+  if (!Array.isArray(productos)) return [];
+
+  return [...productos].sort((a, b) => String(a?.nombre || '').localeCompare(
+    String(b?.nombre || ''),
+    'es',
+    { sensitivity: 'base' },
+  ));
+};
+
+const aplicarCambioRealtimeProducto = (productosActuales = [], payload = null) => {
+  if (!payload?.eventType) return Array.isArray(productosActuales) ? productosActuales : [];
+
+  const base = Array.isArray(productosActuales) ? productosActuales : [];
+  const nuevoProducto = payload?.new && typeof payload.new === 'object' ? payload.new : null;
+  const productoAnterior = payload?.old && typeof payload.old === 'object' ? payload.old : null;
+  const idObjetivo = String(nuevoProducto?.id || productoAnterior?.id || '').trim();
+
+  if (!idObjetivo) return base;
+
+  if (payload.eventType === 'DELETE') {
+    return base.filter((producto) => String(producto?.id || '').trim() !== idObjetivo);
+  }
+
+  if (!nuevoProducto) return base;
+
+  const indiceExistente = base.findIndex((producto) => String(producto?.id || '').trim() === idObjetivo);
+  if (indiceExistente === -1) {
+    return ordenarProductosPorNombre([...base, nuevoProducto]);
+  }
+
+  const siguientes = [...base];
+  siguientes[indiceExistente] = {
+    ...siguientes[indiceExistente],
+    ...nuevoProducto,
+  };
+
+  return ordenarProductosPorNombre(siguientes);
 };
 
 const guardarSnapshotPedido = (pedido) => {
@@ -5717,6 +5757,7 @@ export default function App() {
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
   const ultimoSyncProductosRef = useRef(0);
+  const ultimoToastCatalogoRef = useRef(0);
   const bloqueoSesionSinConfirmarRef = useRef(false);
   const cierreSesionInactividadRef = useRef(false);
   const esBloqueoRateLimitCuenta = tipoMensajeCuenta === 'error' && /limite de emails|rate limit/i.test(String(mensaje));
@@ -6156,12 +6197,17 @@ export default function App() {
       const ahora = Date.now();
       if ((ahora - ultimoSyncProductosRef.current) < 900) return;
       ultimoSyncProductosRef.current = ahora;
-      void fetchProductos();
+      void fetchProductos({ silencioso: true });
     };
 
     const productosChannel = supabase
       .channel('productos-sync-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, (payload) => {
+        setProductosBD((prev) => {
+          const actualizados = aplicarCambioRealtimeProducto(prev, payload);
+          guardarSnapshotProductos(actualizados);
+          return actualizados;
+        });
         sincronizarProductosConThrottle();
       })
       .subscribe((status) => {
@@ -6179,6 +6225,21 @@ export default function App() {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
       supabase.removeChannel(productosChannel);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== PRODUCTOS_SNAPSHOT_KEY) return;
+      const snapshot = leerSnapshotProductos();
+      if (!Array.isArray(snapshot)) return;
+      setProductosBD(snapshot);
+    };
+
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
@@ -6246,7 +6307,8 @@ export default function App() {
     setMostrarAvisoInactividad(false);
   }, [pagina, session?.user?.id]);
 
-  async function fetchProductos() {
+  async function fetchProductos(opciones = {}) {
+    const silencioso = Boolean(opciones?.silencioso);
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => abortController.abort(), 12000);
 
@@ -6273,17 +6335,22 @@ export default function App() {
       setProductosBD(Array.isArray(productosFallback) ? productosFallback : []);
       setModoCatalogoRespaldo(Array.isArray(productosFallback) && productosFallback.length > 0 ? (usarSnapshot ? 'snapshot' : 'seed') : '');
       setSupabaseRestringido(proyectoRestringido);
-      setMensajeToast(
-        proyectoRestringido
-          ? (usarSnapshot
-            ? 'Supabase restringido por egress. Mostrando el ultimo catalogo guardado.'
-            : 'Supabase restringido por egress. Mostrando un catalogo de respaldo.')
-          : (usarSnapshot
-            ? 'No pudimos actualizar el catalogo. Mostrando el ultimo guardado.'
-            : 'No pudimos actualizar el catalogo. Mostrando un catalogo de respaldo.')
-      );
-      setMostrarToast(true);
-      window.setTimeout(() => setMostrarToast(false), 3200);
+      const ahora = Date.now();
+      const puedeMostrarToast = !silencioso || (ahora - ultimoToastCatalogoRef.current) > 15000;
+      if (puedeMostrarToast) {
+        ultimoToastCatalogoRef.current = ahora;
+        setMensajeToast(
+          proyectoRestringido
+            ? (usarSnapshot
+              ? 'Supabase restringido por egress. Mostrando el ultimo catalogo guardado.'
+              : 'Supabase restringido por egress. Mostrando un catalogo de respaldo.')
+            : (usarSnapshot
+              ? 'No pudimos actualizar el catalogo. Mostrando el ultimo guardado.'
+              : 'No pudimos actualizar el catalogo. Mostrando un catalogo de respaldo.')
+        );
+        setMostrarToast(true);
+        window.setTimeout(() => setMostrarToast(false), 3200);
+      }
     } finally {
       window.clearTimeout(timeoutId);
       setCargandoApp(false);
