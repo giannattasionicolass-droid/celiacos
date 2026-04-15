@@ -53,7 +53,7 @@ begin
     select id
     from public.web_visitas
     order by created_at desc, id desc
-    offset 200
+    offset 80
   );
 
   return null;
@@ -90,7 +90,7 @@ where id in (
   select id
   from public.web_visitas
   order by created_at desc, id desc
-  offset 200
+  offset 80
 );
 
 create unique index if not exists web_visitas_session_id_key on public.web_visitas(session_id);

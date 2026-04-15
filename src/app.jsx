@@ -72,9 +72,13 @@ const ACTIVIDAD_SESION_STORAGE_KEY = 'celiashop_last_activity';
 const VISITOR_ID_STORAGE_KEY = 'celiashop_visitor_id';
 const VISIT_SESSION_STORAGE_KEY = 'celiashop_visit_session_id';
 const VISIT_REGISTRADA_STORAGE_KEY = 'celiashop_visit_logged';
+const VISIT_ULTIMA_REGISTRADA_AT_STORAGE_KEY = 'celiashop_visit_last_logged_at';
 const TABLA_VISITAS_WEB = 'web_visitas';
-const LIMITE_VISITAS_ADMIN = 200;
+const LIMITE_VISITAS_ADMIN = 80;
 const VISITAS_WEB_POR_PAGINA = 20;
+const VISITAS_LOG_THROTTLE_MS = 12 * 60 * 60 * 1000;
+const PRODUCTOS_SNAPSHOT_MAX_AGE_MS = 45 * 60 * 1000;
+const PRODUCTOS_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 
 const generarIdUnico = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -223,17 +227,32 @@ const construirPayloadVisitaWeb = () => {
   const sessionId = obtenerSessionVisitaId();
   if (!visitorId || !sessionId) return null;
 
+  const truncarTexto = (valor, limite) => String(valor || '').trim().slice(0, limite);
+
   return {
     visitor_id: visitorId,
     session_id: sessionId,
-    path: String(window.location?.pathname || '/').trim() || '/',
-    referrer: String(document.referrer || '').trim(),
-    user_agent: String(window.navigator?.userAgent || '').trim(),
+    path: truncarTexto(window.location?.pathname || '/', 160) || '/',
+    referrer: truncarTexto(document.referrer || '', 220),
+    user_agent: truncarTexto(window.navigator?.userAgent || '', 180),
   };
 };
 
+const ultimaVisitaRegistradaReciente = () => {
+  if (typeof window === 'undefined') return false;
+
+  const ultimo = Number(leerStorageSeguro(window.localStorage, VISIT_ULTIMA_REGISTRADA_AT_STORAGE_KEY) || 0);
+  if (!Number.isFinite(ultimo) || ultimo <= 0) return false;
+  return (Date.now() - ultimo) < VISITAS_LOG_THROTTLE_MS;
+};
+
+const marcarUltimaVisitaRegistrada = () => {
+  if (typeof window === 'undefined') return;
+  guardarStorageSeguro(window.localStorage, VISIT_ULTIMA_REGISTRADA_AT_STORAGE_KEY, String(Date.now()));
+};
+
 const registrarVisitaWeb = async () => {
-  if (typeof window === 'undefined' || visitaYaRegistradaEnSesion()) return;
+  if (typeof window === 'undefined' || visitaYaRegistradaEnSesion() || ultimaVisitaRegistradaReciente()) return;
 
   const payload = construirPayloadVisitaWeb();
   if (!payload) return;
@@ -257,6 +276,7 @@ const registrarVisitaWeb = async () => {
     }
 
     marcarVisitaRegistradaEnSesion();
+    marcarUltimaVisitaRegistrada();
   } catch (error) {
     console.warn('No se pudo registrar la visita web:', error);
   }
@@ -567,6 +587,7 @@ const obtenerCantidadItemsPedido = (pedido) => obtenerProductosPedido(pedido).re
 const formatearMoneda = (valor) => `$${Number(valor || 0).toFixed(2)}`;
 const PEDIDOS_SNAPSHOT_KEY = 'celiashop_pedidos_snapshot';
 const PRODUCTOS_SNAPSHOT_KEY = 'celiashop_productos_snapshot';
+const PRODUCTOS_SNAPSHOT_AT_KEY = 'celiashop_productos_snapshot_at';
 const CLASE_BASE_ESTADO = 'inline-flex items-center justify-center text-center align-middle leading-none whitespace-nowrap';
 const obtenerClaseEstadoPedido = (estado) => {
   const valor = String(estado || '').toLowerCase();
@@ -911,55 +932,24 @@ const leerSnapshotProductos = () => {
   }
 };
 
+const leerSnapshotProductosAgeMs = () => {
+  if (typeof window === 'undefined') return Number.POSITIVE_INFINITY;
+
+  const timestamp = Number(window.localStorage.getItem(PRODUCTOS_SNAPSHOT_AT_KEY) || 0);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return Number.POSITIVE_INFINITY;
+  return Date.now() - timestamp;
+};
+
 const guardarSnapshotProductos = (productos = []) => {
   if (typeof window === 'undefined') return;
   if (!Array.isArray(productos)) return;
 
   try {
     window.localStorage.setItem(PRODUCTOS_SNAPSHOT_KEY, JSON.stringify(productos));
+    window.localStorage.setItem(PRODUCTOS_SNAPSHOT_AT_KEY, String(Date.now()));
   } catch {
     // no-op
   }
-};
-
-const ordenarProductosPorNombre = (productos = []) => {
-  if (!Array.isArray(productos)) return [];
-
-  return [...productos].sort((a, b) => String(a?.nombre || '').localeCompare(
-    String(b?.nombre || ''),
-    'es',
-    { sensitivity: 'base' },
-  ));
-};
-
-const aplicarCambioRealtimeProducto = (productosActuales = [], payload = null) => {
-  if (!payload?.eventType) return Array.isArray(productosActuales) ? productosActuales : [];
-
-  const base = Array.isArray(productosActuales) ? productosActuales : [];
-  const nuevoProducto = payload?.new && typeof payload.new === 'object' ? payload.new : null;
-  const productoAnterior = payload?.old && typeof payload.old === 'object' ? payload.old : null;
-  const idObjetivo = String(nuevoProducto?.id || productoAnterior?.id || '').trim();
-
-  if (!idObjetivo) return base;
-
-  if (payload.eventType === 'DELETE') {
-    return base.filter((producto) => String(producto?.id || '').trim() !== idObjetivo);
-  }
-
-  if (!nuevoProducto) return base;
-
-  const indiceExistente = base.findIndex((producto) => String(producto?.id || '').trim() === idObjetivo);
-  if (indiceExistente === -1) {
-    return ordenarProductosPorNombre([...base, nuevoProducto]);
-  }
-
-  const siguientes = [...base];
-  siguientes[indiceExistente] = {
-    ...siguientes[indiceExistente],
-    ...nuevoProducto,
-  };
-
-  return ordenarProductosPorNombre(siguientes);
 };
 
 const guardarSnapshotPedido = (pedido) => {
@@ -6183,6 +6173,7 @@ export default function App() {
   });
   const totalItemsCarrito = carrito.reduce((acc, item) => acc + (Number(item?.cantidad) || 1), 0);
   const ultimoSyncProductosRef = useRef(0);
+  const ultimoFetchProductosRef = useRef(0);
   const ultimoToastCatalogoRef = useRef(0);
   const bloqueoSesionSinConfirmarRef = useRef(false);
   const cierreSesionInactividadRef = useRef(false);
@@ -6550,11 +6541,27 @@ export default function App() {
       setPagina('inicio');
     });
 
-    fetchProductos();
+    const snapshotInicial = leerSnapshotProductos();
+    const snapshotReciente = snapshotInicial.length > 0 && leerSnapshotProductosAgeMs() <= PRODUCTOS_SNAPSHOT_MAX_AGE_MS;
+
+    if (snapshotInicial.length > 0) {
+      setProductosBD(snapshotInicial);
+      setModoCatalogoRespaldo('snapshot');
+      setCargandoApp(false);
+    }
+
+    if (snapshotReciente) {
+      setSupabaseRestringido(false);
+      ultimoFetchProductosRef.current = Date.now();
+    } else {
+      void fetchProductos({ silencioso: snapshotInicial.length > 0 });
+    }
 
     // Actualizar productos cuando la app vuelve a primer plano (Capacitor / pestaña)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') fetchProductos();
+      if (document.visibilityState === 'visible') {
+        void fetchProductos({ silencioso: true });
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -6565,13 +6572,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('pedidos-sync-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-        notificarSincronizacionPedidos();
-      })
-      .subscribe();
-
     const onStorage = (event) => {
       if (event.key === PEDIDOS_SNAPSHOT_KEY) notificarSincronizacionPedidos();
     };
@@ -6587,21 +6587,10 @@ export default function App() {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
-      supabase.removeChannel(channel);
     };
   }, []);
 
   useEffect(() => {
-    const profileChannel = supabase
-      .channel('perfil-sync-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'perfiles' }, (payload) => {
-        const idAfectado = payload?.new?.id || payload?.old?.id;
-        if (session?.user?.id && idAfectado === session.user.id) {
-          notificarSincronizacionPerfil();
-        }
-      })
-      .subscribe();
-
     const onFocus = () => {
       if (session?.user?.id) notificarSincronizacionPerfil();
     };
@@ -6616,33 +6605,16 @@ export default function App() {
     return () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
-      supabase.removeChannel(profileChannel);
     };
   }, [session?.user?.id]);
 
   useEffect(() => {
     const sincronizarProductosConThrottle = () => {
       const ahora = Date.now();
-      if ((ahora - ultimoSyncProductosRef.current) < 900) return;
+      if ((ahora - ultimoSyncProductosRef.current) < PRODUCTOS_SYNC_COOLDOWN_MS) return;
       ultimoSyncProductosRef.current = ahora;
       void fetchProductos({ silencioso: true });
     };
-
-    const productosChannel = supabase
-      .channel('productos-sync-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, (payload) => {
-        setProductosBD((prev) => {
-          const actualizados = aplicarCambioRealtimeProducto(prev, payload);
-          guardarSnapshotProductos(actualizados);
-          return actualizados;
-        });
-        sincronizarProductosConThrottle();
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          sincronizarProductosConThrottle();
-        }
-      });
 
     const onFocus = () => sincronizarProductosConThrottle();
     const onOnline = () => sincronizarProductosConThrottle();
@@ -6652,7 +6624,6 @@ export default function App() {
     return () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
-      supabase.removeChannel(productosChannel);
     };
   }, []);
 
@@ -6737,6 +6708,16 @@ export default function App() {
 
   async function fetchProductos(opciones = {}) {
     const silencioso = Boolean(opciones?.silencioso);
+    const forzar = Boolean(opciones?.forzar);
+
+    if (!forzar && silencioso && productosBD.length > 0) {
+      const tiempoDesdeUltimoFetch = Date.now() - ultimoFetchProductosRef.current;
+      if (tiempoDesdeUltimoFetch < PRODUCTOS_SYNC_COOLDOWN_MS) {
+        setCargandoApp(false);
+        return;
+      }
+    }
+
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => abortController.abort(), 12000);
 
@@ -6749,6 +6730,7 @@ export default function App() {
 
       if (error) throw error;
       const productos = Array.isArray(data) ? data : [];
+      ultimoFetchProductosRef.current = Date.now();
       setProductosBD(productos);
       guardarSnapshotProductos(productos);
       setModoCatalogoRespaldo('');
